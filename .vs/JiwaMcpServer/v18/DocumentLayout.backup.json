@@ -1,0 +1,188 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{675F849C-B380-93A8-0EA6-1FA62109442B}|JiwaMcpServer.csproj|c:\\users\\scott\\source\\repos\\jiwafinancials\\jiwamcpserver\\tools\\salesordertools.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{675F849C-B380-93A8-0EA6-1FA62109442B}|JiwaMcpServer.csproj|solutionrelative:tools\\salesordertools.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{675F849C-B380-93A8-0EA6-1FA62109442B}|JiwaMcpServer.csproj|c:\\users\\scott\\source\\repos\\jiwafinancials\\jiwamcpserver\\tools\\customertools.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{675F849C-B380-93A8-0EA6-1FA62109442B}|JiwaMcpServer.csproj|solutionrelative:tools\\customertools.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{675F849C-B380-93A8-0EA6-1FA62109442B}|JiwaMcpServer.csproj|c:\\users\\scott\\source\\repos\\jiwafinancials\\jiwamcpserver\\tools\\producttools.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{675F849C-B380-93A8-0EA6-1FA62109442B}|JiwaMcpServer.csproj|solutionrelative:tools\\producttools.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{675F849C-B380-93A8-0EA6-1FA62109442B}|JiwaMcpServer.csproj|c:\\users\\scott\\source\\repos\\jiwafinancials\\jiwamcpserver\\program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{675F849C-B380-93A8-0EA6-1FA62109442B}|JiwaMcpServer.csproj|solutionrelative:program.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{675F849C-B380-93A8-0EA6-1FA62109442B}|JiwaMcpServer.csproj|c:\\users\\scott\\source\\repos\\jiwafinancials\\jiwamcpserver\\services\\jiwaapiclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{675F849C-B380-93A8-0EA6-1FA62109442B}|JiwaMcpServer.csproj|solutionrelative:services\\jiwaapiclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 24,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{99b8fa2f-ab90-4f57-9c32-949f146f1914}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:34:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:33:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:32:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:31:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:30:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:29:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:28:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:27:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:26:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:25:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:24:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:23:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:22:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:21:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:18:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:35:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{65ddf8c3-8f89-4077-a6c6-dbb8853aab13}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:128:0:{116d2292-e37d-41cd-a077-ebacac4c8cc4}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:14:0:{2456bd12-ecf7-4988-a4a6-67d49173f565}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "JiwaApiClient.cs",
+              "DocumentMoniker": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\Services\\JiwaApiClient.cs",
+              "RelativeDocumentMoniker": "Services\\JiwaApiClient.cs",
+              "ToolTip": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\Services\\JiwaApiClient.cs",
+              "RelativeToolTip": "Services\\JiwaApiClient.cs",
+              "ViewState": "AgIAADIAAAAAAAAAAAAqwE0AAAASAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-21T06:45:24.68Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "CustomerTools.cs",
+              "DocumentMoniker": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\Tools\\CustomerTools.cs",
+              "RelativeDocumentMoniker": "Tools\\CustomerTools.cs",
+              "ToolTip": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\Tools\\CustomerTools.cs",
+              "RelativeToolTip": "Tools\\CustomerTools.cs",
+              "ViewState": "AgIAAAoAAAAAAAAAAAA5wBQAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-21T05:03:36.032Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "ProductTools.cs",
+              "DocumentMoniker": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\Tools\\ProductTools.cs",
+              "RelativeDocumentMoniker": "Tools\\ProductTools.cs",
+              "ToolTip": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\Tools\\ProductTools.cs",
+              "RelativeToolTip": "Tools\\ProductTools.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABwAAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-21T05:04:23.915Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "SalesOrderTools.cs",
+              "DocumentMoniker": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\Tools\\SalesOrderTools.cs",
+              "RelativeDocumentMoniker": "Tools\\SalesOrderTools.cs",
+              "ToolTip": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\Tools\\SalesOrderTools.cs",
+              "RelativeToolTip": "Tools\\SalesOrderTools.cs",
+              "ViewState": "AgIAACMAAAAAAAAAAAAwwCsAAAAFAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-21T05:34:57.566Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "Program.cs",
+              "DocumentMoniker": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\Program.cs",
+              "RelativeDocumentMoniker": "Program.cs",
+              "ToolTip": "C:\\Users\\scott\\source\\repos\\JiwaFinancials\\JiwaMcpServer\\Program.cs",
+              "RelativeToolTip": "Program.cs",
+              "ViewState": "AgIAABsAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-21T04:48:53.574Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

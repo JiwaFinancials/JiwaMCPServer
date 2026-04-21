@@ -1,0 +1,41 @@
+﻿using JiwaMcpServer.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.Logging.AddConsole(options =>
+{
+    options.LogToStandardErrorThreshold = LogLevel.Trace;
+});
+
+// Register Jiwa API client
+builder.Services.AddHttpClient<JiwaApiClient>(client =>
+{
+    client.BaseAddress = new Uri("[api.jiwa.com.au](https://api.jiwa.com.au)");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+});
+
+// Retrieve credentials from environment variables
+builder.Services.AddSingleton<JiwaApiClient>(sp =>
+{
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var logger = sp.GetRequiredService<ILogger<JiwaApiClient>>();
+    var httpClient = httpClientFactory.CreateClient(nameof(JiwaApiClient));
+
+    var username = Environment.GetEnvironmentVariable("JIWA_USERNAME")
+        ?? throw new InvalidOperationException("JIWA_USERNAME environment variable is not set.");
+    var password = Environment.GetEnvironmentVariable("JIWA_PASSWORD")
+        ?? throw new InvalidOperationException("JIWA_PASSWORD environment variable is not set.");
+
+    return new JiwaApiClient(httpClient, logger, username, password);
+});
+
+// Register MCP server with stdio transport and auto-discover tools
+builder.Services
+    .AddMcpServer()
+    .WithStdioServerTransport()
+    .WithToolsFromAssembly();
+
+await builder.Build().RunAsync();
