@@ -1,22 +1,15 @@
 using JiwaMcpServer.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ServiceStack;
-using ServiceStack.Metadata;
-using System.Diagnostics;
 
-var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
     ContentRootPath = AppContext.BaseDirectory
 });
 
-// Remove default logging providers (including Console) so logs are not written to the console.
-builder.Logging.ClearProviders();
-
-//Read in a nd validate configuration settings for the Jiwa API URL and API key, which are required for the MCP tools to function. These should be stored in appsettings.json.
+// Read and validate configuration settings for the Jiwa API URL and API key
 ConfigurationManager configuration = builder.Configuration;
 Config.JiwaAPIURL = configuration.GetSection("JiwaAPIURL").Value;
 Config.JiwaAPIKey = configuration.GetSection("JiwaAPIKey").Value;
@@ -31,10 +24,25 @@ if (string.IsNullOrWhiteSpace(Config.JiwaAPIKey))
     throw new InvalidOperationException("JiwaAPIKey is blank - check appsettings.json");
 }
 
-// Register MCP server with stdio transport and auto-discover tools
+// Register MCP server with HTTP streaming transport and auto-discover tools
 builder.Services
     .AddMcpServer()
-    .WithStdioServerTransport()
+    .WithHttpTransport()
     .WithToolsFromAssembly();
 
-await builder.Build().RunAsync();
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+var app = builder.Build();
+
+app.UseCors();
+app.MapMcp("/mcp");
+
+await app.RunAsync();
