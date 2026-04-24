@@ -1,44 +1,35 @@
 using JiwaMcpServer.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ServiceStack;
+using ServiceStack.Metadata;
+using System.Diagnostics;
 
-var builder = Host.CreateApplicationBuilder(args);
-
-//Uncomment below and comment the ClearProviders() call further down to enable logging to the console.
-//builder.Logging.AddConsole(options =>
-//{
-//    options.LogToStandardErrorThreshold = LogLevel.Trace;
-//});
+var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
 
 // Remove default logging providers (including Console) so logs are not written to the console.
 builder.Logging.ClearProviders();
 
-// Register Jiwa API client
-builder.Services.AddHttpClient<JiwaApiClient>(client =>
+//Read in a nd validate configuration settings for the Jiwa API URL and API key, which are required for the MCP tools to function. These should be stored in appsettings.json.
+ConfigurationManager configuration = builder.Configuration;
+Config.JiwaAPIURL = configuration.GetSection("JiwaAPIURL").Value;
+Config.JiwaAPIKey = configuration.GetSection("JiwaAPIKey").Value;
+
+if (string.IsNullOrWhiteSpace(Config.JiwaAPIURL))
 {
-    // Use a valid absolute URI for the API base address
-    client.BaseAddress = new Uri("https://api.jiwa.com.au");
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-});
+    throw new InvalidOperationException("JiwaAPIURL is blank - check appsettings.json");
+}
 
-// Retrieve bearer token from environment variables or configuration
-builder.Services.AddSingleton<JiwaApiClient>(sp =>
+if (string.IsNullOrWhiteSpace(Config.JiwaAPIKey))
 {
-    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-    var logger = sp.GetRequiredService<ILogger<JiwaApiClient>>();
-    var httpClient = httpClientFactory.CreateClient(nameof(JiwaApiClient));
-
-    var token = Environment.GetEnvironmentVariable("JIWA_BEARER_TOKEN")
-        ?? builder.Configuration["Jiwa:BearerToken"];
-
-    if (string.IsNullOrWhiteSpace(token))
-    {
-        throw new InvalidOperationException("JIWA_BEARER_TOKEN environment variable or Jiwa:BearerToken configuration is not set.");
-    }
-
-    return new JiwaApiClient(httpClient, logger, token);
-});
+    throw new InvalidOperationException("JiwaAPIKey is blank - check appsettings.json");
+}
 
 // Register MCP server with stdio transport and auto-discover tools
 builder.Services

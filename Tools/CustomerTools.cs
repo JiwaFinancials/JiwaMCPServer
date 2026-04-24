@@ -1,53 +1,34 @@
+using JiwaFinancials.Jiwa.JiwaServiceModel;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
-using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
-using System.Collections;
+using ServiceStack;
 using System.ComponentModel;
-using System.Diagnostics;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors;
 
 namespace JiwaMcpServer.Tools;
 
 [McpServerToolType]
 public class CustomerTools : JiwaToolBase
 {
-    private readonly ILogger<CustomerTools> _logger;
-
-    public CustomerTools(JiwaApiClient apiClient, ILogger<CustomerTools> logger)
-        : base(apiClient)
+    [McpServerTool, Description("Search for customers by field. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public async Task<string> SearchCustomers(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Debtor_ListQuery requestDTO,  CancellationToken ct = default)
     {
-        _logger = logger;
+        var response = await JiwaApiClient.GetAsync(requestDTO, ct);
+        return response.Results.ToJson<List<v_Jiwa_Debtor_List>>();
     }
 
-    [McpServerTool, Description("Search for customers by field. Customers are also known as debtors, accounts, account holders, or clients.")]
-    public async Task<string> SearchCustomers(
-        [Description("This is a comma separated list of fields to include in the result set.")] string fields,
-        [Description("This is a comma separated list of fields to order the result set by, ascending.")] string OrderBy,
-        [Description("This is a comma separated list of fields to order the result set by, descending.")] string OrderByDesc,
-        [Description("Customer fields to search for. Customers are also known as debtors, accounts, account holders, or clients.")] string query,
-        CancellationToken ct = default)
+    [McpServerTool, Description("Get full details for a customer. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public async Task<string> GetCustomer(DebtorGETRequest requestDTO, CancellationToken ct = default)
     {
-        var result = await ApiClient.GetAutoQueryAsync($"/Queries/DebtorList", fields, query, OrderBy, OrderByDesc, ct);
-        return result.ToString();
+        var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+        return result.ToJson<Debtor>();
     }
 
-    [McpServerTool, Description("Get full details for a customer by its Jiwa Debtor ID. Customers are also known as debtors, accounts, account holders, or clients.")]
-    public async Task<string> GetCustomer(
-        [Description("The Jiwa Debtor GUID (e.g. 00000000080000000002).")] string debtorId,
-        CancellationToken ct = default)
+    [McpServerTool, Description("Retrieve outstanding transactions (invoices/credits) for a customer. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public async Task<string> GetCustomerTransactions(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Debtor_Transactions_ListQuery requestDTO, CancellationToken ct = default)
     {
-        var result = await ApiClient.GetAsync($"/Debtors/{debtorId}", ct);
-        return result.ToString();
-    }
-
-    [McpServerTool, Description("Retrieve outstanding transactions (invoices/credits) for a customer. Customers are also known as debtors, accounts, account holders, or clients.")]
-    public async Task<string> GetCustomerTransactions(
-        [Description("This is a comma separated list of fields to include in the result set.")] string fields,
-        [Description("This is a comma separated list of fields to order the result set by, ascending.")] string OrderBy,
-        [Description("This is a comma separated list of fields to order the result set by, descending.")] string OrderByDesc,
-        [Description("Customer fields to search for. Customers are also known as debtors, accounts, account holders, or clients.")] string query,
-        CancellationToken ct = default)
-    {
-        var result = await ApiClient.GetAutoQueryAsync($"/Queries/DebtorTransactionList", fields, query, OrderBy, OrderByDesc, ct);
-        return result.ToString();
+        var response = await JiwaApiClient.GetAsync(requestDTO, ct);
+        return response.Results.ToJson<List<v_Jiwa_Debtor_Transactions_List>>();
     }
 }

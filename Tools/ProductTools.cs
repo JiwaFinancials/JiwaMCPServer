@@ -1,42 +1,34 @@
+using JiwaFinancials.Jiwa.JiwaServiceModel;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
 using ModelContextProtocol.Server;
-using System.Collections;
+using ServiceStack;
 using System.ComponentModel;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory;
 
 namespace JiwaMcpServer.Tools;
 
 [McpServerToolType]
-public class ProductTools(JiwaApiClient apiClient) : JiwaToolBase(apiClient)
+public class ProductTools : JiwaToolBase
 {
-    [McpServerTool, Description("Search for products by field. Products are also known as inventory items.")]
-    public async Task<string> SearchProducts(
-        [Description("This is a comma separated list of fields to include in the result set.")] string fields,
-        [Description("This is a comma separated list of fields to order the result set by, ascending.")] string OrderBy,
-        [Description("This is a comma separated list of fields to order the result set by, descending.")] string OrderByDesc,
-        [Description("Product fields to search for. Products are also known as inventory items.")] string query,
-        CancellationToken ct = default)
+    [McpServerTool, Description("Search for products by field. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public async Task<string> SearchProducts(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Inventory_Item_ListQuery requestDTO, CancellationToken ct = default)
     {
-        var result = await ApiClient.GetAutoQueryAsync($"/Queries/IN_Main", fields, query, OrderBy, OrderByDesc, ct);
-        return result.ToString();
+        var response = await JiwaApiClient.GetAsync(requestDTO, ct);
+        return response.Results.ToJson<List<v_Jiwa_Inventory_Item_List>>();
     }
 
-    [McpServerTool, Description("Get full details for a product by its Jiwa Inventory ID. Products are also known as inventory items.")]
-    public async Task<string> GetProduct([Description("The Jiwa Inventory GUID (e.g. 00000000040000000002).")] string inventoryId,
-        CancellationToken ct = default)
+    [McpServerTool, Description("Get full details for a product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public async Task<string> GetProduct(InventoryGETRequest requestDTO, CancellationToken ct = default)
     {
-        var result = await ApiClient.GetAsync($"/Inventory/{inventoryId}", ct);
-        return result.ToString();
+        var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+        return result.ToJson<InventoryItem>();
     }
 
     [McpServerTool, Description("Get stock on hand quantities for a product by field. Products are also know as inventory items.")]
-    public async Task<string> GetStockOnHand(
-        [Description("This is a comma separated list of fields to include in the result set.")] string fields,
-        [Description("This is a comma separated list of fields to order the result set by, ascending.")] string OrderBy,
-        [Description("This is a comma separated list of fields to order the result set by, descending.")] string OrderByDesc,
-        [Description("Product fields to search for. Products are also known as just inventory items.")] string query,
-        CancellationToken ct = default)
+    public async Task<string> GetStockOnHand(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_IN_SOHWithBinLocationsQuery requestDTO, CancellationToken ct = default)
     {
-        var result = await ApiClient.GetAutoQueryAsync($"/Queries/INSOHWithBinLocations", fields, query, OrderBy, OrderByDesc, ct);
-        return result.ToString();
+        var response = await JiwaApiClient.GetAsync(requestDTO, ct);
+        return response.Results.ToJson<List<v_IN_SOHWithBinLocations>>();
     }
 }
