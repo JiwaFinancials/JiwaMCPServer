@@ -11,4 +11,7 @@ using System.Runtime.Versioning;
         // JiwaAPIKey is the API Key to use to perform some requests (such as getting the list of debtor contacts for a given email address to disambiguate identities at login time)
         // The key should be attached to a user with minimal permisssions, and does not need an interactive Jiwa licence.
         public static string? JiwaAPIKey { get; set; }
+        // BearerTokens is a set of valid shared secrets. Each user should have their own token.
+        // All requests must supply one via "Authorization: Bearer <token>".
+        public static HashSet<string> BearerTokens { get; set; } = new HashSet<string> { "QwGkmbWvMnM7i+cgnyWBqLEdQNr/R+TKVcJIhscU5e4=" };
     }
