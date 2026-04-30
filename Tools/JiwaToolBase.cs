@@ -1,5 +1,6 @@
 using JiwaMcpServer.Services;
 using Microsoft.Extensions.DependencyInjection;
+using ServiceStack;
 using ServiceStack.Metadata;
 using System.Reflection;
 
@@ -50,5 +51,21 @@ public abstract class JiwaToolBase
     {
         var dtoType = ResolveJiwaDtoType(dtoTypeName);
         return CreateDtoSchema(dtoType);
+    }
+
+    protected static async Task<string> InvokeToolAsync(Func<Task<string>> action)
+    {
+        try
+        {
+            return await action();
+        }
+        catch (WebServiceException ex)
+        {
+            return $"Error: {ex.StatusCode} {ex.StatusDescription} - {ex.ErrorMessage}";
+        }
+        catch (Exception ex)
+        {
+            return $"Error: {ex.Message}";
+        }
     }
 }

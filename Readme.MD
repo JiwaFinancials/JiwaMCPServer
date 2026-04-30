@@ -8,6 +8,8 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 - [Project Structure](#project-structure)
 - [Available Tools](#available-tools)
 - [Configuration](#configuration)
+  - [Bearer Token Authentication](#bearer-token-authentication)
+  - [Per-Request API Key](#per-request-api-key)
 - [Building and Running](#building-and-running)
 - [Using with VS Code and GitHub Copilot](#using-with-vs-code-and-github-copilot)
 - [Connecting an MCP Client](#connecting-an-mcp-client)
@@ -82,7 +84,7 @@ Configuration is stored in `appsettings.json` in the application directory.
 ```json
 {
   "JiwaAPIURL": "https://your-jiwa-instance.example.com",
-  "JiwaAPIKey": "your-api-key-here",
+  "JiwaAPIKey": "",
   "BearerTokens": [
     "replace-with-generated-token-for-user1",
     "replace-with-generated-token-for-user2"
@@ -93,10 +95,10 @@ Configuration is stored in `appsettings.json` in the application directory.
 | Setting | Description |
 |---|---|
 | `JiwaAPIURL` | The base URL of your Jiwa Financials REST API |
-| `JiwaAPIKey` | A valid Jiwa API key. The associated user requires permissions for the data you intend to expose. |
+| `JiwaAPIKey` | *(Optional)* A server-side fallback Jiwa API key. When set, it is used for any request that does not supply its own key via the `X-Jiwa-API-Key` header. Can be left blank if all clients supply their own key. |
 | `BearerTokens` | A JSON array of bearer tokens. Every MCP client request must supply one of these via the `Authorization: Bearer <token>` header. |
 
-> **Note:** All settings are required. The server will throw an error on startup if any are missing or blank.
+> **Note:** `JiwaAPIURL` and `BearerTokens` are required. `JiwaAPIKey` is optional — see [Per-Request API Key](#per-request-api-key) below.
 
 ### Bearer Token Authentication
 
@@ -121,6 +123,21 @@ This produces a 256-bit base64-encoded token. Generate one per user and add it t
 #### Revoking a Token
 
 Remove the user's token from the `BearerTokens` array in `appsettings.json` and restart the server. All other users are unaffected.
+
+### Per-Request API Key
+
+In addition to (or instead of) a server-side `JiwaAPIKey` in `appsettings.json`, clients can supply a Jiwa API key on a per-request basis using the `X-Jiwa-API-Key` HTTP header:
+
+```
+X-Jiwa-API-Key: <your-jiwa-api-key>
+```
+
+This allows each MCP client (or each user) to authenticate to Jiwa with their own API key, without sharing a single server-level credential. The priority is:
+
+1. **`X-Jiwa-API-Key` header** — used if present and non-empty.
+2. **`JiwaAPIKey` in `appsettings.json`** — used as a fallback if no header is supplied.
+
+If neither is set, calls to the Jiwa API will be made without a bearer token and will fail unless the Jiwa endpoint allows anonymous access.
 
 ### Changing the Port
 
@@ -211,14 +228,15 @@ Create or edit `.vscode/mcp.json` in your workspace root:
       "type": "http",
       "url": "http://localhost:5000/mcp",
       "headers": {
-        "Authorization": "Bearer <your-token>"
+        "Authorization": "Bearer <your-token>",
+        "X-Jiwa-API-Key": "<your-jiwa-api-key>"
       }
     }
   }
 }
 ```
 
-> ⚠️ This file will contain your bearer token. Add it to `.gitignore` to avoid accidentally committing it:
+> ⚠️ This file will contain your bearer token and Jiwa API key. Add it to `.gitignore` to avoid accidentally committing it:
 > ```
 > .vscode/mcp.json
 > ```
@@ -240,14 +258,15 @@ This opens your global `mcp.json`. Add the same entry:
       "type": "http",
       "url": "http://localhost:5000/mcp",
       "headers": {
-        "Authorization": "Bearer <your-token>"
+        "Authorization": "Bearer <your-token>",
+        "X-Jiwa-API-Key": "<your-jiwa-api-key>"
       }
     }
   }
 }
 ```
 
-> **Tip:** Replace `<your-token>` with the token generated for you by the server administrator. If you are connecting to a remote or production server, replace `http://localhost:5000` with your server's base URL, e.g. `https://mcp.yourcompany.com`.
+> **Tip:** Replace `<your-token>` with the bearer token generated for you by the server administrator, and `<your-jiwa-api-key>` with your personal Jiwa API key.
 
 ### Step 3 — Enable the Server in Copilot Chat
 
@@ -317,8 +336,9 @@ Then reference it as a pre-launch dependency in `.vscode/launch.json` or trigger
 | Tools not appearing in Copilot Chat | Ensure the server is running and accessible at the configured URL. Open a browser to `http://localhost:5000/mcp` — you should receive an MCP response, not a connection error. |
 | `ERR_CONNECTION_REFUSED` | The server is not running or is listening on a different port. Check the console output and verify `appsettings.json`. |
 | `401 Unauthorized` | Your bearer token is missing, incorrect, or has been revoked. Check that the `Authorization` header in your `mcp.json` matches a token in the server's `BearerTokens` array. |
+| Jiwa API returns 401 / Unauthorized | No Jiwa API key was supplied. Either add `X-Jiwa-API-Key: <key>` to your `mcp.json` headers, or set a fallback `JiwaAPIKey` in `appsettings.json`. |
 | Copilot asks for confirmation before every tool call | This is expected behaviour in Agent mode. You can approve individual calls or select **Always Allow** for trusted tools. |
-| Server returns 500 errors | Check that `JiwaAPIURL` and `JiwaAPIKey` in `appsettings.json` are correct and that your Jiwa instance is reachable from the machine running the MCP server. |
+| Server returns 500 errors | Check that `JiwaAPIURL` in `appsettings.json` is correct, that a Jiwa API key is being supplied (see above), and that your Jiwa instance is reachable from the machine running the MCP server. |
 
 ---
 
@@ -330,11 +350,14 @@ The server uses the **streamable HTTP** transport. The MCP endpoint is:
 http://<host>:<port>/mcp
 ```
 
-All requests must include the `Authorization` header with a valid bearer token:
+All requests must include the `Authorization` header with a valid bearer token, and optionally the `X-Jiwa-API-Key` header with a Jiwa API key:
 
 ```
 Authorization: Bearer <your-token>
+X-Jiwa-API-Key: <your-jiwa-api-key>
 ```
+
+The `X-Jiwa-API-Key` header is required if no server-side fallback key is configured in `appsettings.json`. See [Per-Request API Key](#per-request-api-key) for details.
 
 ### GitHub Copilot (VS Code)
 
@@ -349,7 +372,8 @@ For a quick reference, add the following to `.vscode/mcp.json` in your workspace
       "type": "http",
       "url": "http://localhost:5000/mcp",
       "headers": {
-        "Authorization": "Bearer <your-token>"
+        "Authorization": "Bearer <your-token>",
+        "X-Jiwa-API-Key": "<your-jiwa-api-key>"
       }
     }
   }
@@ -367,7 +391,8 @@ Add the following to your `mcp.json` (typically at `%USERPROFILE%\.vs\mcp.json` 
       "type": "http",
       "url": "http://localhost:5000/mcp",
       "headers": {
-        "Authorization": "Bearer <your-token>"
+        "Authorization": "Bearer <your-token>",
+        "X-Jiwa-API-Key": "<your-jiwa-api-key>"
       }
     }
   }

@@ -21,11 +21,6 @@ if (string.IsNullOrWhiteSpace(Config.JiwaAPIURL))
     throw new InvalidOperationException("JiwaAPIURL is blank - check appsettings.json");
 }
 
-if (string.IsNullOrWhiteSpace(Config.JiwaAPIKey))
-{
-    throw new InvalidOperationException("JiwaAPIKey is blank - check appsettings.json");
-}
-
 if (Config.BearerTokens.Count == 0)
 {
     throw new InvalidOperationException("BearerTokens is empty - check appsettings.json");
@@ -50,6 +45,14 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 app.UseCors();
+
+// Capture the Jiwa API key supplied by the client for this request
+app.Use(async (context, next) =>
+{
+    var clientApiKey = context.Request.Headers["X-Jiwa-API-Key"].FirstOrDefault();
+    JiwaMcpServer.Services.JiwaApiClient.CurrentApiKey.Value = clientApiKey;
+    await next(context);
+});
 
 // Enforce bearer token authentication
 app.Use(async (context, next) =>
