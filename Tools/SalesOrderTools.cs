@@ -23,7 +23,7 @@ public class SalesOrderTools : JiwaToolBase
         });
 
     [McpServerTool, Description("Get full details for a sales order. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
-    public Task<string> GetProduct(SalesOrderGETRequest requestDTO, CancellationToken ct = default)
+    public Task<string> GetSalesOrder(SalesOrderGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
             var result = await JiwaApiClient.GetAsync(requestDTO, ct);
