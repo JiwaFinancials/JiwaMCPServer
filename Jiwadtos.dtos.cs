@@ -2754,6 +2754,340 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel.Tables
         public virtual short?[]? DecimalPlacesBetween { get; set; }
         public virtual short?[]? DecimalPlacesIn { get; set; }
     }
+
+    [Serializable()]
+    public partial class DB_Classification
+    {
+        [Required]
+        [PrimaryKey]
+        public string? DebtorClassificationID { get; set; }
+        [Required]
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+        [Required]
+        public string? Description { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDDebtorControl { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDDebtorSales { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDDebtorDiscounts { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDDebtorSourcedInvoices { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDDebtorDebitAdjustment { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDDebtorSourcedReceipts { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDDebtorCreditAdjustment { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDDebtorFreight { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDDebtorInsurance { get; set; }
+        public short? TermsDays { get; set; }
+        [Required]
+        public short TermsType { get; set; }
+        [References(typeof(IN_PriceSchemes))]
+        public string? PriceSchemeID { get; set; }
+        [References(typeof(DB_PricingGroups))]
+        public string? PricingGroupID { get; set; }
+        public string? LedgerIDDebtorRealisedGainLoss { get; set; }
+        [Required]
+        public bool IsDefault { get; set; }
+    }
+
+    [Serializable()]
+    public partial class DB_PricingGroups
+    {
+        [Required]
+        [PrimaryKey]
+        public string? RecID { get; set; }
+        [Required]
+        public DateTimeOffset LastSavedDateTime { get; set; }
+        [Required]
+        public string? Description { get; set; }
+        public bool? DefaultPriceGroup { get; set; }
+    }
+
+    [Route("/Queries/DB_Classification", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public partial class DB_ClassificationQuery : QueryDb<DB_Classification>
+    {
+
+        public string? DebtorClassificationID { get; set; }
+        public string? DebtorClassificationIDStartsWith { get; set; }
+        public string? DebtorClassificationIDEndsWith { get; set; }
+        public string? DebtorClassificationIDContains { get; set; }
+        public string? DebtorClassificationIDLike { get; set; }
+        public string?[]? DebtorClassificationIDBetween { get; set; }
+        public string?[]? DebtorClassificationIDIn { get; set; }
+
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+
+        public DateTimeOffset? LastSavedDateTimeGreaterThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeGreaterThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeNotEqualTo { get; set; }
+        public DateTimeOffset?[]? LastSavedDateTimeBetween { get; set; }
+        public DateTimeOffset?[]? LastSavedDateTimeIn { get; set; }
+
+        public string? Description { get; set; }
+
+        public string? DescriptionStartsWith { get; set; }
+        public string? DescriptionEndsWith { get; set; }
+        public string? DescriptionContains { get; set; }
+        public string? DescriptionLike { get; set; }
+        public string?[]? DescriptionBetween { get; set; }
+        public string?[]? DescriptionIn { get; set; }
+
+        public string? LedgerIDDebtorControl { get; set; }
+
+        public string? LedgerIDDebtorControlStartsWith { get; set; }
+        public string? LedgerIDDebtorControlEndsWith { get; set; }
+        public string? LedgerIDDebtorControlContains { get; set; }
+        public string? LedgerIDDebtorControlLike { get; set; }
+        public string?[]? LedgerIDDebtorControlBetween { get; set; }
+        public string?[]? LedgerIDDebtorControlIn { get; set; }
+
+        public string? LedgerIDDebtorSales { get; set; }
+
+        public string? LedgerIDDebtorSalesStartsWith { get; set; }
+        public string? LedgerIDDebtorSalesEndsWith { get; set; }
+        public string? LedgerIDDebtorSalesContains { get; set; }
+        public string? LedgerIDDebtorSalesLike { get; set; }
+        public string?[]? LedgerIDDebtorSalesBetween { get; set; }
+        public string?[]? LedgerIDDebtorSalesIn { get; set; }
+        public string? LedgerIDDebtorDiscounts { get; set; }
+
+        public string? LedgerIDDebtorDiscountsStartsWith { get; set; }
+        public string? LedgerIDDebtorDiscountsEndsWith { get; set; }
+        public string? LedgerIDDebtorDiscountsContains { get; set; }
+        public string? LedgerIDDebtorDiscountsLike { get; set; }
+        public string?[]? LedgerIDDebtorDiscountsBetween { get; set; }
+        public string?[]? LedgerIDDebtorDiscountsIn { get; set; }
+
+        public string? LedgerIDDebtorSourcedInvoices { get; set; }
+
+        public string? LedgerIDDebtorSourcedInvoicesStartsWith { get; set; }
+        public string? LedgerIDDebtorSourcedInvoicesEndsWith { get; set; }
+        public string? LedgerIDDebtorSourcedInvoicesContains { get; set; }
+        public string? LedgerIDDebtorSourcedInvoicesLike { get; set; }
+        public string?[]? LedgerIDDebtorSourcedInvoicesBetween { get; set; }
+        public string?[]? LedgerIDDebtorSourcedInvoicesIn { get; set; } = null;
+        public string? LedgerIDDebtorDebitAdjustment { get; set; }
+
+        public string? LedgerIDDebtorDebitAdjustmentStartsWith { get; set; }
+        public string? LedgerIDDebtorDebitAdjustmentEndsWith { get; set; }
+        public string? LedgerIDDebtorDebitAdjustmentContains { get; set; }
+        public string? LedgerIDDebtorDebitAdjustmentLike { get; set; }
+        public string?[]? LedgerIDDebtorDebitAdjustmentBetween { get; set; }
+        public string?[]? LedgerIDDebtorDebitAdjustmentIn { get; set; }
+
+        public string? LedgerIDDebtorSourcedReceipts { get; set; }
+
+        public string? LedgerIDDebtorSourcedReceiptsStartsWith { get; set; }
+        public string? LedgerIDDebtorSourcedReceiptsEndsWith { get; set; }
+        public string? LedgerIDDebtorSourcedReceiptsContains { get; set; }
+        public string? LedgerIDDebtorSourcedReceiptsLike { get; set; }
+        public string?[]? LedgerIDDebtorSourcedReceiptsBetween { get; set; }
+        public string?[]? LedgerIDDebtorSourcedReceiptsIn { get; set; }
+        public string? LedgerIDDebtorCreditAdjustment { get; set; }
+
+        public string? LedgerIDDebtorCreditAdjustmentStartsWith { get; set; }
+        public string? LedgerIDDebtorCreditAdjustmentEndsWith { get; set; }
+        public string? LedgerIDDebtorCreditAdjustmentContains { get; set; }
+        public string? LedgerIDDebtorCreditAdjustmentLike { get; set; }
+        public string?[]? LedgerIDDebtorCreditAdjustmentBetween { get; set; }
+        public string?[]? LedgerIDDebtorCreditAdjustmentIn { get; set; }
+
+        public string? LedgerIDDebtorFreight { get; set; }
+
+        public string? LedgerIDDebtorFreightStartsWith { get; set; }
+        public string? LedgerIDDebtorFreightEndsWith { get; set; }
+        public string? LedgerIDDebtorFreightContains { get; set; }
+        public string? LedgerIDDebtorFreightLike { get; set; }
+        public string?[]? LedgerIDDebtorFreightBetween { get; set; }
+        public string?[]? LedgerIDDebtorFreightIn { get; set; }
+        public string? LedgerIDDebtorInsurance { get; set; }
+
+        public string? LedgerIDDebtorInsuranceStartsWith { get; set; }
+        public string? LedgerIDDebtorInsuranceEndsWith { get; set; }
+        public string? LedgerIDDebtorInsuranceContains { get; set; }
+        public string? LedgerIDDebtorInsuranceLike { get; set; }
+        public string?[]? LedgerIDDebtorInsuranceBetween { get; set; }
+        public string?[]? LedgerIDDebtorInsuranceIn { get; set; }
+
+        public short? TermsDays { get; set; }
+
+        public short? TermsDaysGreaterThanOrEqualTo { get; set; }
+        public short? TermsDaysGreaterThan { get; set; }
+        public short? TermsDaysLessThan { get; set; }
+        public short? TermsDaysLessThanOrEqualTo { get; set; }
+        public short? TermsDaysNotEqualTo { get; set; }
+        public short?[]? TermsDaysBetween { get; set; }
+        public short?[]? TermsDaysIn { get; set; }
+
+        public short? TermsType { get; set; }
+
+        public short? TermsTypeGreaterThanOrEqualTo { get; set; }
+        public short? TermsTypeGreaterThan { get; set; }
+        public short? TermsTypeLessThan { get; set; }
+        public short? TermsTypeLessThanOrEqualTo { get; set; }
+        public short? TermsTypeNotEqualTo { get; set; }
+        public short?[]? TermsTypeBetween { get; set; }
+        public short?[]? TermsTypeIn { get; set; }
+
+        public string? PriceSchemeID { get; set; }
+
+        public string? PriceSchemeIDStartsWith { get; set; }
+        public string? PriceSchemeIDEndsWith { get; set; }
+        public string? PriceSchemeIDContains { get; set; }
+        public string? PriceSchemeIDLike { get; set; }
+        public string?[]? PriceSchemeIDBetween { get; set; }
+        public string?[]? PriceSchemeIDIn { get; set; }
+
+        public string? PricingGroupID { get; set; }
+
+        public string? PricingGroupIDStartsWith { get; set; }
+        public string? PricingGroupIDEndsWith { get; set; }
+        public string? PricingGroupIDContains { get; set; }
+        public string? PricingGroupIDLike { get; set; }
+        public string?[]? PricingGroupIDBetween { get; set; }
+        public string?[]? PricingGroupIDIn { get; set; } = null;
+        public string? LedgerIDDebtorRealisedGainLoss { get; set; }
+
+        public string? LedgerIDDebtorRealisedGainLossStartsWith { get; set; }
+        public string? LedgerIDDebtorRealisedGainLossEndsWith { get; set; }
+        public string? LedgerIDDebtorRealisedGainLossContains { get; set; }
+        public string? LedgerIDDebtorRealisedGainLossLike { get; set; }
+        public string?[]? LedgerIDDebtorRealisedGainLossBetween { get; set; }
+        public string?[]? LedgerIDDebtorRealisedGainLossIn { get; set; }
+
+        public bool? IsDefault { get; set; }
+
+    }
+
+    [Serializable()]
+    public partial class DB_Categories
+    {
+        [Required]
+        public int CategoryNo { get; set; }
+        [Required]
+        public string? CategoryID { get; set; }
+        public string? Description { get; set; }
+        [Required]
+        public bool DefaultCategory { get; set; }
+        [Required]
+        public DateTimeOffset LastSavedDateTime { get; set; }
+    }
+
+    [Route("/Queries/DB_Categories", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public partial class DB_CategoriesQuery : QueryDb<DB_Categories>
+    {
+        public int? CategoryNo { get; set; }
+
+        public int? CategoryNoGreaterThanOrEqualTo { get; set; }
+        public int? CategoryNoGreaterThan { get; set; }
+        public int? CategoryNoLessThan { get; set; }
+        public int? CategoryNoLessThanOrEqualTo { get; set; }
+        public int? CategoryNoNotEqualTo { get; set; }
+        public int[]? CategoryNoBetween { get; set; }
+        public int[]? CategoryNoIn { get; set; }
+
+        public string? CategoryID { get; set; }
+
+        public string? CategoryIDStartsWith { get; set; }
+        public string? CategoryIDEndsWith { get; set; }
+        public string? CategoryIDContains { get; set; }
+        public string? CategoryIDLike { get; set; }
+        public string[]? CategoryIDBetween { get; set; }
+        public string[]? CategoryIDIn { get; set; }
+
+        public string? Description { get; set; }
+
+        public string? DescriptionStartsWith { get; set; }
+        public string? DescriptionEndsWith { get; set; }
+        public string? DescriptionContains { get; set; }
+        public string? DescriptionLike { get; set; }
+        public string[]? DescriptionBetween { get; set; }
+        public string[]? DescriptionIn { get; set; } = null;
+        public bool? DefaultCategory { get; set; }
+
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+
+        public DateTimeOffset? LastSavedDateTimeGreaterThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeGreaterThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeNotEqualTo { get; set; }
+        public DateTimeOffset?[]? LastSavedDateTimeBetween { get; set; }
+        public DateTimeOffset?[]? LastSavedDateTimeIn { get; set; }
+
+    }
+    #endregion
+
+    #region "General Ledger"
+    [Serializable()]
+    public partial class GL_Ledger
+    {
+        [Required]
+        [PrimaryKey]
+        public string? GLLedgerID { get; set; }
+        [Required]
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+        [References(typeof(GL_Category))]
+        [Required]
+        public string? GLCategoryID { get; set; }
+        [Required]
+        public string? AccountNo { get; set; }
+        public string? Seg1 { get; set; }
+        public string? Seg2 { get; set; }
+        public string? Seg3 { get; set; }
+        public string? Seg4 { get; set; }
+        public string? Seg5 { get; set; }
+        public string? Seg6 { get; set; }
+        public string? Description { get; set; }
+        public decimal? LastYearOpen { get; set; }
+        public decimal? CurrYearOpen { get; set; }
+        public decimal? CurrBal { get; set; }
+        public byte? ExpSign { get; set; }
+        [Required]
+        public short AccClass { get; set; }
+        public bool? DistributionAcc { get; set; }
+        [Required]
+        public string? ShortCut { get; set; }
+        [Required]
+        public short PostingAcc { get; set; }
+        public string? ParentAccNo { get; set; }
+        public bool? UseTransCode1 { get; set; }
+        public bool? UseTransCode2 { get; set; }
+        public bool? UseTransCode3 { get; set; }
+        public bool? UseStaffCode { get; set; }
+        public string? Details { get; set; }
+        public bool? IsEnabled { get; set; }
+    }
+
+    [Serializable()]
+    public partial class GL_Category
+    {
+        [Required]
+        [PrimaryKey]
+        public string? GLCategoryID { get; set; }
+        [Required]
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+        public string? Description { get; set; }
+        public byte? ExpSign { get; set; }
+        public byte? AccType { get; set; }
+        public string? Group1 { get; set; }
+        public string? Group2 { get; set; }
+        public int? Group2DisplayOrder { get; set; }
+        public int? Group1DisplayOrder { get; set; }
+    }
     #endregion
 
     #region "Inventory"
@@ -3187,6 +3521,334 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel.Tables
         public virtual string? ShortNameLike { get; set; }
         public virtual string[]? ShortNameBetween { get; set; }
         public virtual string[]? ShortNameIn { get; set; }
+    }
+
+    [Serializable()]
+    public partial class IN_Classification
+    {
+        [Required]
+        [PrimaryKey]
+        public string? InventoryClassificationID { get; set; }
+        public string? Description { get; set; }
+        [Required]
+        public DateTimeOffset LastSavedDateTime { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerInvValue { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerMovement_COG { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerExpAsset { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerExpLiab { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerDelAsset { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerDelLiab { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerAssignedValue { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerCogVariance { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerInvSales { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerAccumulator { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerPurchases { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerShipComplete { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerWriteOn { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerWriteOff { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerCostPriceAdj { get; set; }
+        public string? GSTInwardsID { get; set; }
+        public string? GSTOutwardsID { get; set; }
+        public string? GSTAdjustmentsINID { get; set; }
+        public string? GSTAdjustmentsOUTID { get; set; }
+        [Required]
+        public bool WebEnabled { get; set; }
+        public bool? DefaultClassification { get; set; }
+        public string? PricingGroupID { get; set; }
+        public byte[]? Picture { get; set; }
+    }
+
+
+    [Route("/Queries/IN_Classification", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public partial class IN_ClassificationQuery : QueryDb<IN_Classification>
+    {
+
+        public string? InventoryClassificationID { get; set; }
+        public string? InventoryClassificationIDStartsWith { get; set; }
+        public string? InventoryClassificationIDEndsWith { get; set; }
+        public string? InventoryClassificationIDContains { get; set; }
+        public string? InventoryClassificationIDLike { get; set; }
+        public string?[]? InventoryClassificationIDBetween { get; set; }
+        public string?[]? InventoryClassificationIDIn { get; set; }
+
+        public string? Description { get; set; }
+
+        public string? DescriptionStartsWith { get; set; }
+        public string? DescriptionEndsWith { get; set; }
+        public string? DescriptionContains { get; set; }
+        public string? DescriptionLike { get; set; }
+        public string[]? DescriptionBetween { get; set; }
+        public string[]? DescriptionIn { get; set; }
+
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+
+        public DateTimeOffset? LastSavedDateTimeGreaterThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeGreaterThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeNotEqualTo { get; set; }
+        public DateTimeOffset?[]? LastSavedDateTimeBetween { get; set; }
+        public DateTimeOffset?[]? LastSavedDateTimeIn { get; set; }
+
+        public string? LedgerInvValue { get; set; }
+
+        public string? LedgerInvValueStartsWith { get; set; }
+        public string? LedgerInvValueEndsWith { get; set; }
+        public string? LedgerInvValueContains { get; set; }
+        public string? LedgerInvValueLike { get; set; }
+        public string?[]? LedgerInvValueBetween { get; set; }
+        public string?[]? LedgerInvValueIn { get; set; }
+
+        public string? LedgerMovement_COG { get; set; }
+
+        public string? LedgerMovement_COGStartsWith { get; set; }
+        public string? LedgerMovement_COGEndsWith { get; set; }
+        public string? LedgerMovement_COGContains { get; set; }
+        public string? LedgerMovement_COGLike { get; set; }
+        public string?[]? LedgerMovement_COGBetween { get; set; }
+        public string?[]? LedgerMovement_COGIn { get; set; } = null;
+        public string? LedgerExpAsset { get; set; }
+
+        public string? LedgerExpAssetStartsWith { get; set; }
+        public string? LedgerExpAssetEndsWith { get; set; }
+        public string? LedgerExpAssetContains { get; set; }
+        public string? LedgerExpAssetLike { get; set; }
+        public string?[]? LedgerExpAssetBetween { get; set; }
+        public string?[]? LedgerExpAssetIn { get; set; }
+
+        public string? LedgerExpLiab { get; set; }
+
+        public string? LedgerExpLiabStartsWith { get; set; }
+        public string? LedgerExpLiabEndsWith { get; set; }
+        public string? LedgerExpLiabContains { get; set; }
+        public string? LedgerExpLiabLike { get; set; }
+        public string?[]? LedgerExpLiabBetween { get; set; }
+        public string?[]? LedgerExpLiabIn { get; set; }
+        public string? LedgerDelAsset { get; set; }
+
+        public string? LedgerDelAssetStartsWith { get; set; }
+        public string? LedgerDelAssetEndsWith { get; set; }
+        public string? LedgerDelAssetContains { get; set; }
+        public string? LedgerDelAssetLike { get; set; }
+        public string?[]? LedgerDelAssetBetween { get; set; }
+        public string?[]? LedgerDelAssetIn { get; set; }
+
+        public string? LedgerDelLiab { get; set; }
+
+        public string? LedgerDelLiabStartsWith { get; set; }
+        public string? LedgerDelLiabEndsWith { get; set; }
+        public string? LedgerDelLiabContains { get; set; }
+        public string? LedgerDelLiabLike { get; set; }
+        public string?[]? LedgerDelLiabBetween { get; set; }
+        public string?[]? LedgerDelLiabIn { get; set; } = null;
+        public string? LedgerAssignedValue { get; set; }
+
+        public string? LedgerAssignedValueStartsWith { get; set; }
+        public string? LedgerAssignedValueEndsWith { get; set; }
+        public string? LedgerAssignedValueContains { get; set; }
+        public string? LedgerAssignedValueLike { get; set; }
+        public string?[]? LedgerAssignedValueBetween { get; set; }
+        public string?[]? LedgerAssignedValueIn { get; set; }
+
+        public string? LedgerCogVariance { get; set; }
+
+        public string? LedgerCogVarianceStartsWith { get; set; }
+        public string? LedgerCogVarianceEndsWith { get; set; }
+        public string? LedgerCogVarianceContains { get; set; }
+        public string? LedgerCogVarianceLike { get; set; }
+        public string?[]? LedgerCogVarianceBetween { get; set; }
+        public string?[]? LedgerCogVarianceIn { get; set; }
+        public string? LedgerInvSales { get; set; }
+
+        public string? LedgerInvSalesStartsWith { get; set; }
+        public string? LedgerInvSalesEndsWith { get; set; }
+        public string? LedgerInvSalesContains { get; set; }
+        public string? LedgerInvSalesLike { get; set; }
+        public string?[]? LedgerInvSalesBetween { get; set; }
+        public string?[]? LedgerInvSalesIn { get; set; }
+
+        public string? LedgerAccumulator { get; set; }
+
+        public string? LedgerAccumulatorStartsWith { get; set; }
+        public string? LedgerAccumulatorEndsWith { get; set; }
+        public string? LedgerAccumulatorContains { get; set; }
+        public string? LedgerAccumulatorLike { get; set; }
+        public string?[]? LedgerAccumulatorBetween { get; set; }
+        public string?[]? LedgerAccumulatorIn { get; set; } = null;
+        public string? LedgerPurchases { get; set; }
+
+        public string? LedgerPurchasesStartsWith { get; set; }
+        public string? LedgerPurchasesEndsWith { get; set; }
+        public string? LedgerPurchasesContains { get; set; }
+        public string? LedgerPurchasesLike { get; set; }
+        public string?[]? LedgerPurchasesBetween { get; set; }
+        public string?[]? LedgerPurchasesIn { get; set; } = null;
+
+        public string? LedgerShipComplete { get; set; }
+
+        public string? LedgerShipCompleteStartsWith { get; set; }
+        public string? LedgerShipCompleteEndsWith { get; set; }
+        public string? LedgerShipCompleteContains { get; set; }
+        public string? LedgerShipCompleteLike { get; set; }
+        public string?[]? LedgerShipCompleteBetween { get; set; }
+        public string?[]? LedgerShipCompleteIn { get; set; } = null;
+        public string? LedgerWriteOn { get; set; }
+
+        public string? LedgerWriteOnStartsWith { get; set; }
+        public string? LedgerWriteOnEndsWith { get; set; }
+        public string? LedgerWriteOnContains { get; set; }
+        public string? LedgerWriteOnLike { get; set; }
+        public string?[]? LedgerWriteOnBetween { get; set; }
+        public string?[]? LedgerWriteOnIn { get; set; } = null;
+
+        public string? LedgerWriteOff { get; set; }
+
+        public string? LedgerWriteOffStartsWith { get; set; }
+        public string? LedgerWriteOffEndsWith { get; set; }
+        public string? LedgerWriteOffContains { get; set; }
+        public string? LedgerWriteOffLike { get; set; }
+        public string?[]? LedgerWriteOffBetween { get; set; }
+        public string?[]? LedgerWriteOffIn { get; set; } = null;
+        public string? LedgerCostPriceAdj { get; set; }
+
+        public string? LedgerCostPriceAdjStartsWith { get; set; }
+        public string? LedgerCostPriceAdjEndsWith { get; set; }
+        public string? LedgerCostPriceAdjContains { get; set; }
+        public string? LedgerCostPriceAdjLike { get; set; }
+        public string?[]? LedgerCostPriceAdjBetween { get; set; }
+        public string?[]? LedgerCostPriceAdjIn { get; set; } = null;
+
+        public string? GSTInwardsID { get; set; }
+
+        public string? GSTInwardsIDStartsWith { get; set; }
+        public string? GSTInwardsIDEndsWith { get; set; }
+        public string? GSTInwardsIDContains { get; set; }
+        public string? GSTInwardsIDLike { get; set; }
+        public string?[]? GSTInwardsIDBetween { get; set; }
+        public string?[]? GSTInwardsIDIn { get; set; } = null;
+        public string? GSTOutwardsID { get; set; }
+
+        public string? GSTOutwardsIDStartsWith { get; set; }
+        public string? GSTOutwardsIDEndsWith { get; set; }
+        public string? GSTOutwardsIDContains { get; set; }
+        public string? GSTOutwardsIDLike { get; set; }
+        public string?[]? GSTOutwardsIDBetween { get; set; }
+        public string?[]? GSTOutwardsIDIn { get; set; } = null;
+
+        public string? GSTAdjustmentsINID { get; set; }
+
+        public string? GSTAdjustmentsINIDStartsWith { get; set; }
+        public string? GSTAdjustmentsINIDEndsWith { get; set; }
+        public string? GSTAdjustmentsINIDContains { get; set; }
+        public string? GSTAdjustmentsINIDLike { get; set; }
+        public string?[]? GSTAdjustmentsINIDBetween { get; set; }
+        public string?[]? GSTAdjustmentsINIDIn { get; set; } = null;
+        public string? GSTAdjustmentsOUTID { get; set; }
+
+        public string? GSTAdjustmentsOUTIDStartsWith { get; set; }
+        public string? GSTAdjustmentsOUTIDEndsWith { get; set; }
+        public string? GSTAdjustmentsOUTIDContains { get; set; }
+        public string? GSTAdjustmentsOUTIDLike { get; set; }
+        public string?[]? GSTAdjustmentsOUTIDBetween { get; set; }
+        public string?[]? GSTAdjustmentsOUTIDIn { get; set; } = null;
+
+        public bool? WebEnabled { get; set; }
+
+        public bool? DefaultClassification { get; set; }
+
+        public string? PricingGroupID { get; set; }
+
+        public string? PricingGroupIDStartsWith { get; set; }
+        public string? PricingGroupIDEndsWith { get; set; }
+        public string? PricingGroupIDContains { get; set; }
+        public string? PricingGroupIDLike { get; set; }
+        public string?[]? PricingGroupIDBetween { get; set; }
+        public string?[]? PricingGroupIDIn { get; set; } = null;
+
+        public byte[]? Picture { get; set; }
+    }
+
+    [Serializable()]
+    public partial class IN_Categories
+    {
+        [Required]
+        public int CategoryNo { get; set; }
+        [Required]
+        public string? CategoryID { get; set; }
+        public string? Description { get; set; }
+        [Required]
+        public bool DefaultCategory { get; set; }
+        [Required]
+        public DateTimeOffset LastSavedDateTime { get; set; }
+        public byte[]? Picture { get; set; }
+    }
+
+
+    [Route("/Queries/IN_Categories", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public partial class IN_CategoriesQuery : QueryDb<IN_Categories>
+    {
+        public int? CategoryNo { get; set; }
+
+        public int? CategoryNoGreaterThanOrEqualTo { get; set; }
+        public int? CategoryNoGreaterThan { get; set; }
+        public int? CategoryNoLessThan { get; set; }
+        public int? CategoryNoLessThanOrEqualTo { get; set; }
+        public int? CategoryNoNotEqualTo { get; set; }
+        public int?[]? CategoryNoBetween { get; set; }
+        public int?[]? CategoryNoIn { get; set; }
+
+        public string? CategoryID { get; set; }
+
+        public string? CategoryIDStartsWith { get; set; }
+        public string? CategoryIDEndsWith { get; set; }
+        public string? CategoryIDContains { get; set; }
+        public string? CategoryIDLike { get; set; }
+        public string?[]? CategoryIDBetween { get; set; }
+        public string?[]? CategoryIDIn { get; set; } = null;
+        public string? Description { get; set; }
+
+        public string? DescriptionStartsWith { get; set; }
+        public string? DescriptionEndsWith { get; set; }
+        public string? DescriptionContains { get; set; }
+        public string? DescriptionLike { get; set; }
+        public string?[]? DescriptionBetween { get; set; }
+        public string?[]? DescriptionIn { get; set; } = null;
+
+        public bool? DefaultCategory { get; set; }
+
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+
+        public DateTimeOffset? LastSavedDateTimeGreaterThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeGreaterThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeNotEqualTo { get; set; }
+        public DateTimeOffset?[]? LastSavedDateTimeBetween { get; set; }
+        public DateTimeOffset?[]? LastSavedDateTimeIn { get; set; } = null;
+
+        public byte[]? Picture { get; set; }
+
     }
     #endregion
 
@@ -3732,6 +4394,408 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel.Tables
         public virtual DateTime? DueDateNotEqualTo { get; set; }
         public virtual DateTime?[]? DueDateBetween { get; set; }
         public virtual DateTime?[]? DueDateIn { get; set; }
+    }
+
+    [Serializable()]
+    public partial class IN_PriceSchemes
+    {
+        [Required]
+        [PrimaryKey]
+        public string? PriceSchemeID { get; set; }
+        [Required]
+        public string? PriceSchemeDescription { get; set; }
+        [Required]
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+        [Required]
+        public bool SchemeActive { get; set; }
+        [Required]
+        public bool FindTheCheapest { get; set; }
+        public bool IsDefault { get; set; }
+    }
+
+    [Serializable()]
+    public partial class SO_Sales
+    {
+        public string? SalesID { get; set; }
+        [Required]
+        public DateTime DateRun { get; set; }
+        [Required]
+        public DateTime InvoiceDate { get; set; }
+        [Required]
+        public string? DebtorID { get; set; }
+        public string? InvoiceNo { get; set; }
+        public string? PartNo { get; set; }
+        public string? Description { get; set; }
+        public string? ClassDescription { get; set; }
+        public string? Cat1Description { get; set; }
+        public string? Cat2Description { get; set; }
+        public string? Cat3Description { get; set; }
+        public decimal? Quantity { get; set; }
+        public decimal? UnitCost { get; set; }
+        public decimal? UnitSellPrice { get; set; }
+        public decimal? LineTax { get; set; }
+        public decimal? LineTotal { get; set; }
+        public string? RunNo { get; set; }
+        public short? HistoryNo { get; set; }
+        public string? InvoiceID { get; set; }
+        public string? InventoryID { get; set; }
+        public int? YearNo { get; set; }
+        public int? MonthNo { get; set; }
+        [Required]
+        public string? IN_LogicalID { get; set; }
+        public string? Cat4Description { get; set; }
+        public string? Cat5Description { get; set; }
+        public short? KitStyle { get; set; }
+        public short? KitStatus { get; set; }
+        public string? SO_LinesID { get; set; }
+        public decimal? LineCost { get; set; }
+        public string? DebtorAccountNo { get; set; }
+        public string? DebtorName { get; set; }
+        public string? DebtorClassification { get; set; }
+        public string? PhysicalWarehouse { get; set; }
+        public string? LogicalWarehouse { get; set; }
+        public decimal? GPDollars { get; set; }
+        public decimal? GPPercent { get; set; }
+    }
+
+
+    [Route("/Queries/SO_Sales", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public partial class SO_SalesQuery : QueryDb<SO_Sales>
+    {
+        public string? SalesID { get; set; }
+
+        public string? SalesIDStartsWith { get; set; }
+        public string? SalesIDEndsWith { get; set; }
+        public string? SalesIDContains { get; set; }
+        public string? SalesIDLike { get; set; }
+        public string?[]? SalesIDBetween { get; set; }
+        public string?[]? SalesIDIn { get; set; }
+
+        public DateTime? DateRun { get; set; }
+
+        public DateTime? DateRunGreaterThanOrEqualTo { get; set; }
+        public DateTime? DateRunGreaterThan { get; set; }
+        public DateTime? DateRunLessThan { get; set; }
+        public DateTime? DateRunLessThanOrEqualTo { get; set; }
+        public DateTime? DateRunNotEqualTo { get; set; }
+        public DateTime?[]? DateRunBetween { get; set; }
+        public DateTime?[]? DateRunIn { get; set; }
+
+        public DateTime? InvoiceDate { get; set; }
+
+        public DateTime? InvoiceDateGreaterThanOrEqualTo { get; set; }
+        public DateTime? InvoiceDateGreaterThan { get; set; }
+        public DateTime? InvoiceDateLessThan { get; set; }
+        public DateTime? InvoiceDateLessThanOrEqualTo { get; set; }
+        public DateTime? InvoiceDateNotEqualTo { get; set; }
+        public DateTime?[]? InvoiceDateBetween { get; set; }
+        public DateTime?[]? InvoiceDateIn { get; set; }
+
+        public string? DebtorID { get; set; }
+
+        public string? DebtorIDStartsWith { get; set; }
+        public string? DebtorIDEndsWith { get; set; }
+        public string? DebtorIDContains { get; set; }
+        public string? DebtorIDLike { get; set; }
+        public string?[]? DebtorIDBetween { get; set; }
+        public string?[]? DebtorIDIn { get; set; }
+
+        public string? InvoiceNo { get; set; }
+
+        public string? InvoiceNoStartsWith { get; set; }
+        public string? InvoiceNoEndsWith { get; set; }
+        public string? InvoiceNoContains { get; set; }
+        public string? InvoiceNoLike { get; set; }
+        public string?[]? InvoiceNoBetween { get; set; }
+        public string?[]? InvoiceNoIn { get; set; } = null;
+        public string? PartNo { get; set; }
+
+        public string? PartNoStartsWith { get; set; }
+        public string? PartNoEndsWith { get; set; }
+        public string? PartNoContains { get; set; }
+        public string? PartNoLike { get; set; }
+        public string?[]? PartNoBetween { get; set; }
+        public string?[]? PartNoIn { get; set; } = null;
+
+        public string? Description { get; set; }
+
+        public string? DescriptionStartsWith { get; set; }
+        public string? DescriptionEndsWith { get; set; }
+        public string? DescriptionContains { get; set; }
+        public string? DescriptionLike { get; set; }
+        public string?[]? DescriptionBetween { get; set; }
+        public string?[]? DescriptionIn { get; set; }
+        public string? ClassDescription { get; set; }
+
+        public string? ClassDescriptionStartsWith { get; set; }
+        public string? ClassDescriptionEndsWith { get; set; }
+        public string? ClassDescriptionContains { get; set; }
+        public string? ClassDescriptionLike { get; set; }
+        public string?[]? ClassDescriptionBetween { get; set; }
+        public string?[]? ClassDescriptionIn { get; set; }
+
+        public string? Cat1Description { get; set; }
+
+        public string? Cat1DescriptionStartsWith { get; set; }
+        public string? Cat1DescriptionEndsWith { get; set; }
+        public string? Cat1DescriptionContains { get; set; }
+        public string? Cat1DescriptionLike { get; set; }
+        public string?[]? Cat1DescriptionBetween { get; set; }
+        public string?[]? Cat1DescriptionIn { get; set; } = null;
+        public string? Cat2Description { get; set; }
+
+        public string? Cat2DescriptionStartsWith { get; set; }
+        public string? Cat2DescriptionEndsWith { get; set; }
+        public string? Cat2DescriptionContains { get; set; }
+        public string? Cat2DescriptionLike { get; set; }
+        public string?[]? Cat2DescriptionBetween { get; set; }
+        public string?[]? Cat2DescriptionIn { get; set; } = null;
+
+        public string? Cat3Description { get; set; }
+
+        public string? Cat3DescriptionStartsWith { get; set; }
+        public string? Cat3DescriptionEndsWith { get; set; }
+        public string? Cat3DescriptionContains { get; set; }
+        public string? Cat3DescriptionLike { get; set; }
+        public string?[]? Cat3DescriptionBetween { get; set; }
+        public string?[]? Cat3DescriptionIn { get; set; } = null;
+        public decimal? Quantity { get; set; }
+
+        public decimal? QuantityGreaterThanOrEqualTo { get; set; }
+        public decimal? QuantityGreaterThan { get; set; }
+        public decimal? QuantityLessThan { get; set; }
+        public decimal? QuantityLessThanOrEqualTo { get; set; }
+        public decimal? QuantityNotEqualTo { get; set; }
+        public decimal?[]? QuantityBetween { get; set; }
+        public decimal?[]? QuantityIn { get; set; } = null;
+
+        public decimal? UnitCost { get; set; }
+
+        public decimal? UnitCostGreaterThanOrEqualTo { get; set; }
+        public decimal? UnitCostGreaterThan { get; set; }
+        public decimal? UnitCostLessThan { get; set; }
+        public decimal? UnitCostLessThanOrEqualTo { get; set; }
+        public decimal? UnitCostNotEqualTo { get; set; }
+        public decimal?[]? UnitCostBetween { get; set; }
+        public decimal?[]? UnitCostIn { get; set; } = null;
+
+        public decimal? UnitSellPrice { get; set; }
+
+        public decimal? UnitSellPriceGreaterThanOrEqualTo { get; set; }
+        public decimal? UnitSellPriceGreaterThan { get; set; }
+        public decimal? UnitSellPriceLessThan { get; set; }
+        public decimal? UnitSellPriceLessThanOrEqualTo { get; set; }
+        public decimal? UnitSellPriceNotEqualTo { get; set; }
+        public decimal?[]? UnitSellPriceBetween { get; set; }
+        public decimal?[]? UnitSellPriceIn { get; set; } = null;
+
+        public decimal? LineTax { get; set; }
+
+        public decimal? LineTaxGreaterThanOrEqualTo { get; set; }
+        public decimal? LineTaxGreaterThan { get; set; }
+        public decimal? LineTaxLessThan { get; set; }
+        public decimal? LineTaxLessThanOrEqualTo { get; set; }
+        public decimal? LineTaxNotEqualTo { get; set; }
+        public decimal?[]? LineTaxBetween { get; set; }
+        public decimal?[]? LineTaxIn { get; set; } = null;
+
+        public decimal? LineTotal { get; set; }
+
+        public decimal? LineTotalGreaterThanOrEqualTo { get; set; }
+        public decimal? LineTotalGreaterThan { get; set; }
+        public decimal? LineTotalLessThan { get; set; }
+        public decimal? LineTotalLessThanOrEqualTo { get; set; }
+        public decimal? LineTotalNotEqualTo { get; set; }
+        public decimal?[]? LineTotalBetween { get; set; }
+        public decimal?[]? LineTotalIn { get; set; } = null;
+
+        public string? RunNo { get; set; }
+
+        public string? RunNoStartsWith { get; set; }
+        public string? RunNoEndsWith { get; set; }
+        public string? RunNoContains { get; set; }
+        public string? RunNoLike { get; set; }
+        public string?[]? RunNoBetween { get; set; }
+        public string?[]? RunNoIn { get; set; }
+
+        public short? HistoryNo { get; set; }
+
+        public short? HistoryNoGreaterThanOrEqualTo { get; set; }
+        public short? HistoryNoGreaterThan { get; set; }
+        public short? HistoryNoLessThan { get; set; }
+        public short? HistoryNoLessThanOrEqualTo { get; set; }
+        public short? HistoryNoNotEqualTo { get; set; }
+        public short?[]? HistoryNoBetween { get; set; }
+        public short?[]? HistoryNoIn { get; set; }
+
+        public string? InvoiceID { get; set; }
+
+        public string? InvoiceIDStartsWith { get; set; }
+        public string? InvoiceIDEndsWith { get; set; }
+        public string? InvoiceIDContains { get; set; }
+        public string? InvoiceIDLike { get; set; }
+        public string?[]? InvoiceIDBetween { get; set; }
+        public string?[]? InvoiceIDIn { get; set; }
+
+        public string? InventoryID { get; set; }
+
+        public string? InventoryIDStartsWith { get; set; }
+        public string? InventoryIDEndsWith { get; set; }
+        public string? InventoryIDContains { get; set; }
+        public string? InventoryIDLike { get; set; }
+        public string?[]? InventoryIDBetween { get; set; }
+        public string?[]? InventoryIDIn { get; set; } = null;
+        public int? YearNo { get; set; }
+
+        public int? YearNoGreaterThanOrEqualTo { get; set; }
+        public int? YearNoGreaterThan { get; set; }
+        public int? YearNoLessThan { get; set; }
+        public int? YearNoLessThanOrEqualTo { get; set; }
+        public int? YearNoNotEqualTo { get; set; }
+        public int?[]? YearNoBetween { get; set; }
+        public int?[]? YearNoIn { get; set; }
+
+        public int? MonthNo { get; set; }
+
+        public int? MonthNoGreaterThanOrEqualTo { get; set; }
+        public int? MonthNoGreaterThan { get; set; }
+        public int? MonthNoLessThan { get; set; }
+        public int? MonthNoLessThanOrEqualTo { get; set; }
+        public int? MonthNoNotEqualTo { get; set; }
+        public int?[]? MonthNoBetween { get; set; }
+        public int?[]? MonthNoIn { get; set; }
+
+        public string? IN_LogicalID { get; set; }
+
+        public string? IN_LogicalIDStartsWith { get; set; }
+        public string? IN_LogicalIDEndsWith { get; set; }
+        public string? IN_LogicalIDContains { get; set; }
+        public string? IN_LogicalIDLike { get; set; }
+        public string?[]? IN_LogicalIDBetween { get; set; }
+        public string?[]? IN_LogicalIDIn { get; set; }
+
+        public string? Cat4Description { get; set; }
+
+        public string? Cat4DescriptionStartsWith { get; set; }
+        public string? Cat4DescriptionEndsWith { get; set; }
+        public string? Cat4DescriptionContains { get; set; }
+        public string? Cat4DescriptionLike { get; set; }
+        public string?[]? Cat4DescriptionBetween { get; set; }
+        public string?[]? Cat4DescriptionIn { get; set; } = null;
+        public string? Cat5Description { get; set; }
+
+        public string? Cat5DescriptionStartsWith { get; set; }
+        public string? Cat5DescriptionEndsWith { get; set; }
+        public string? Cat5DescriptionContains { get; set; }
+        public string? Cat5DescriptionLike { get; set; }
+        public string?[]? Cat5DescriptionBetween { get; set; }
+        public string?[]? Cat5DescriptionIn { get; set; } = null;
+
+        public short? KitStyle { get; set; }
+
+        public short? KitStyleGreaterThanOrEqualTo { get; set; }
+        public short? KitStyleGreaterThan { get; set; }
+        public short? KitStyleLessThan { get; set; }
+        public short? KitStyleLessThanOrEqualTo { get; set; }
+        public short? KitStyleNotEqualTo { get; set; }
+        public short?[]? KitStyleBetween { get; set; }
+        public short?[]? KitStyleIn { get; set; }
+
+        public short? KitStatus { get; set; }
+
+        public short? KitStatusGreaterThanOrEqualTo { get; set; }
+        public short? KitStatusGreaterThan { get; set; }
+        public short? KitStatusLessThan { get; set; }
+        public short? KitStatusLessThanOrEqualTo { get; set; }
+        public short? KitStatusNotEqualTo { get; set; }
+        public short?[]? KitStatusBetween { get; set; }
+        public short?[]? KitStatusIn { get; set; }
+
+        public string? SO_LinesID { get; set; }
+
+        public string? SO_LinesIDStartsWith { get; set; }
+        public string? SO_LinesIDEndsWith { get; set; }
+        public string? SO_LinesIDContains { get; set; }
+        public string? SO_LinesIDLike { get; set; }
+        public string?[]? SO_LinesIDBetween { get; set; }
+        public string?[]? SO_LinesIDIn { get; set; } = null;
+
+        public decimal? LineCost { get; set; }
+
+        public decimal? LineCostGreaterThanOrEqualTo { get; set; }
+        public decimal? LineCostGreaterThan { get; set; }
+        public decimal? LineCostLessThan { get; set; }
+        public decimal? LineCostLessThanOrEqualTo { get; set; }
+        public decimal? LineCostNotEqualTo { get; set; }
+        public decimal?[]? LineCostBetween { get; set; }
+        public decimal?[]? LineCostIn { get; set; }
+
+        public string? DebtorAccountNo { get; set; }
+
+        public string? DebtorAccountNoStartsWith { get; set; }
+        public string? DebtorAccountNoEndsWith { get; set; }
+        public string? DebtorAccountNoContains { get; set; }
+        public string? DebtorAccountNoLike { get; set; }
+        public string?[]? DebtorAccountNoBetween { get; set; }
+        public string?[]? DebtorAccountNoIn { get; set; }
+
+        public string? DebtorName { get; set; }
+
+        public string? DebtorNameStartsWith { get; set; }
+        public string? DebtorNameEndsWith { get; set; }
+        public string? DebtorNameContains { get; set; }
+        public string? DebtorNameLike { get; set; }
+        public string?[]? DebtorNameBetween { get; set; }
+        public string?[]? DebtorNameIn { get; set; } = null;
+        public string? DebtorClassification { get; set; }
+
+        public string? DebtorClassificationStartsWith { get; set; }
+        public string? DebtorClassificationEndsWith { get; set; }
+        public string? DebtorClassificationContains { get; set; }
+        public string? DebtorClassificationLike { get; set; }
+        public string?[]? DebtorClassificationBetween { get; set; }
+        public string?[]? DebtorClassificationIn { get; set; }
+
+        public string? PhysicalWarehouse { get; set; }
+
+        public string? PhysicalWarehouseStartsWith { get; set; }
+        public string? PhysicalWarehouseEndsWith { get; set; }
+        public string? PhysicalWarehouseContains { get; set; }
+        public string? PhysicalWarehouseLike { get; set; }
+        public string?[]? PhysicalWarehouseBetween { get; set; }
+        public string?[]? PhysicalWarehouseIn { get; set; }
+        public string? LogicalWarehouse { get; set; }
+
+        public string? LogicalWarehouseStartsWith { get; set; }
+        public string? LogicalWarehouseEndsWith { get; set; }
+        public string? LogicalWarehouseContains { get; set; }
+        public string? LogicalWarehouseLike { get; set; }
+        public string?[]? LogicalWarehouseBetween { get; set; }
+        public string?[]? LogicalWarehouseIn { get; set; }
+
+        public decimal? GPDollars { get; set; }
+
+        public decimal? GPDollarsGreaterThanOrEqualTo { get; set; }
+        public decimal? GPDollarsGreaterThan { get; set; }
+        public decimal? GPDollarsLessThan { get; set; }
+        public decimal? GPDollarsLessThanOrEqualTo { get; set; }
+        public decimal? GPDollarsNotEqualTo { get; set; }
+        public decimal?[]? GPDollarsBetween { get; set; }
+        public decimal?[]? GPDollarsIn { get; set; }
+
+        public decimal? GPPercent { get; set; }
+
+        public decimal? GPPercentGreaterThanOrEqualTo { get; set; }
+        public decimal? GPPercentGreaterThan { get; set; }
+        public decimal? GPPercentLessThan { get; set; }
+        public decimal? GPPercentLessThanOrEqualTo { get; set; }
+        public decimal? GPPercentNotEqualTo { get; set; }
+        public decimal?[]? GPPercentBetween { get; set; }
+        public decimal?[]? GPPercentIn { get; set; }
+
     }
     #endregion
 }

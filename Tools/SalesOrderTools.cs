@@ -53,4 +53,12 @@ public class SalesOrderTools : JiwaToolBase
             var result = await JiwaApiClient.PostAsync(requestDTO, ct);
             return result.ToJson<SalesOrderLine>();
         });
+
+    [McpServerTool, Description("Retrieves a list of sales. Lot's of historical sales data. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> SearchSales(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.SO_SalesQuery requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
+            return response.Results.ToJson<List<SO_Sales>>();
+        });
 }

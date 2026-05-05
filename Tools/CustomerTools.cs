@@ -34,4 +34,20 @@ public class CustomerTools : JiwaToolBase
             var response = await JiwaApiClient.GetAsync(requestDTO, ct);
             return response.Results.ToJson<List<v_Jiwa_Debtor_Transactions_List>>();
         });
+
+    [McpServerTool, Description("Retrieves a list of debtor classifications. Debtors are also known as customers, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> SearchCustomerClassifications(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.DB_ClassificationQuery requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
+            return response.Results.ToJson<List<DB_Classification>>();
+        });
+
+    [McpServerTool, Description("Retrieves a list of debtor categories. Debtors are also known as customers, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> SearchCustomerCategories(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.DB_CategoriesQuery requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
+            return response.Results.ToJson<List<DB_Categories>>();
+        });
 }

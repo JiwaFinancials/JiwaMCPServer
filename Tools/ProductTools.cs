@@ -34,4 +34,20 @@ public class ProductTools : JiwaToolBase
             var response = await JiwaApiClient.GetAsync(requestDTO, ct);
             return response.Results.ToJson<List<v_IN_SOHWithBinLocations>>();
         });
+
+    [McpServerTool, Description("Retrieves a list of inventory item classifications. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> SearchProductClassifications(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.IN_ClassificationQuery requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
+            return response.Results.ToJson<List<IN_Classification>>();
+        });
+
+    [McpServerTool, Description("Retrieves a list of inventory item categories. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> SearchProductCategories(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.IN_CategoriesQuery requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
+            return response.Results.ToJson<List<IN_Categories>>();
+        });
 }
