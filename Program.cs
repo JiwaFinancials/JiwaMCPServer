@@ -10,6 +10,8 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory
 });
 
+builder.Host.UseWindowsService();
+
 // Read and validate configuration settings for the Jiwa API URL and API key
 ConfigurationManager configuration = builder.Configuration;
 Config.JiwaAPIURL = configuration.GetSection("JiwaAPIURL").Value;
