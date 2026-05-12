@@ -20,7 +20,7 @@ public class ProductTools : JiwaToolBase
             return response.Results.ToJson<List<v_Jiwa_Inventory_Item_List>>();
         });
 
-    [McpServerTool, Description("Get full details for a product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get full details for a product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Don't get Picture from here. Use GetProductPicture if the user wants a Picture.")]
     public Task<string> GetProduct(InventoryGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -52,26 +52,35 @@ public class ProductTools : JiwaToolBase
             return response.Results.ToJson<List<IN_Categories>>();
         });
 
-    [McpServerTool, Description("Get the picture for a product (inventory item) by InventoryID. Returns the picture as image content.")]
-    public async Task<IEnumerable<ModelContextProtocol.Protocol.ContentBlock>> GetProductPicture([Description("The InventoryID of the product to retrieve the picture for.")] string inventoryID, CancellationToken ct = default)
+    [McpServerTool, Description("Get the picture for a product (inventory item) by InventoryID or PartNo. Returns the picture as image content.")]
+    public async Task<IEnumerable<ModelContextProtocol.Protocol.ContentBlock>> GetProductPicture(
+        [Description("The InventoryID of the product to retrieve the picture for.")] string? inventoryID = null,
+        [Description("The PartNo of the product to retrieve the picture for.")] string? partNo = null,
+        CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(inventoryID) && string.IsNullOrWhiteSpace(partNo))
+            return [new ModelContextProtocol.Protocol.TextContentBlock { Text = "Either InventoryID or PartNo must be provided." }];
+
+        var identifier = string.IsNullOrWhiteSpace(inventoryID) ? $"PartNo '{partNo}'" : $"InventoryID '{inventoryID}'";
         try
         {
-            var jsonBody = $"{{\"InventoryID\":\"{inventoryID}\"}}";
+            var jsonBody = string.IsNullOrWhiteSpace(inventoryID)
+                ? $"{{\"PartNo\":\"{partNo}\"}}"
+                : $"{{\"InventoryID\":\"{inventoryID}\"}}";
             var (bytes, contentType) = await JiwaApiClient.GetRawBytesAsync("Inventory/Picture", jsonBody, ct);
             if (bytes == null || bytes.Length == 0)
-                return [new ModelContextProtocol.Protocol.TextContentBlock { Text = $"No picture found for product '{inventoryID}'." }];
+                return [new ModelContextProtocol.Protocol.TextContentBlock { Text = $"No picture found for product {identifier}." }];
 
             var mimeType = contentType ?? "image/jpeg";
             return [ModelContextProtocol.Protocol.ImageContentBlock.FromBytes(bytes, mimeType)];
         }
         catch (WebServiceException ex)
         {
-            return [new ModelContextProtocol.Protocol.TextContentBlock { Text = $"Error retrieving picture for product '{inventoryID}': {ex.StatusCode} {ex.StatusDescription} - {ex.ErrorMessage}" }];
+            return [new ModelContextProtocol.Protocol.TextContentBlock { Text = $"Error retrieving picture for product {identifier}: {ex.StatusCode} {ex.StatusDescription} - {ex.ErrorMessage}" }];
         }
         catch (Exception ex)
         {
-            return [new ModelContextProtocol.Protocol.TextContentBlock { Text = $"Error retrieving picture for product '{inventoryID}': {ex.Message}" }];
+            return [new ModelContextProtocol.Protocol.TextContentBlock { Text = $"Error retrieving picture for product {identifier}: {ex.Message}" }];
         }
     }
 }
