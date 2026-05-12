@@ -70,4 +70,28 @@ public static class JiwaApiClient
             return await client.PatchAsync(requestDTO, ct);
         }
     }
+
+    /// <summary>
+    /// Performs a GET to a relative URL with a raw JSON body and returns the response bytes and content-type.
+    /// </summary>
+    public static async Task<(byte[] Bytes, string? ContentType)> GetRawBytesAsync(string relativeUrl, string jsonBody, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(Config.JiwaAPIURL))
+        {
+            throw new InvalidOperationException("JiwaAPIURL is not configured.");
+        }
+
+        using var httpClient = new System.Net.Http.HttpClient();
+        httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {ResolveApiKey()}");
+        var baseUri = new Uri(Config.JiwaAPIURL.TrimEnd('/') + '/');
+        var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, new Uri(baseUri, relativeUrl))
+        {
+            Content = new System.Net.Http.StringContent(jsonBody, Encoding.UTF8, "application/json")
+        };
+        var response = await httpClient.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+        var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+        var contentType = response.Content.Headers.ContentType?.MediaType;
+        return (bytes, contentType);
+    }
 }

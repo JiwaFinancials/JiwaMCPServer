@@ -1,10 +1,11 @@
 using JiwaFinancials.Jiwa.JiwaServiceModel;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
-using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory;
+using System.Diagnostics;
 
 namespace JiwaMcpServer.Tools;
 
@@ -50,4 +51,27 @@ public class ProductTools : JiwaToolBase
             var response = await JiwaApiClient.GetAsync(requestDTO, ct);
             return response.Results.ToJson<List<IN_Categories>>();
         });
+
+    [McpServerTool, Description("Get the picture for a product (inventory item) by InventoryID. Returns the picture as image content.")]
+    public async Task<IEnumerable<ModelContextProtocol.Protocol.ContentBlock>> GetProductPicture([Description("The InventoryID of the product to retrieve the picture for.")] string inventoryID, CancellationToken ct = default)
+    {
+        try
+        {
+            var jsonBody = $"{{\"InventoryID\":\"{inventoryID}\"}}";
+            var (bytes, contentType) = await JiwaApiClient.GetRawBytesAsync("Inventory/Picture", jsonBody, ct);
+            if (bytes == null || bytes.Length == 0)
+                return [new ModelContextProtocol.Protocol.TextContentBlock { Text = $"No picture found for product '{inventoryID}'." }];
+
+            var mimeType = contentType ?? "image/jpeg";
+            return [ModelContextProtocol.Protocol.ImageContentBlock.FromBytes(bytes, mimeType)];
+        }
+        catch (WebServiceException ex)
+        {
+            return [new ModelContextProtocol.Protocol.TextContentBlock { Text = $"Error retrieving picture for product '{inventoryID}': {ex.StatusCode} {ex.StatusDescription} - {ex.ErrorMessage}" }];
+        }
+        catch (Exception ex)
+        {
+            return [new ModelContextProtocol.Protocol.TextContentBlock { Text = $"Error retrieving picture for product '{inventoryID}': {ex.Message}" }];
+        }
+    }
 }
