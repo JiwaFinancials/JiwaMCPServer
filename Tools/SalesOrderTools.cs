@@ -14,14 +14,6 @@ namespace JiwaMcpServer.Tools;
 [McpServerToolType]
 public class SalesOrderTools : JiwaToolBase
 {
-    [McpServerTool, Description("Search for sales orders by field. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
-    public Task<string> SearchSalesOrders(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_SalesOrder_ListQuery requestDTO, CancellationToken ct = default)
-        => InvokeToolAsync(async () =>
-        {
-            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
-            return response.Results.ToJson<List<v_Jiwa_SalesOrder_List>>();
-        });
-
     [McpServerTool, Description("Get full details for a sales order. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> GetSalesOrder(SalesOrderGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
@@ -54,11 +46,11 @@ public class SalesOrderTools : JiwaToolBase
             return result.ToJson<SalesOrderLine>();
         });
 
-    [McpServerTool, Description("Retrieves a list of sales. Lot's of historical sales data. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
-    public Task<string> SearchSales(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.SO_SalesQuery requestDTO, CancellationToken ct = default)
+    [McpServerTool, Description("Search for sales orders by field. Sales orders are also known as sales invoices. Lot's of current and historical sales data. You can use the GetSalesOrder tool to retrieve full details for a specific sales order if required. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> SearchSalesOrders(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_SalesInformationQuery requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
             var response = await JiwaApiClient.GetAsync(requestDTO, ct);
-            return response.Results.ToJson<List<SO_Sales>>();
+            return response.Results.ToJson<List<v_Jiwa_SalesInformation>>();
         });
 }
