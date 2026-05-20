@@ -12,7 +12,7 @@ namespace JiwaMcpServer.Tools;
 [McpServerToolType]
 public class ProductTools : JiwaToolBase
 {
-    [McpServerTool, Description("Search for products by field. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(ReadOnly = true), Description("Search for products by field. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. When the user requests all or a complete list, page using skip and take until fewer rows than take are returned or zero rows are returned, then aggregate all pages.")]
     public Task<string> SearchProducts(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Inventory_Item_ListQuery requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -28,7 +28,7 @@ public class ProductTools : JiwaToolBase
             return result.ToJson<InventoryItem>();
         });
 
-    [McpServerTool, Description("Get stock on hand quantities for a product by field. Products are also know as inventory items.")]
+    [McpServerTool(ReadOnly = true), Description("Get stock on hand quantities for a product by field. Products are also known as inventory items. Supports pagination via skip and take parameters. A single call may return only a partial result set. When the user requests all or a complete list, page using skip and take until fewer rows than take are returned or zero rows are returned, then aggregate all pages.")]
     public Task<string> GetStockOnHand(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_IN_SOHWithBinLocationsQuery requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -36,7 +36,7 @@ public class ProductTools : JiwaToolBase
             return response.Results.ToJson<List<v_IN_SOHWithBinLocations>>();
         });
 
-    [McpServerTool, Description("Retrieves a list of inventory item classifications. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(ReadOnly = true), Description("Retrieves a list of inventory item classifications. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. When the user requests all or a complete list, page using skip and take until fewer rows than take are returned or zero rows are returned, then aggregate all pages.")]
     public Task<string> SearchProductClassifications(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.IN_ClassificationQuery requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -44,7 +44,7 @@ public class ProductTools : JiwaToolBase
             return response.Results.ToJson<List<IN_Classification>>();
         });
 
-    [McpServerTool, Description("Retrieves a list of inventory item categories. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(ReadOnly = true), Description("Retrieves a list of inventory item categories. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. When the user requests all or a complete list, page using skip and take until fewer rows than take are returned or zero rows are returned, then aggregate all pages.")]
     public Task<string> SearchProductCategories(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.IN_CategoriesQuery requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
