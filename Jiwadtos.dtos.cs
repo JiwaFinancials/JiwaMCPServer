@@ -1,18 +1,20 @@
+using JiwaFinancials.Jiwa.JiwaServiceModel.Creditors;
 using JiwaFinancials.Jiwa.JiwaServiceModel.CustomFields;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors;
-using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors.Classification;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors.Category;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors.Classification;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors.PricingGroup;
 using JiwaFinancials.Jiwa.JiwaServiceModel.DebtorSystemTemplates;
 using JiwaFinancials.Jiwa.JiwaServiceModel.GeneralLedger;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory.Category;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory.Classification;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Notes;
 using JiwaFinancials.Jiwa.JiwaServiceModel.SalesOrders;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Staff;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tags;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tax;
-using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory.Classification;
-using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory.Category;
-using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory;
 using ServiceStack;
 using ServiceStack.DataAnnotations;
 using System.Reflection.Metadata;
@@ -22,6 +24,19 @@ using System.Runtime.Serialization;
 #region "Request DTOs"
 namespace JiwaFinancials.Jiwa.JiwaServiceModel
 {
+    #region "Creditors"
+    [Route("/Creditors/{CreditorID}", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    [ApiResponse(Description = "No creditor with the CreditorID provided was found", StatusCode = 404)]
+    public partial class CreditorGETRequest
+        : IReturn<Creditor>
+    {
+        public virtual string? CreditorID { get; set; }
+    }
+    #endregion
+
     #region "Debtors"
     [Route("/Debtors/{DebtorID}", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
@@ -215,6 +230,219 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
 #endregion
 
 #region "Models"
+#region "Banking"
+namespace JiwaFinancials.Jiwa.JiwaServiceModel.Banking
+{
+    [Serializable()]
+    public class BankAccount
+    {
+        public BankAccount()
+        {
+            Currency = new Currencies.Currency() { };
+            LedgerAccount = new Account() { };
+            FeesLedgerAccount = new Account() { };
+            CustomFieldValues = new List<CustomFieldValue>() { };
+            Documents = new List<Document>() { };
+            Notes = new List<Note>() { };
+        }
+
+        virtual public string? RecID { get; set; }
+        virtual public string? BankAccountCode { get; set; }
+        virtual public string? Description { get; set; }
+        virtual public byte[]? Picture { get; set; }
+        virtual public Currencies.Currency Currency { get; set; }
+        virtual public string? BankName { get; set; }
+        virtual public string? BankAccountName { get; set; }
+        virtual public string? BankBSB { get; set; }
+        virtual public string? BankAccountNo { get; set; }
+        virtual public string? SWIFTBIC { get; set; }
+        virtual public string? IBAN { get; set; }
+        virtual public string? EFTBankCode { get; set; }
+        virtual public string? UserIdentificationNumber { get; set; }
+        virtual public Account LedgerAccount { get; set; }
+        virtual public Account FeesLedgerAccount { get; set; }
+        virtual public bool? IsEnabled { get; set; }
+        virtual public bool? IsDefault { get; set; }
+        virtual public DateTimeOffset? LastSavedDateTime { get; set; }
+        virtual public byte[]? RowHash { get; set; }
+        virtual public List<CustomFieldValue> CustomFieldValues { get; set; }
+        virtual public List<Document> Documents { get; set; }
+        virtual public List<Note> Notes { get; set; }
+    }
+
+}
+#endregion
+
+#region "Creditors"
+namespace JiwaFinancials.Jiwa.JiwaServiceModel.Creditors
+{
+    public class Creditor
+    {
+        public Creditor()
+        {
+            Classification = new Classification.CreditorClassification() { };
+            WarehouseAddresses = new List<CreditorWarehouseAddress>() { };
+            Notes = new List<Note>() { };
+            CustomFieldValues = new List<CustomFieldValue>() { };
+            Documents = new List<Document>() { };
+            TagMemberships = new List<Tag>() { };
+            Balances = new List<CreditorBalance>() { };
+        }
+
+        virtual public string? CreditorID { get; set; }
+        virtual public string? AccountNo { get; set; }
+        virtual public string? AltAccountNo { get; set; }
+        virtual public string? Name { get; set; }
+        virtual public string? Address1 { get; set; }
+        virtual public string? Address2 { get; set; }
+        virtual public string? Address3 { get; set; }
+        virtual public string? Address4 { get; set; }
+        virtual public string? Postcode { get; set; }
+        virtual public string? Country { get; set; }
+        virtual public string? Phone { get; set; }
+        virtual public string? Fax { get; set; }
+        virtual public string? EmailAddress { get; set; }
+        virtual public string? ACN { get; set; }
+        virtual public string? ABN { get; set; }
+        virtual public string? AustPostDPID { get; set; }
+        virtual public string? AustPostBCSP { get; set; }
+        virtual public string? BankName { get; set; }
+        virtual public string? BankAccountNo { get; set; }
+        virtual public string? BankBSBN { get; set; }
+        virtual public string? BankAccountName { get; set; }
+        virtual public string? DefaultCurrencyID { get; set; }
+        virtual public string? DefaultCurrencyName { get; set; }
+        virtual public string? DefaultCurrencyShortName { get; set; }
+        virtual public short? DefaultCurrencyDecimalPlaces { get; set; }
+        virtual public Classification.CreditorClassification Classification { get; set; } = new Classification.CreditorClassification();
+        virtual public List<CreditorWarehouseAddress> WarehouseAddresses { get; set; } = new List<CreditorWarehouseAddress>();
+        virtual public List<Note> Notes { get; set; } = new List<Note>();
+        virtual public List<CustomFieldValue> CustomFieldValues { get; set; } = new List<CustomFieldValue>();
+        virtual public List<Document> Documents { get; set; } = new List<Document>();
+        virtual public System.DateTimeOffset? LastSavedDateTime { get; set; }
+        virtual public List<Tag> TagMemberships { get; set; } = new List<Tag>();
+        virtual public List<CreditorBalance> Balances { get; set; } = new List<CreditorBalance>();
+        virtual public byte?[]? RowHash { get; set; }
+        virtual public decimal? CreditLimit { get; set; }
+    }
+
+    [Serializable()]
+    public class CreditorLedger
+    {
+        virtual public string? LedgerID { get; set; }
+        virtual public string? Name { get; set; }
+        virtual public string? LedgerAccountID { get; set; }
+        virtual public string? LedgerAccountNo { get; set; }
+        virtual public string? LedgerAccountDescription { get; set; }
+    }
+
+    public class CreditorBalance
+    {
+        virtual public string? CurrencyID { get; set; }
+        virtual public string? CurrencyName { get; set; }
+        virtual public string? CurrencyShortName { get; set; }
+        virtual public short? CurrencyDecimalPlaces { get; set; }
+        virtual public decimal? Period1 { get; set; }
+        virtual public decimal? Period2 { get; set; }
+        virtual public decimal? Period3 { get; set; }
+        virtual public decimal? Period4 { get; set; }
+        virtual public decimal? Total { get; set; }
+        virtual public decimal? FXPeriod1 { get; set; }
+        virtual public decimal? FXPeriod2 { get; set; }
+        virtual public decimal? FXPeriod3 { get; set; }
+        virtual public decimal? FXPeriod4 { get; set; }
+        virtual public decimal? FXTotal { get; set; }
+    }
+
+    [Serializable()]
+    public class CreditorWarehouseAddress
+    {
+        virtual public string? WarehouseAddressID { get; set; }
+        virtual public string? Description { get; set; }
+        virtual public string? Address1 { get; set; }
+        virtual public string? Address2 { get; set; }
+        virtual public string? Address3 { get; set; }
+        virtual public string? Address4 { get; set; }
+        virtual public string? Postcode { get; set; }
+        virtual public string? Country { get; set; }
+        virtual public string? Notes { get; set; }
+        virtual public string? CourierDetails { get; set; }
+        virtual public int? DefaultDeliveryDays { get; set; }
+        virtual public bool? IsDefault { get; set; }
+    }
+}
+
+namespace JiwaFinancials.Jiwa.JiwaServiceModel.Creditors.Classification
+{
+    [Serializable()]
+    public class CreditorClassification
+    {
+        public CreditorClassification()
+        {
+            CreditorLedgers = new List<CreditorLedger> { };
+            CustomFields = new List<CustomFieldValue> { };
+            DefaultPaymentBankAccount = new Banking.BankAccount { };
+        }
+
+        public enum CreditorTermsTypes
+        {
+            Invoice = 0,
+            Statement = 1
+        }
+
+        virtual public string? ClassificationID { get; set; }
+        virtual public string? Description { get; set; }
+        virtual public System.DateTimeOffset? LastSavedDateTime { get; set; }
+        virtual public bool? IsDefault { get; set; }
+        virtual public int? TermsDays { get; set; }
+        virtual public CreditorTermsTypes? TermsType { get; set; }
+        virtual public string? PO_Workflows_RecID { get; set; }
+        virtual public string? PO_Workflows_Name { get; set; }
+        virtual public string? PO_Workflows_Description { get; set; }
+        virtual public List<JiwaServiceModel.Creditors.CreditorLedger> CreditorLedgers { get; set; }
+        virtual public List<JiwaServiceModel.CustomFields.CustomFieldValue> CustomFields { get; set; }
+        virtual public Banking.BankAccount DefaultPaymentBankAccount { get; set; }
+    }
+}
+#endregion
+
+#region "Currencies"
+namespace JiwaFinancials.Jiwa.JiwaServiceModel.Currencies
+{
+    [Serializable()]
+    public class Currency
+    {
+        public Currency()
+        {
+            Rates = new List<CurrencyRate>() { };
+            CustomFields = new List<CustomFieldValue>() { };
+        }
+
+        virtual public string? CurrencyID { get; set; }
+        virtual public string? Name { get; set; }
+        virtual public string? ShortName { get; set; }
+        virtual public string? Symbol { get; set; }
+        virtual public byte[]? Picture { get; set; }
+        virtual public short? DecimalPlaces { get; set; }
+        virtual public bool? IsEnabled { get; set; }
+        virtual public bool? IsLocal { get; set; }
+        virtual public System.DateTimeOffset? LastSavedDateTime { get; set; }
+        virtual public List<CurrencyRate> Rates { get; set; }
+        virtual public List<CustomFieldValue> CustomFields { get; set; }
+    }
+
+    [Serializable()]
+    public class CurrencyRate
+    {
+        virtual public string? RateID { get; set; }
+        virtual public System.DateTime? DateEntered { get; set; }
+        virtual public System.DateTime? EffectiveDate { get; set; }
+        virtual public System.DateTime? EffectiveDateEnd { get; set; }
+        virtual public decimal? TransactionRate { get; set; }
+    }
+}
+#endregion
+
 #region "Custom Fields"
 namespace JiwaFinancials.Jiwa.JiwaServiceModel.CustomFields
 {
@@ -2174,6 +2402,1465 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel.Tax
 #region "AutoQueries and Tables"
 namespace JiwaFinancials.Jiwa.JiwaServiceModel.Tables
 {
+    #region "Banking"
+    [Serializable()]
+    public partial class BA_BankAccount
+    {
+        [Required]
+        [PrimaryKey]
+        public Guid RecID { get; set; }
+        [Required]
+        public string? BankAccountCode { get; set; }
+        public string? Description { get; set; }
+        public byte?[]? Picture { get; set; }
+        [References(typeof(FX_Currency))]
+        [Required]
+        public string? FX_Currency_RecID { get; set; }
+        public string? BankName { get; set; }
+        public string? BankAccountName { get; set; }
+        public string? BankBSB { get; set; }
+        public string? BankAccountNo { get; set; }
+        public string? SWIFTBIC { get; set; }
+        public string? IBAN { get; set; }
+        public string? EFTBankCode { get; set; }
+        public string? UserIdentificationNumber { get; set; }
+        [References(typeof(GL_Ledger))]
+        [Required]
+        public string? GL_Ledger_GLLedgerID { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? Fees_GL_Ledger_GLLedgerID { get; set; }
+        [Required]
+        public bool IsEnabled { get; set; }
+        [Required]
+        public bool IsDefault { get; set; }
+        [Required]
+        public DateTimeOffset LastSavedDateTime { get; set; }
+        [Required]
+        public byte?[]? RowHash { get; set; }
+        public string? ABAFormatProvider { get; set; }
+    }
+
+
+    [Route("/Queries/BA_BankAccount", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public partial class BA_BankAccountQuery : QueryDb<BA_BankAccount>
+    {
+
+        public Guid? RecID { get; set; }
+        public Guid?[]? RecIDIn { get; set; }
+
+        public string? BankAccountCode { get; set; }
+
+        public string? BankAccountCodeStartsWith { get; set; }
+        public string? BankAccountCodeEndsWith { get; set; }
+        public string? BankAccountCodeContains { get; set; }
+        public string? BankAccountCodeLike { get; set; }
+        public string?[]? BankAccountCodeBetween { get; set; }
+        public string?[]? BankAccountCodeIn { get; set; }
+
+        public string? Description { get; set; }
+
+        public string? DescriptionStartsWith { get; set; }
+        public string? DescriptionEndsWith { get; set; }
+        public string? DescriptionContains { get; set; }
+        public string? DescriptionLike { get; set; }
+        public string?[]? DescriptionBetween { get; set; }
+        public string?[]? DescriptionIn { get; set; }
+
+        public byte?[]? Picture { get; set; }
+
+        public string? FX_Currency_RecID { get; set; }
+
+        public string? FX_Currency_RecIDStartsWith { get; set; }
+        public string? FX_Currency_RecIDEndsWith { get; set; }
+        public string? FX_Currency_RecIDContains { get; set; }
+        public string? FX_Currency_RecIDLike { get; set; }
+        public string?[]? FX_Currency_RecIDBetween { get; set; }
+        public string?[]? FX_Currency_RecIDIn { get; set; }
+
+        public string? BankName { get; set; }
+
+        public string? BankNameStartsWith { get; set; }
+        public string? BankNameEndsWith { get; set; }
+        public string? BankNameContains { get; set; }
+        public string? BankNameLike { get; set; }
+        public string?[]? BankNameBetween { get; set; }
+        public string?[]? BankNameIn { get; set; }
+
+        public string? BankAccountName { get; set; }
+
+        public string? BankAccountNameStartsWith { get; set; }
+        public string? BankAccountNameEndsWith { get; set; }
+        public string? BankAccountNameContains { get; set; }
+        public string? BankAccountNameLike { get; set; }
+        public string?[]? BankAccountNameBetween { get; set; }
+        public string?[]? BankAccountNameIn { get; set; }
+
+        public string? BankBSB { get; set; }
+
+        public string? BankBSBStartsWith { get; set; }
+        public string? BankBSBEndsWith { get; set; }
+        public string? BankBSBContains { get; set; }
+        public string? BankBSBLike { get; set; }
+        public string?[]? BankBSBBetween { get; set; }
+        public string?[]? BankBSBIn { get; set; }
+
+        public string? BankAccountNo { get; set; }
+
+        public string? BankAccountNoStartsWith { get; set; }
+        public string? BankAccountNoEndsWith { get; set; }
+        public string? BankAccountNoContains { get; set; }
+        public string? BankAccountNoLike { get; set; }
+        public string?[]? BankAccountNoBetween { get; set; }
+        public string?[]? BankAccountNoIn { get; set; }
+
+        public string? SWIFTBIC { get; set; }
+
+        public string? SWIFTBICStartsWith { get; set; }
+        public string? SWIFTBICEndsWith { get; set; }
+        public string? SWIFTBICContains { get; set; }
+        public string? SWIFTBICLike { get; set; }
+        public string?[]? SWIFTBICBetween { get; set; }
+        public string?[]? SWIFTBICIn { get; set; }
+
+        public string? IBAN { get; set; }
+
+        public string? IBANStartsWith { get; set; }
+        public string? IBANEndsWith { get; set; }
+        public string? IBANContains { get; set; }
+        public string? IBANLike { get; set; }
+        public string?[]? IBANBetween { get; set; }
+        public string?[]? IBANIn { get; set; }
+
+        public string? EFTBankCode { get; set; }
+
+        public string? EFTBankCodeStartsWith { get; set; }
+        public string? EFTBankCodeEndsWith { get; set; }
+        public string? EFTBankCodeContains { get; set; }
+        public string? EFTBankCodeLike { get; set; }
+        public string?[]? EFTBankCodeBetween { get; set; }
+        public string?[]? EFTBankCodeIn { get; set; }
+
+        public string? UserIdentificationNumber { get; set; }
+
+        public string? UserIdentificationNumberStartsWith { get; set; }
+        public string? UserIdentificationNumberEndsWith { get; set; }
+        public string? UserIdentificationNumberContains { get; set; }
+        public string? UserIdentificationNumberLike { get; set; }
+        public string?[]? UserIdentificationNumberBetween { get; set; }
+        public string?[]? UserIdentificationNumberIn { get; set; }
+
+        public string? GL_Ledger_GLLedgerID { get; set; }
+
+        public string? GL_Ledger_GLLedgerIDStartsWith { get; set; }
+        public string? GL_Ledger_GLLedgerIDEndsWith { get; set; }
+        public string? GL_Ledger_GLLedgerIDContains { get; set; }
+        public string? GL_Ledger_GLLedgerIDLike { get; set; }
+        public string?[]? GL_Ledger_GLLedgerIDBetween { get; set; }
+        public string?[]? GL_Ledger_GLLedgerIDIn { get; set; }
+
+        public string? Fees_GL_Ledger_GLLedgerID { get; set; }
+
+        public string? Fees_GL_Ledger_GLLedgerIDStartsWith { get; set; }
+        public string? Fees_GL_Ledger_GLLedgerIDEndsWith { get; set; }
+        public string? Fees_GL_Ledger_GLLedgerIDContains { get; set; }
+        public string? Fees_GL_Ledger_GLLedgerIDLike { get; set; }
+        public string?[]? Fees_GL_Ledger_GLLedgerIDBetween { get; set; }
+        public string?[]? Fees_GL_Ledger_GLLedgerIDIn { get; set; }
+
+        public bool? IsEnabled { get; set; }
+
+        public bool? IsDefault { get; set; }
+
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+
+        public DateTimeOffset? LastSavedDateTimeGreaterThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeGreaterThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeNotEqualTo { get; set; }
+        public DateTimeOffset?[]? LastSavedDateTimeBetween { get; set; }
+        public DateTimeOffset?[]? LastSavedDateTimeIn { get; set; }
+
+        public byte?[]? RowHash { get; set; }
+
+        public string? ABAFormatProvider { get; set; }
+
+        public string? ABAFormatProviderStartsWith { get; set; }
+        public string? ABAFormatProviderEndsWith { get; set; }
+        public string? ABAFormatProviderContains { get; set; }
+        public string? ABAFormatProviderLike { get; set; }
+        public string?[]? ABAFormatProviderBetween { get; set; }
+        public string?[]? ABAFormatProviderIn { get; set; }
+
+    }
+    #endregion
+
+    #region "Creditors"
+    [Serializable()]
+    public partial class v_Jiwa_CreditorSummary
+    {
+        [Required]
+        public string? CreditorID { get; set; }
+        [Required]
+        public string? AccountNo { get; set; }
+        public string? Name { get; set; }
+        public string? TradingName { get; set; }
+        public string? CompanyName { get; set; }
+        [Required]
+        public bool AccountOnHold { get; set; }
+        public decimal? CreditLimit { get; set; }
+        public string? DefaultCurrencyShortName { get; set; }
+        public string? Phone { get; set; }
+        public string? Fax { get; set; }
+        public string? EmailAddress { get; set; }
+        public string? AlternativeAccountNo { get; set; }
+        public string? MailingAddress1 { get; set; }
+        public string? MailingAddress2 { get; set; }
+        public string? MailingAddress3 { get; set; }
+        public string? MailingAddress4 { get; set; }
+        public string? MailingPostCode { get; set; }
+        public string? MailingCountry { get; set; }
+        public string? MailingAustraliaPostDeliveryPointIdentifier { get; set; }
+        public string? MailingAustraliaPostBarcodeSortPlan { get; set; }
+        public string? ABN { get; set; }
+        public string? ACN { get; set; }
+        public DateTime? CommenceDate { get; set; }
+        public short? TermsDays { get; set; }
+        [Required]
+        public string? TermsType { get; set; }
+        [Required]
+        public decimal MinimumPurchaseOrderValue { get; set; }
+        [Required]
+        public decimal MaximumPurchaseOrderValue { get; set; }
+        public short? StatementDiscountDays { get; set; }
+        [Required]
+        public decimal StatementDiscountPercentage { get; set; }
+        public string? LedgerIDCreditorControl { get; set; }
+        public string? LedgerIDCreditorControl_AccountNo { get; set; }
+        public string? LedgerIDCreditorControl_Description { get; set; }
+        public string? LedgerIDCreditorPurchases { get; set; }
+        public string? LedgerIDCreditorPurchases_AccountNo { get; set; }
+        public string? LedgerIDCreditorPurchases_Description { get; set; }
+        public string? LedgerIDCreditorDiscounts { get; set; }
+        public string? LedgerIDCreditorDiscounts_AccountNo { get; set; }
+        public string? LedgerIDCreditorDiscounts_Description { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustment { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustment_AccountNo { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustment_Description { get; set; }
+        public string? LedgerIDCreditorSourcedPurchase { get; set; }
+        public string? LedgerIDCreditorSourcedPurchase_AccountNo { get; set; }
+        public string? LedgerIDCreditorSourcedPurchase_Description { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustment { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustment_AccountNo { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustment_Description { get; set; }
+        public string? LedgerIDCreditorFreight { get; set; }
+        public string? LedgerIDCreditorFreight_AccountNo { get; set; }
+        public string? LedgerIDCreditorFreight_Description { get; set; }
+        public string? LedgerIDCreditorInsurance { get; set; }
+        public string? LedgerIDCreditorInsurance_AccountNo { get; set; }
+        public string? LedgerIDCreditorInsurance_Description { get; set; }
+        public string? LedgerIDCreditorDuty { get; set; }
+        public string? LedgerIDCreditorDuty_AccountNo { get; set; }
+        public string? LedgerIDCreditorDuty_Description { get; set; }
+        public string? LedgerIDCreditorRealisedGainLoss { get; set; }
+        public string? LedgerIDCreditorRealisedGainLoss_AccountNo { get; set; }
+        public string? LedgerIDCreditorRealisedGainLoss_Description { get; set; }
+        public byte? TradingStatusCode { get; set; }
+        [Required]
+        public string? TradingStatus { get; set; }
+        public string? ProprietorName { get; set; }
+        public string? SupplierBankName { get; set; }
+        public string? SupplierBankAccountNo { get; set; }
+        public string? SupplierBSBN { get; set; }
+        public string? SupplierBankAccountName { get; set; }
+        public Guid? DefaultPaymentBankAccountRecID { get; set; }
+        public string? DefaultPaymentBankName { get; set; }
+        public string? DefaultPaymentBankAccountNo { get; set; }
+        public string? DefaultPaymentBSBN { get; set; }
+        public string? DefaultPaymentBankAccountAccountName { get; set; }
+        public string? DefaultWarehouseID { get; set; }
+        public string? DefaultWarehouseDescription { get; set; }
+        public string? DefaultWarehouseAddress1 { get; set; }
+        public string? DefaultWarehouseAddress2 { get; set; }
+        public string? DefaultWarehouseAddress3 { get; set; }
+        public string? DefaultWarehouseAddress4 { get; set; }
+        public string? DefaultWarehousePostCode { get; set; }
+        public string? DefaultWarehouseCountry { get; set; }
+        public string? DefaultWarehouseCourierDetails { get; set; }
+        public string? DefaultWarehouseNotes { get; set; }
+        public short? DefaultWarehouseDefaultDeliveryDays { get; set; }
+        public string? PurchaseOrderWorkflowID { get; set; }
+        public string? PurchaseOrderWorkflowName { get; set; }
+        public short? PeriodTypeCode { get; set; }
+        [Required]
+        public string? PeriodType { get; set; }
+        [Required]
+        public decimal Period1Balance { get; set; }
+        [Required]
+        public decimal Period2Balance { get; set; }
+        [Required]
+        public decimal Period3Balance { get; set; }
+        [Required]
+        public decimal Period4Balance { get; set; }
+        [Required]
+        public decimal TotalBalance { get; set; }
+        [Required]
+        public string? CreditorTags { get; set; }
+    }
+
+
+    [Route("/Queries/v_Jiwa_CreditorSummary", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public partial class v_Jiwa_CreditorSummaryQuery : QueryDb<v_Jiwa_CreditorSummary>
+    {
+        public string? CreditorID { get; set; }
+
+        public string? CreditorIDStartsWith { get; set; }
+        public string? CreditorIDEndsWith { get; set; }
+        public string? CreditorIDContains { get; set; }
+        public string? CreditorIDLike { get; set; }
+        public string?[]? CreditorIDBetween { get; set; }
+        public string?[]? CreditorIDIn { get; set; }
+
+        public string? AccountNo { get; set; }
+
+        public string? AccountNoStartsWith { get; set; }
+        public string? AccountNoEndsWith { get; set; }
+        public string? AccountNoContains { get; set; }
+        public string? AccountNoLike { get; set; }
+        public string?[]? AccountNoBetween { get; set; }
+        public string?[]? AccountNoIn { get; set; }
+
+        public string? Name { get; set; }
+
+        public string? NameStartsWith { get; set; }
+        public string? NameEndsWith { get; set; }
+        public string? NameContains { get; set; }
+        public string? NameLike { get; set; }
+        public string?[]? NameBetween { get; set; }
+        public string?[]? NameIn { get; set; }
+
+        public string? TradingName { get; set; }
+
+        public string? TradingNameStartsWith { get; set; }
+        public string? TradingNameEndsWith { get; set; }
+        public string? TradingNameContains { get; set; }
+        public string? TradingNameLike { get; set; }
+        public string?[]? TradingNameBetween { get; set; }
+        public string?[]? TradingNameIn { get; set; }
+
+        public string? CompanyName { get; set; }
+
+        public string? CompanyNameStartsWith { get; set; }
+        public string? CompanyNameEndsWith { get; set; }
+        public string? CompanyNameContains { get; set; }
+        public string? CompanyNameLike { get; set; }
+        public string?[]? CompanyNameBetween { get; set; }
+        public string?[]? CompanyNameIn { get; set; }
+
+        public bool? AccountOnHold { get; set; }
+
+        public decimal? CreditLimit { get; set; }
+
+        public decimal? CreditLimitGreaterThanOrEqualTo { get; set; }
+        public decimal? CreditLimitGreaterThan { get; set; }
+        public decimal? CreditLimitLessThan { get; set; }
+        public decimal? CreditLimitLessThanOrEqualTo { get; set; }
+        public decimal? CreditLimitNotEqualTo { get; set; }
+        public decimal?[]? CreditLimitBetween { get; set; }
+        public decimal?[]? CreditLimitIn { get; set; }
+
+        public string? DefaultCurrencyShortName { get; set; }
+
+        public string? DefaultCurrencyShortNameStartsWith { get; set; }
+        public string? DefaultCurrencyShortNameEndsWith { get; set; }
+        public string? DefaultCurrencyShortNameContains { get; set; }
+        public string? DefaultCurrencyShortNameLike { get; set; }
+        public string?[]? DefaultCurrencyShortNameBetween { get; set; }
+        public string?[]? DefaultCurrencyShortNameIn { get; set; }
+
+        public string? Phone { get; set; }
+
+        public string? PhoneStartsWith { get; set; }
+        public string? PhoneEndsWith { get; set; }
+        public string? PhoneContains { get; set; }
+        public string? PhoneLike { get; set; }
+        public string?[]? PhoneBetween { get; set; }
+        public string?[]? PhoneIn { get; set; }
+
+        public string? Fax { get; set; }
+
+        public string? FaxStartsWith { get; set; }
+        public string? FaxEndsWith { get; set; }
+        public string? FaxContains { get; set; }
+        public string? FaxLike { get; set; }
+        public string?[]? FaxBetween { get; set; }
+        public string?[]? FaxIn { get; set; }
+
+        public string? EmailAddress { get; set; }
+
+        public string? EmailAddressStartsWith { get; set; }
+        public string? EmailAddressEndsWith { get; set; }
+        public string? EmailAddressContains { get; set; }
+        public string? EmailAddressLike { get; set; }
+        public string?[]? EmailAddressBetween { get; set; }
+        public string?[]? EmailAddressIn { get; set; }
+
+        public string? AlternativeAccountNo { get; set; }
+
+        public string? AlternativeAccountNoStartsWith { get; set; }
+        public string? AlternativeAccountNoEndsWith { get; set; }
+        public string? AlternativeAccountNoContains { get; set; }
+        public string? AlternativeAccountNoLike { get; set; }
+        public string?[]? AlternativeAccountNoBetween { get; set; }
+        public string?[]? AlternativeAccountNoIn { get; set; }
+
+        public string? MailingAddress1 { get; set; }
+
+        public string? MailingAddress1StartsWith { get; set; }
+        public string? MailingAddress1EndsWith { get; set; }
+        public string? MailingAddress1Contains { get; set; }
+        public string? MailingAddress1Like { get; set; }
+        public string?[]? MailingAddress1Between { get; set; }
+        public string?[]? MailingAddress1In { get; set; }
+
+        public string? MailingAddress2 { get; set; }
+
+        public string? MailingAddress2StartsWith { get; set; }
+        public string? MailingAddress2EndsWith { get; set; }
+        public string? MailingAddress2Contains { get; set; }
+        public string? MailingAddress2Like { get; set; }
+        public string?[]? MailingAddress2Between { get; set; }
+        public string?[]? MailingAddress2In { get; set; }
+
+        public string? MailingAddress3 { get; set; }
+
+        public string? MailingAddress3StartsWith { get; set; }
+        public string? MailingAddress3EndsWith { get; set; }
+        public string? MailingAddress3Contains { get; set; }
+        public string? MailingAddress3Like { get; set; }
+        public string?[]? MailingAddress3Between { get; set; }
+        public string?[]? MailingAddress3In { get; set; }
+
+        public string? MailingAddress4 { get; set; }
+
+        public string? MailingAddress4StartsWith { get; set; }
+        public string? MailingAddress4EndsWith { get; set; }
+        public string? MailingAddress4Contains { get; set; }
+        public string? MailingAddress4Like { get; set; }
+        public string?[]? MailingAddress4Between { get; set; }
+        public string?[]? MailingAddress4In { get; set; }
+
+        public string? MailingPostCode { get; set; }
+
+        public string? MailingPostCodeStartsWith { get; set; }
+        public string? MailingPostCodeEndsWith { get; set; }
+        public string? MailingPostCodeContains { get; set; }
+        public string? MailingPostCodeLike { get; set; }
+        public string?[]? MailingPostCodeBetween { get; set; }
+        public string?[]? MailingPostCodeIn { get; set; }
+
+        public string? MailingCountry { get; set; }
+
+        public string? MailingCountryStartsWith { get; set; }
+        public string? MailingCountryEndsWith { get; set; }
+        public string? MailingCountryContains { get; set; }
+        public string? MailingCountryLike { get; set; }
+        public string?[]? MailingCountryBetween { get; set; }
+        public string?[]? MailingCountryIn { get; set; }
+
+        public string? MailingAustraliaPostDeliveryPointIdentifier { get; set; }
+
+        public string? MailingAustraliaPostDeliveryPointIdentifierStartsWith { get; set; }
+        public string? MailingAustraliaPostDeliveryPointIdentifierEndsWith { get; set; }
+        public string? MailingAustraliaPostDeliveryPointIdentifierContains { get; set; }
+        public string? MailingAustraliaPostDeliveryPointIdentifierLike { get; set; }
+        public string?[]? MailingAustraliaPostDeliveryPointIdentifierBetween { get; set; }
+        public string?[]? MailingAustraliaPostDeliveryPointIdentifierIn { get; set; }
+
+        public string? MailingAustraliaPostBarcodeSortPlan { get; set; }
+
+        public string? MailingAustraliaPostBarcodeSortPlanStartsWith { get; set; }
+        public string? MailingAustraliaPostBarcodeSortPlanEndsWith { get; set; }
+        public string? MailingAustraliaPostBarcodeSortPlanContains { get; set; }
+        public string? MailingAustraliaPostBarcodeSortPlanLike { get; set; }
+        public string?[]? MailingAustraliaPostBarcodeSortPlanBetween { get; set; }
+        public string?[]? MailingAustraliaPostBarcodeSortPlanIn { get; set; }
+
+        public string? ABN { get; set; }
+
+        public string? ABNStartsWith { get; set; }
+        public string? ABNEndsWith { get; set; }
+        public string? ABNContains { get; set; }
+        public string? ABNLike { get; set; }
+        public string?[]? ABNBetween { get; set; }
+        public string?[]? ABNIn { get; set; }
+
+        public string? ACN { get; set; }
+
+        public string? ACNStartsWith { get; set; }
+        public string? ACNEndsWith { get; set; }
+        public string? ACNContains { get; set; }
+        public string? ACNLike { get; set; }
+        public string?[]? ACNBetween { get; set; }
+        public string?[]? ACNIn { get; set; }
+
+        public DateTime? CommenceDate { get; set; }
+
+        public DateTime? CommenceDateGreaterThanOrEqualTo { get; set; }
+        public DateTime? CommenceDateGreaterThan { get; set; }
+        public DateTime? CommenceDateLessThan { get; set; }
+        public DateTime? CommenceDateLessThanOrEqualTo { get; set; }
+        public DateTime? CommenceDateNotEqualTo { get; set; }
+        public DateTime?[]? CommenceDateBetween { get; set; }
+        public DateTime?[]? CommenceDateIn { get; set; }
+
+        public short? TermsDays { get; set; }
+
+        public short? TermsDaysGreaterThanOrEqualTo { get; set; }
+        public short? TermsDaysGreaterThan { get; set; }
+        public short? TermsDaysLessThan { get; set; }
+        public short? TermsDaysLessThanOrEqualTo { get; set; }
+        public short? TermsDaysNotEqualTo { get; set; }
+        public short?[]? TermsDaysBetween { get; set; }
+        public short?[]? TermsDaysIn { get; set; }
+
+        public string? TermsType { get; set; }
+
+        public string? TermsTypeStartsWith { get; set; }
+        public string? TermsTypeEndsWith { get; set; }
+        public string? TermsTypeContains { get; set; }
+        public string? TermsTypeLike { get; set; }
+        public string?[]? TermsTypeBetween { get; set; }
+        public string?[]? TermsTypeIn { get; set; }
+
+        public decimal? MinimumPurchaseOrderValue { get; set; }
+
+        public decimal? MinimumPurchaseOrderValueGreaterThanOrEqualTo { get; set; }
+        public decimal? MinimumPurchaseOrderValueGreaterThan { get; set; }
+        public decimal? MinimumPurchaseOrderValueLessThan { get; set; }
+        public decimal? MinimumPurchaseOrderValueLessThanOrEqualTo { get; set; }
+        public decimal? MinimumPurchaseOrderValueNotEqualTo { get; set; }
+        public decimal?[]? MinimumPurchaseOrderValueBetween { get; set; }
+        public decimal?[]? MinimumPurchaseOrderValueIn { get; set; }
+
+        public decimal? MaximumPurchaseOrderValue { get; set; }
+
+        public decimal? MaximumPurchaseOrderValueGreaterThanOrEqualTo { get; set; }
+        public decimal? MaximumPurchaseOrderValueGreaterThan { get; set; }
+        public decimal? MaximumPurchaseOrderValueLessThan { get; set; }
+        public decimal? MaximumPurchaseOrderValueLessThanOrEqualTo { get; set; }
+        public decimal? MaximumPurchaseOrderValueNotEqualTo { get; set; }
+        public decimal?[]? MaximumPurchaseOrderValueBetween { get; set; }
+        public decimal?[]? MaximumPurchaseOrderValueIn { get; set; }
+
+        public short? StatementDiscountDays { get; set; }
+
+        public short? StatementDiscountDaysGreaterThanOrEqualTo { get; set; }
+        public short? StatementDiscountDaysGreaterThan { get; set; }
+        public short? StatementDiscountDaysLessThan { get; set; }
+        public short? StatementDiscountDaysLessThanOrEqualTo { get; set; }
+        public short? StatementDiscountDaysNotEqualTo { get; set; }
+        public short?[]? StatementDiscountDaysBetween { get; set; }
+        public short?[]? StatementDiscountDaysIn { get; set; }
+
+        public decimal? StatementDiscountPercentage { get; set; }
+
+        public decimal? StatementDiscountPercentageGreaterThanOrEqualTo { get; set; }
+        public decimal? StatementDiscountPercentageGreaterThan { get; set; }
+        public decimal? StatementDiscountPercentageLessThan { get; set; }
+        public decimal? StatementDiscountPercentageLessThanOrEqualTo { get; set; }
+        public decimal? StatementDiscountPercentageNotEqualTo { get; set; }
+        public decimal?[]? StatementDiscountPercentageBetween { get; set; }
+        public decimal?[]? StatementDiscountPercentageIn { get; set; }
+
+        public string? LedgerIDCreditorControl { get; set; }
+
+        public string? LedgerIDCreditorControlStartsWith { get; set; }
+        public string? LedgerIDCreditorControlEndsWith { get; set; }
+        public string? LedgerIDCreditorControlContains { get; set; }
+        public string? LedgerIDCreditorControlLike { get; set; }
+        public string?[]? LedgerIDCreditorControlBetween { get; set; }
+        public string?[]? LedgerIDCreditorControlIn { get; set; }
+
+        public string? LedgerIDCreditorControl_AccountNo { get; set; }
+
+        public string? LedgerIDCreditorControl_AccountNoStartsWith { get; set; }
+        public string? LedgerIDCreditorControl_AccountNoEndsWith { get; set; }
+        public string? LedgerIDCreditorControl_AccountNoContains { get; set; }
+        public string? LedgerIDCreditorControl_AccountNoLike { get; set; }
+        public string?[]? LedgerIDCreditorControl_AccountNoBetween { get; set; }
+        public string?[]? LedgerIDCreditorControl_AccountNoIn { get; set; }
+
+        public string? LedgerIDCreditorControl_Description { get; set; }
+
+        public string? LedgerIDCreditorControl_DescriptionStartsWith { get; set; }
+        public string? LedgerIDCreditorControl_DescriptionEndsWith { get; set; }
+        public string? LedgerIDCreditorControl_DescriptionContains { get; set; }
+        public string? LedgerIDCreditorControl_DescriptionLike { get; set; }
+        public string?[]? LedgerIDCreditorControl_DescriptionBetween { get; set; }
+        public string?[]? LedgerIDCreditorControl_DescriptionIn { get; set; }
+
+        public string? LedgerIDCreditorPurchases { get; set; }
+
+        public string? LedgerIDCreditorPurchasesStartsWith { get; set; }
+        public string? LedgerIDCreditorPurchasesEndsWith { get; set; }
+        public string? LedgerIDCreditorPurchasesContains { get; set; }
+        public string? LedgerIDCreditorPurchasesLike { get; set; }
+        public string?[]? LedgerIDCreditorPurchasesBetween { get; set; }
+        public string?[]? LedgerIDCreditorPurchasesIn { get; set; }
+
+        public string? LedgerIDCreditorPurchases_AccountNo { get; set; }
+
+        public string? LedgerIDCreditorPurchases_AccountNoStartsWith { get; set; }
+        public string? LedgerIDCreditorPurchases_AccountNoEndsWith { get; set; }
+        public string? LedgerIDCreditorPurchases_AccountNoContains { get; set; }
+        public string? LedgerIDCreditorPurchases_AccountNoLike { get; set; }
+        public string?[]? LedgerIDCreditorPurchases_AccountNoBetween { get; set; }
+        public string?[]? LedgerIDCreditorPurchases_AccountNoIn { get; set; }
+
+        public string? LedgerIDCreditorPurchases_Description { get; set; }
+
+        public string? LedgerIDCreditorPurchases_DescriptionStartsWith { get; set; }
+        public string? LedgerIDCreditorPurchases_DescriptionEndsWith { get; set; }
+        public string? LedgerIDCreditorPurchases_DescriptionContains { get; set; }
+        public string? LedgerIDCreditorPurchases_DescriptionLike { get; set; }
+        public string?[]? LedgerIDCreditorPurchases_DescriptionBetween { get; set; }
+        public string?[]? LedgerIDCreditorPurchases_DescriptionIn { get; set; }
+
+        public string? LedgerIDCreditorDiscounts { get; set; }
+
+        public string? LedgerIDCreditorDiscountsStartsWith { get; set; }
+        public string? LedgerIDCreditorDiscountsEndsWith { get; set; }
+        public string? LedgerIDCreditorDiscountsContains { get; set; }
+        public string? LedgerIDCreditorDiscountsLike { get; set; }
+        public string?[]? LedgerIDCreditorDiscountsBetween { get; set; }
+        public string?[]? LedgerIDCreditorDiscountsIn { get; set; }
+
+        public string? LedgerIDCreditorDiscounts_AccountNo { get; set; }
+
+        public string? LedgerIDCreditorDiscounts_AccountNoStartsWith { get; set; }
+        public string? LedgerIDCreditorDiscounts_AccountNoEndsWith { get; set; }
+        public string? LedgerIDCreditorDiscounts_AccountNoContains { get; set; }
+        public string? LedgerIDCreditorDiscounts_AccountNoLike { get; set; }
+        public string?[]? LedgerIDCreditorDiscounts_AccountNoBetween { get; set; }
+        public string?[]? LedgerIDCreditorDiscounts_AccountNoIn { get; set; }
+
+        public string? LedgerIDCreditorDiscounts_Description { get; set; }
+
+        public string? LedgerIDCreditorDiscounts_DescriptionStartsWith { get; set; }
+        public string? LedgerIDCreditorDiscounts_DescriptionEndsWith { get; set; }
+        public string? LedgerIDCreditorDiscounts_DescriptionContains { get; set; }
+        public string? LedgerIDCreditorDiscounts_DescriptionLike { get; set; }
+        public string?[]? LedgerIDCreditorDiscounts_DescriptionBetween { get; set; }
+        public string?[]? LedgerIDCreditorDiscounts_DescriptionIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedDebitAdjustment { get; set; }
+
+        public string? LedgerIDCreditorSourcedDebitAdjustmentStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustmentEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustmentContains { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustmentLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedDebitAdjustmentBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedDebitAdjustmentIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedDebitAdjustment_AccountNo { get; set; }
+
+        public string? LedgerIDCreditorSourcedDebitAdjustment_AccountNoStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustment_AccountNoEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustment_AccountNoContains { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustment_AccountNoLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedDebitAdjustment_AccountNoBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedDebitAdjustment_AccountNoIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedDebitAdjustment_Description { get; set; }
+
+        public string? LedgerIDCreditorSourcedDebitAdjustment_DescriptionStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustment_DescriptionEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustment_DescriptionContains { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustment_DescriptionLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedDebitAdjustment_DescriptionBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedDebitAdjustment_DescriptionIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedPurchase { get; set; }
+
+        public string? LedgerIDCreditorSourcedPurchaseStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedPurchaseEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedPurchaseContains { get; set; }
+        public string? LedgerIDCreditorSourcedPurchaseLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedPurchaseBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedPurchaseIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedPurchase_AccountNo { get; set; }
+
+        public string? LedgerIDCreditorSourcedPurchase_AccountNoStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedPurchase_AccountNoEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedPurchase_AccountNoContains { get; set; }
+        public string? LedgerIDCreditorSourcedPurchase_AccountNoLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedPurchase_AccountNoBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedPurchase_AccountNoIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedPurchase_Description { get; set; }
+
+        public string? LedgerIDCreditorSourcedPurchase_DescriptionStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedPurchase_DescriptionEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedPurchase_DescriptionContains { get; set; }
+        public string? LedgerIDCreditorSourcedPurchase_DescriptionLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedPurchase_DescriptionBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedPurchase_DescriptionIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedCreditAdjustment { get; set; }
+
+        public string? LedgerIDCreditorSourcedCreditAdjustmentStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustmentEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustmentContains { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustmentLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedCreditAdjustmentBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedCreditAdjustmentIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedCreditAdjustment_AccountNo { get; set; }
+
+        public string? LedgerIDCreditorSourcedCreditAdjustment_AccountNoStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustment_AccountNoEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustment_AccountNoContains { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustment_AccountNoLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedCreditAdjustment_AccountNoBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedCreditAdjustment_AccountNoIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedCreditAdjustment_Description { get; set; }
+
+        public string? LedgerIDCreditorSourcedCreditAdjustment_DescriptionStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustment_DescriptionEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustment_DescriptionContains { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustment_DescriptionLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedCreditAdjustment_DescriptionBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedCreditAdjustment_DescriptionIn { get; set; }
+
+        public string? LedgerIDCreditorFreight { get; set; }
+
+        public string? LedgerIDCreditorFreightStartsWith { get; set; }
+        public string? LedgerIDCreditorFreightEndsWith { get; set; }
+        public string? LedgerIDCreditorFreightContains { get; set; }
+        public string? LedgerIDCreditorFreightLike { get; set; }
+        public string?[]? LedgerIDCreditorFreightBetween { get; set; }
+        public string?[]? LedgerIDCreditorFreightIn { get; set; }
+
+        public string? LedgerIDCreditorFreight_AccountNo { get; set; }
+
+        public string? LedgerIDCreditorFreight_AccountNoStartsWith { get; set; }
+        public string? LedgerIDCreditorFreight_AccountNoEndsWith { get; set; }
+        public string? LedgerIDCreditorFreight_AccountNoContains { get; set; }
+        public string? LedgerIDCreditorFreight_AccountNoLike { get; set; }
+        public string?[]? LedgerIDCreditorFreight_AccountNoBetween { get; set; }
+        public string?[]? LedgerIDCreditorFreight_AccountNoIn { get; set; }
+
+        public string? LedgerIDCreditorFreight_Description { get; set; }
+
+        public string? LedgerIDCreditorFreight_DescriptionStartsWith { get; set; }
+        public string? LedgerIDCreditorFreight_DescriptionEndsWith { get; set; }
+        public string? LedgerIDCreditorFreight_DescriptionContains { get; set; }
+        public string? LedgerIDCreditorFreight_DescriptionLike { get; set; }
+        public string?[]? LedgerIDCreditorFreight_DescriptionBetween { get; set; }
+        public string?[]? LedgerIDCreditorFreight_DescriptionIn { get; set; }
+
+        public string? LedgerIDCreditorInsurance { get; set; }
+
+        public string? LedgerIDCreditorInsuranceStartsWith { get; set; }
+        public string? LedgerIDCreditorInsuranceEndsWith { get; set; }
+        public string? LedgerIDCreditorInsuranceContains { get; set; }
+        public string? LedgerIDCreditorInsuranceLike { get; set; }
+        public string?[]? LedgerIDCreditorInsuranceBetween { get; set; }
+        public string?[]? LedgerIDCreditorInsuranceIn { get; set; }
+
+        public string? LedgerIDCreditorInsurance_AccountNo { get; set; }
+
+        public string? LedgerIDCreditorInsurance_AccountNoStartsWith { get; set; }
+        public string? LedgerIDCreditorInsurance_AccountNoEndsWith { get; set; }
+        public string? LedgerIDCreditorInsurance_AccountNoContains { get; set; }
+        public string? LedgerIDCreditorInsurance_AccountNoLike { get; set; }
+        public string?[]? LedgerIDCreditorInsurance_AccountNoBetween { get; set; }
+        public string?[]? LedgerIDCreditorInsurance_AccountNoIn { get; set; }
+
+        public string? LedgerIDCreditorInsurance_Description { get; set; }
+
+        public string? LedgerIDCreditorInsurance_DescriptionStartsWith { get; set; }
+        public string? LedgerIDCreditorInsurance_DescriptionEndsWith { get; set; }
+        public string? LedgerIDCreditorInsurance_DescriptionContains { get; set; }
+        public string? LedgerIDCreditorInsurance_DescriptionLike { get; set; }
+        public string?[]? LedgerIDCreditorInsurance_DescriptionBetween { get; set; }
+        public string?[]? LedgerIDCreditorInsurance_DescriptionIn { get; set; }
+
+        public string? LedgerIDCreditorDuty { get; set; }
+
+        public string? LedgerIDCreditorDutyStartsWith { get; set; }
+        public string? LedgerIDCreditorDutyEndsWith { get; set; }
+        public string? LedgerIDCreditorDutyContains { get; set; }
+        public string? LedgerIDCreditorDutyLike { get; set; }
+        public string?[]? LedgerIDCreditorDutyBetween { get; set; }
+        public string?[]? LedgerIDCreditorDutyIn { get; set; }
+
+        public string? LedgerIDCreditorDuty_AccountNo { get; set; }
+
+        public string? LedgerIDCreditorDuty_AccountNoStartsWith { get; set; }
+        public string? LedgerIDCreditorDuty_AccountNoEndsWith { get; set; }
+        public string? LedgerIDCreditorDuty_AccountNoContains { get; set; }
+        public string? LedgerIDCreditorDuty_AccountNoLike { get; set; }
+        public string?[]? LedgerIDCreditorDuty_AccountNoBetween { get; set; }
+        public string?[]? LedgerIDCreditorDuty_AccountNoIn { get; set; }
+
+        public string? LedgerIDCreditorDuty_Description { get; set; }
+
+        public string? LedgerIDCreditorDuty_DescriptionStartsWith { get; set; }
+        public string? LedgerIDCreditorDuty_DescriptionEndsWith { get; set; }
+        public string? LedgerIDCreditorDuty_DescriptionContains { get; set; }
+        public string? LedgerIDCreditorDuty_DescriptionLike { get; set; }
+        public string?[]? LedgerIDCreditorDuty_DescriptionBetween { get; set; }
+        public string?[]? LedgerIDCreditorDuty_DescriptionIn { get; set; }
+
+        public string? LedgerIDCreditorRealisedGainLoss { get; set; }
+
+        public string? LedgerIDCreditorRealisedGainLossStartsWith { get; set; }
+        public string? LedgerIDCreditorRealisedGainLossEndsWith { get; set; }
+        public string? LedgerIDCreditorRealisedGainLossContains { get; set; }
+        public string? LedgerIDCreditorRealisedGainLossLike { get; set; }
+        public string?[]? LedgerIDCreditorRealisedGainLossBetween { get; set; }
+        public string?[]? LedgerIDCreditorRealisedGainLossIn { get; set; }
+
+        public string? LedgerIDCreditorRealisedGainLoss_AccountNo { get; set; }
+
+        public string? LedgerIDCreditorRealisedGainLoss_AccountNoStartsWith { get; set; }
+        public string? LedgerIDCreditorRealisedGainLoss_AccountNoEndsWith { get; set; }
+        public string? LedgerIDCreditorRealisedGainLoss_AccountNoContains { get; set; }
+        public string? LedgerIDCreditorRealisedGainLoss_AccountNoLike { get; set; }
+        public string?[]? LedgerIDCreditorRealisedGainLoss_AccountNoBetween { get; set; }
+        public string?[]? LedgerIDCreditorRealisedGainLoss_AccountNoIn { get; set; }
+
+        public string? LedgerIDCreditorRealisedGainLoss_Description { get; set; }
+
+        public string? LedgerIDCreditorRealisedGainLoss_DescriptionStartsWith { get; set; }
+        public string? LedgerIDCreditorRealisedGainLoss_DescriptionEndsWith { get; set; }
+        public string? LedgerIDCreditorRealisedGainLoss_DescriptionContains { get; set; }
+        public string? LedgerIDCreditorRealisedGainLoss_DescriptionLike { get; set; }
+        public string?[]? LedgerIDCreditorRealisedGainLoss_DescriptionBetween { get; set; }
+        public string?[]? LedgerIDCreditorRealisedGainLoss_DescriptionIn { get; set; }
+
+        public byte? TradingStatusCode { get; set; }
+
+        public byte? TradingStatusCodeGreaterThanOrEqualTo { get; set; }
+        public byte? TradingStatusCodeGreaterThan { get; set; }
+        public byte? TradingStatusCodeLessThan { get; set; }
+        public byte? TradingStatusCodeLessThanOrEqualTo { get; set; }
+        public byte? TradingStatusCodeNotEqualTo { get; set; }
+        public byte?[]? TradingStatusCodeBetween { get; set; }
+        public byte?[]? TradingStatusCodeIn { get; set; }
+
+        public string? TradingStatus { get; set; }
+
+        public string? TradingStatusStartsWith { get; set; }
+        public string? TradingStatusEndsWith { get; set; }
+        public string? TradingStatusContains { get; set; }
+        public string? TradingStatusLike { get; set; }
+        public string?[]? TradingStatusBetween { get; set; }
+        public string?[]? TradingStatusIn { get; set; }
+
+        public string? ProprietorName { get; set; }
+
+        public string? ProprietorNameStartsWith { get; set; }
+        public string? ProprietorNameEndsWith { get; set; }
+        public string? ProprietorNameContains { get; set; }
+        public string? ProprietorNameLike { get; set; }
+        public string?[]? ProprietorNameBetween { get; set; }
+        public string?[]? ProprietorNameIn { get; set; }
+
+        public string? SupplierBankName { get; set; }
+
+        public string? SupplierBankNameStartsWith { get; set; }
+        public string? SupplierBankNameEndsWith { get; set; }
+        public string? SupplierBankNameContains { get; set; }
+        public string? SupplierBankNameLike { get; set; }
+        public string?[]? SupplierBankNameBetween { get; set; }
+        public string?[]? SupplierBankNameIn { get; set; }
+
+        public string? SupplierBankAccountNo { get; set; }
+
+        public string? SupplierBankAccountNoStartsWith { get; set; }
+        public string? SupplierBankAccountNoEndsWith { get; set; }
+        public string? SupplierBankAccountNoContains { get; set; }
+        public string? SupplierBankAccountNoLike { get; set; }
+        public string?[]? SupplierBankAccountNoBetween { get; set; }
+        public string?[]? SupplierBankAccountNoIn { get; set; }
+
+        public string? SupplierBSBN { get; set; }
+
+        public string? SupplierBSBNStartsWith { get; set; }
+        public string? SupplierBSBNEndsWith { get; set; }
+        public string? SupplierBSBNContains { get; set; }
+        public string? SupplierBSBNLike { get; set; }
+        public string?[]? SupplierBSBNBetween { get; set; }
+        public string?[]? SupplierBSBNIn { get; set; }
+
+        public string? SupplierBankAccountName { get; set; }
+
+        public string? SupplierBankAccountNameStartsWith { get; set; }
+        public string? SupplierBankAccountNameEndsWith { get; set; }
+        public string? SupplierBankAccountNameContains { get; set; }
+        public string? SupplierBankAccountNameLike { get; set; }
+        public string?[]? SupplierBankAccountNameBetween { get; set; }
+        public string?[]? SupplierBankAccountNameIn { get; set; }
+
+        public Guid? DefaultPaymentBankAccountRecID { get; set; }
+        public Guid?[]? DefaultPaymentBankAccountRecIDIn { get; set; }
+
+        public string? DefaultPaymentBankName { get; set; }
+
+        public string? DefaultPaymentBankNameStartsWith { get; set; }
+        public string? DefaultPaymentBankNameEndsWith { get; set; }
+        public string? DefaultPaymentBankNameContains { get; set; }
+        public string? DefaultPaymentBankNameLike { get; set; }
+        public string?[]? DefaultPaymentBankNameBetween { get; set; }
+        public string?[]? DefaultPaymentBankNameIn { get; set; }
+
+        public string? DefaultPaymentBankAccountNo { get; set; }
+
+        public string? DefaultPaymentBankAccountNoStartsWith { get; set; }
+        public string? DefaultPaymentBankAccountNoEndsWith { get; set; }
+        public string? DefaultPaymentBankAccountNoContains { get; set; }
+        public string? DefaultPaymentBankAccountNoLike { get; set; }
+        public string?[]? DefaultPaymentBankAccountNoBetween { get; set; }
+        public string?[]? DefaultPaymentBankAccountNoIn { get; set; }
+
+        public string? DefaultPaymentBSBN { get; set; }
+
+        public string? DefaultPaymentBSBNStartsWith { get; set; }
+        public string? DefaultPaymentBSBNEndsWith { get; set; }
+        public string? DefaultPaymentBSBNContains { get; set; }
+        public string? DefaultPaymentBSBNLike { get; set; }
+        public string?[]? DefaultPaymentBSBNBetween { get; set; }
+        public string?[]? DefaultPaymentBSBNIn { get; set; }
+
+        public string? DefaultPaymentBankAccountAccountName { get; set; }
+
+        public string? DefaultPaymentBankAccountAccountNameStartsWith { get; set; }
+        public string? DefaultPaymentBankAccountAccountNameEndsWith { get; set; }
+        public string? DefaultPaymentBankAccountAccountNameContains { get; set; }
+        public string? DefaultPaymentBankAccountAccountNameLike { get; set; }
+        public string?[]? DefaultPaymentBankAccountAccountNameBetween { get; set; }
+        public string?[]? DefaultPaymentBankAccountAccountNameIn { get; set; }
+
+        public string? DefaultWarehouseID { get; set; }
+
+        public string? DefaultWarehouseIDStartsWith { get; set; }
+        public string? DefaultWarehouseIDEndsWith { get; set; }
+        public string? DefaultWarehouseIDContains { get; set; }
+        public string? DefaultWarehouseIDLike { get; set; }
+        public string?[]? DefaultWarehouseIDBetween { get; set; }
+        public string?[]? DefaultWarehouseIDIn { get; set; }
+
+        public string? DefaultWarehouseDescription { get; set; }
+
+        public string? DefaultWarehouseDescriptionStartsWith { get; set; }
+        public string? DefaultWarehouseDescriptionEndsWith { get; set; }
+        public string? DefaultWarehouseDescriptionContains { get; set; }
+        public string? DefaultWarehouseDescriptionLike { get; set; }
+        public string?[]? DefaultWarehouseDescriptionBetween { get; set; }
+        public string?[]? DefaultWarehouseDescriptionIn { get; set; }
+
+        public string? DefaultWarehouseAddress1 { get; set; }
+
+        public string? DefaultWarehouseAddress1StartsWith { get; set; }
+        public string? DefaultWarehouseAddress1EndsWith { get; set; }
+        public string? DefaultWarehouseAddress1Contains { get; set; }
+        public string? DefaultWarehouseAddress1Like { get; set; }
+        public string?[]? DefaultWarehouseAddress1Between { get; set; }
+        public string?[]? DefaultWarehouseAddress1In { get; set; }
+
+        public string? DefaultWarehouseAddress2 { get; set; }
+
+        public string? DefaultWarehouseAddress2StartsWith { get; set; }
+        public string? DefaultWarehouseAddress2EndsWith { get; set; }
+        public string? DefaultWarehouseAddress2Contains { get; set; }
+        public string? DefaultWarehouseAddress2Like { get; set; }
+        public string?[]? DefaultWarehouseAddress2Between { get; set; }
+        public string?[]? DefaultWarehouseAddress2In { get; set; }
+
+        public string? DefaultWarehouseAddress3 { get; set; }
+
+        public string? DefaultWarehouseAddress3StartsWith { get; set; }
+        public string? DefaultWarehouseAddress3EndsWith { get; set; }
+        public string? DefaultWarehouseAddress3Contains { get; set; }
+        public string? DefaultWarehouseAddress3Like { get; set; }
+        public string?[]? DefaultWarehouseAddress3Between { get; set; }
+        public string?[]? DefaultWarehouseAddress3In { get; set; }
+
+        public string? DefaultWarehouseAddress4 { get; set; }
+
+        public string? DefaultWarehouseAddress4StartsWith { get; set; }
+        public string? DefaultWarehouseAddress4EndsWith { get; set; }
+        public string? DefaultWarehouseAddress4Contains { get; set; }
+        public string? DefaultWarehouseAddress4Like { get; set; }
+        public string?[]? DefaultWarehouseAddress4Between { get; set; }
+        public string?[]? DefaultWarehouseAddress4In { get; set; }
+
+        public string? DefaultWarehousePostCode { get; set; }
+
+        public string? DefaultWarehousePostCodeStartsWith { get; set; }
+        public string? DefaultWarehousePostCodeEndsWith { get; set; }
+        public string? DefaultWarehousePostCodeContains { get; set; }
+        public string? DefaultWarehousePostCodeLike { get; set; }
+        public string?[]? DefaultWarehousePostCodeBetween { get; set; }
+        public string?[]? DefaultWarehousePostCodeIn { get; set; }
+
+        public string? DefaultWarehouseCountry { get; set; }
+
+        public string? DefaultWarehouseCountryStartsWith { get; set; }
+        public string? DefaultWarehouseCountryEndsWith { get; set; }
+        public string? DefaultWarehouseCountryContains { get; set; }
+        public string? DefaultWarehouseCountryLike { get; set; }
+        public string?[]? DefaultWarehouseCountryBetween { get; set; }
+        public string?[]? DefaultWarehouseCountryIn { get; set; }
+
+        public string? DefaultWarehouseCourierDetails { get; set; }
+
+        public string? DefaultWarehouseCourierDetailsStartsWith { get; set; }
+        public string? DefaultWarehouseCourierDetailsEndsWith { get; set; }
+        public string? DefaultWarehouseCourierDetailsContains { get; set; }
+        public string? DefaultWarehouseCourierDetailsLike { get; set; }
+        public string?[]? DefaultWarehouseCourierDetailsBetween { get; set; }
+        public string?[]? DefaultWarehouseCourierDetailsIn { get; set; }
+
+        public string? DefaultWarehouseNotes { get; set; }
+
+        public string? DefaultWarehouseNotesStartsWith { get; set; }
+        public string? DefaultWarehouseNotesEndsWith { get; set; }
+        public string? DefaultWarehouseNotesContains { get; set; }
+        public string? DefaultWarehouseNotesLike { get; set; }
+        public string?[]? DefaultWarehouseNotesBetween { get; set; }
+        public string?[]? DefaultWarehouseNotesIn { get; set; }
+
+        public short? DefaultWarehouseDefaultDeliveryDays { get; set; }
+
+        public short? DefaultWarehouseDefaultDeliveryDaysGreaterThanOrEqualTo { get; set; }
+        public short? DefaultWarehouseDefaultDeliveryDaysGreaterThan { get; set; }
+        public short? DefaultWarehouseDefaultDeliveryDaysLessThan { get; set; }
+        public short? DefaultWarehouseDefaultDeliveryDaysLessThanOrEqualTo { get; set; }
+        public short? DefaultWarehouseDefaultDeliveryDaysNotEqualTo { get; set; }
+        public short?[]? DefaultWarehouseDefaultDeliveryDaysBetween { get; set; }
+        public short?[]? DefaultWarehouseDefaultDeliveryDaysIn { get; set; }
+
+        public string? PurchaseOrderWorkflowID { get; set; }
+
+        public string? PurchaseOrderWorkflowIDStartsWith { get; set; }
+        public string? PurchaseOrderWorkflowIDEndsWith { get; set; }
+        public string? PurchaseOrderWorkflowIDContains { get; set; }
+        public string? PurchaseOrderWorkflowIDLike { get; set; }
+        public string?[]? PurchaseOrderWorkflowIDBetween { get; set; }
+        public string?[]? PurchaseOrderWorkflowIDIn { get; set; }
+
+        public string? PurchaseOrderWorkflowName { get; set; }
+
+        public string? PurchaseOrderWorkflowNameStartsWith { get; set; }
+        public string? PurchaseOrderWorkflowNameEndsWith { get; set; }
+        public string? PurchaseOrderWorkflowNameContains { get; set; }
+        public string? PurchaseOrderWorkflowNameLike { get; set; }
+        public string?[]? PurchaseOrderWorkflowNameBetween { get; set; }
+        public string?[]? PurchaseOrderWorkflowNameIn { get; set; }
+
+        public short? PeriodTypeCode { get; set; }
+
+        public short? PeriodTypeCodeGreaterThanOrEqualTo { get; set; }
+        public short? PeriodTypeCodeGreaterThan { get; set; }
+        public short? PeriodTypeCodeLessThan { get; set; }
+        public short? PeriodTypeCodeLessThanOrEqualTo { get; set; }
+        public short? PeriodTypeCodeNotEqualTo { get; set; }
+        public short?[]? PeriodTypeCodeBetween { get; set; }
+        public short?[]? PeriodTypeCodeIn { get; set; }
+
+        public string? PeriodType { get; set; }
+
+        public string? PeriodTypeStartsWith { get; set; }
+        public string? PeriodTypeEndsWith { get; set; }
+        public string? PeriodTypeContains { get; set; }
+        public string? PeriodTypeLike { get; set; }
+        public string?[]? PeriodTypeBetween { get; set; }
+        public string?[]? PeriodTypeIn { get; set; }
+
+        public decimal? Period1Balance { get; set; }
+
+        public decimal? Period1BalanceGreaterThanOrEqualTo { get; set; }
+        public decimal? Period1BalanceGreaterThan { get; set; }
+        public decimal? Period1BalanceLessThan { get; set; }
+        public decimal? Period1BalanceLessThanOrEqualTo { get; set; }
+        public decimal? Period1BalanceNotEqualTo { get; set; }
+        public decimal?[]? Period1BalanceBetween { get; set; }
+        public decimal?[]? Period1BalanceIn { get; set; }
+
+        public decimal? Period2Balance { get; set; }
+
+        public decimal? Period2BalanceGreaterThanOrEqualTo { get; set; }
+        public decimal? Period2BalanceGreaterThan { get; set; }
+        public decimal? Period2BalanceLessThan { get; set; }
+        public decimal? Period2BalanceLessThanOrEqualTo { get; set; }
+        public decimal? Period2BalanceNotEqualTo { get; set; }
+        public decimal?[]? Period2BalanceBetween { get; set; }
+        public decimal?[]? Period2BalanceIn { get; set; }
+
+        public decimal? Period3Balance { get; set; }
+
+        public decimal? Period3BalanceGreaterThanOrEqualTo { get; set; }
+        public decimal? Period3BalanceGreaterThan { get; set; }
+        public decimal? Period3BalanceLessThan { get; set; }
+        public decimal? Period3BalanceLessThanOrEqualTo { get; set; }
+        public decimal? Period3BalanceNotEqualTo { get; set; }
+        public decimal?[]? Period3BalanceBetween { get; set; }
+        public decimal?[]? Period3BalanceIn { get; set; }
+
+        public decimal? Period4Balance { get; set; }
+
+        public decimal? Period4BalanceGreaterThanOrEqualTo { get; set; }
+        public decimal? Period4BalanceGreaterThan { get; set; }
+        public decimal? Period4BalanceLessThan { get; set; }
+        public decimal? Period4BalanceLessThanOrEqualTo { get; set; }
+        public decimal? Period4BalanceNotEqualTo { get; set; }
+        public decimal?[]? Period4BalanceBetween { get; set; }
+        public decimal?[]? Period4BalanceIn { get; set; }
+
+        public decimal? TotalBalance { get; set; }
+
+        public decimal? TotalBalanceGreaterThanOrEqualTo { get; set; }
+        public decimal? TotalBalanceGreaterThan { get; set; }
+        public decimal? TotalBalanceLessThan { get; set; }
+        public decimal? TotalBalanceLessThanOrEqualTo { get; set; }
+        public decimal? TotalBalanceNotEqualTo { get; set; }
+        public decimal?[]? TotalBalanceBetween { get; set; }
+        public decimal?[]? TotalBalanceIn { get; set; }
+
+        public string? CreditorTags { get; set; }
+
+        public string? CreditorTagsStartsWith { get; set; }
+        public string? CreditorTagsEndsWith { get; set; }
+        public string? CreditorTagsContains { get; set; }
+        public string? CreditorTagsLike { get; set; }
+        public string?[]? CreditorTagsBetween { get; set; }
+        public string?[]? CreditorTagsIn { get; set; }
+
+    }
+
+    [Serializable()]
+    public partial class CR_Classification
+    {
+        [Required]
+        [PrimaryKey]
+        public string? CreditorClassificationID { get; set; }
+        [Required]
+        public DateTimeOffset LastSavedDateTime { get; set; }
+        [Required]
+        public string? Description { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDCreditorControl { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDCreditorPurchases { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDCreditorDiscounts { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDCreditorSourcedDebitAdjustment { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDCreditorSourcedPurchase { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDCreditorSourcedCreditAdjustment { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDCreditorFreight { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDCreditorInsurance { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDCreditorDuty { get; set; }
+        [References(typeof(GL_Ledger))]
+        public string? LedgerIDCreditorRealisedGainLoss { get; set; }
+        public short? TermsDays { get; set; }
+        [Required]
+        public short TermsType { get; set; }
+        [Required]
+        public string? PO_Workflows_RecID { get; set; }
+        [Required]
+        public bool IsDefault { get; set; }
+        [References(typeof(BA_BankAccount))]
+        public Guid? DefaultPayment_BA_BankAccount_RecID { get; set; }
+    }
+
+
+    [Route("/Queries/CR_Classification", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public partial class CR_ClassificationQuery : QueryDb<CR_Classification>
+    {
+
+        public string? CreditorClassificationID { get; set; }
+        public string? CreditorClassificationIDStartsWith { get; set; }
+        public string? CreditorClassificationIDEndsWith { get; set; }
+        public string? CreditorClassificationIDContains { get; set; }
+        public string? CreditorClassificationIDLike { get; set; }
+        public string?[]? CreditorClassificationIDBetween { get; set; }
+        public string?[]? CreditorClassificationIDIn { get; set; }
+
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+
+        public DateTimeOffset? LastSavedDateTimeGreaterThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeGreaterThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeNotEqualTo { get; set; }
+        public DateTimeOffset[]? LastSavedDateTimeBetween { get; set; }
+        public DateTimeOffset[]? LastSavedDateTimeIn { get; set; }
+
+        public string? Description { get; set; }
+
+        public string? DescriptionStartsWith { get; set; }
+        public string? DescriptionEndsWith { get; set; }
+        public string? DescriptionContains { get; set; }
+        public string? DescriptionLike { get; set; }
+        public string?[]? DescriptionBetween { get; set; }
+        public string?[]? DescriptionIn { get; set; }
+
+        public string? LedgerIDCreditorControl { get; set; }
+
+        public string? LedgerIDCreditorControlStartsWith { get; set; }
+        public string? LedgerIDCreditorControlEndsWith { get; set; }
+        public string? LedgerIDCreditorControlContains { get; set; }
+        public string? LedgerIDCreditorControlLike { get; set; }
+        public string?[]? LedgerIDCreditorControlBetween { get; set; }
+        public string?[]? LedgerIDCreditorControlIn { get; set; }
+
+        public string? LedgerIDCreditorPurchases { get; set; }
+
+        public string? LedgerIDCreditorPurchasesStartsWith { get; set; }
+        public string? LedgerIDCreditorPurchasesEndsWith { get; set; }
+        public string? LedgerIDCreditorPurchasesContains { get; set; }
+        public string? LedgerIDCreditorPurchasesLike { get; set; }
+        public string?[]? LedgerIDCreditorPurchasesBetween { get; set; }
+        public string?[]? LedgerIDCreditorPurchasesIn { get; set; }
+
+        public string? LedgerIDCreditorDiscounts { get; set; }
+
+        public string? LedgerIDCreditorDiscountsStartsWith { get; set; }
+        public string? LedgerIDCreditorDiscountsEndsWith { get; set; }
+        public string? LedgerIDCreditorDiscountsContains { get; set; }
+        public string? LedgerIDCreditorDiscountsLike { get; set; }
+        public string?[]? LedgerIDCreditorDiscountsBetween { get; set; }
+        public string?[]? LedgerIDCreditorDiscountsIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedDebitAdjustment { get; set; }
+
+        public string? LedgerIDCreditorSourcedDebitAdjustmentStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustmentEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustmentContains { get; set; }
+        public string? LedgerIDCreditorSourcedDebitAdjustmentLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedDebitAdjustmentBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedDebitAdjustmentIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedPurchase { get; set; }
+
+        public string? LedgerIDCreditorSourcedPurchaseStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedPurchaseEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedPurchaseContains { get; set; }
+        public string? LedgerIDCreditorSourcedPurchaseLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedPurchaseBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedPurchaseIn { get; set; }
+
+        public string? LedgerIDCreditorSourcedCreditAdjustment { get; set; }
+
+        public string? LedgerIDCreditorSourcedCreditAdjustmentStartsWith { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustmentEndsWith { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustmentContains { get; set; }
+        public string? LedgerIDCreditorSourcedCreditAdjustmentLike { get; set; }
+        public string?[]? LedgerIDCreditorSourcedCreditAdjustmentBetween { get; set; }
+        public string?[]? LedgerIDCreditorSourcedCreditAdjustmentIn { get; set; }
+
+        public string? LedgerIDCreditorFreight { get; set; }
+
+        public string? LedgerIDCreditorFreightStartsWith { get; set; }
+        public string? LedgerIDCreditorFreightEndsWith { get; set; }
+        public string? LedgerIDCreditorFreightContains { get; set; }
+        public string? LedgerIDCreditorFreightLike { get; set; }
+        public string?[]? LedgerIDCreditorFreightBetween { get; set; }
+        public string?[]? LedgerIDCreditorFreightIn { get; set; }
+
+        public string? LedgerIDCreditorInsurance { get; set; }
+
+        public string? LedgerIDCreditorInsuranceStartsWith { get; set; }
+        public string? LedgerIDCreditorInsuranceEndsWith { get; set; }
+        public string? LedgerIDCreditorInsuranceContains { get; set; }
+        public string? LedgerIDCreditorInsuranceLike { get; set; }
+        public string?[]? LedgerIDCreditorInsuranceBetween { get; set; }
+        public string?[]? LedgerIDCreditorInsuranceIn { get; set; }
+
+        public string? LedgerIDCreditorDuty { get; set; }
+
+        public string? LedgerIDCreditorDutyStartsWith { get; set; }
+        public string? LedgerIDCreditorDutyEndsWith { get; set; }
+        public string? LedgerIDCreditorDutyContains { get; set; }
+        public string? LedgerIDCreditorDutyLike { get; set; }
+        public string?[]? LedgerIDCreditorDutyBetween { get; set; }
+        public string?[]? LedgerIDCreditorDutyIn { get; set; }
+
+        public string? LedgerIDCreditorRealisedGainLoss { get; set; }
+
+        public string? LedgerIDCreditorRealisedGainLossStartsWith { get; set; }
+        public string? LedgerIDCreditorRealisedGainLossEndsWith { get; set; }
+        public string? LedgerIDCreditorRealisedGainLossContains { get; set; }
+        public string? LedgerIDCreditorRealisedGainLossLike { get; set; }
+        public string?[]? LedgerIDCreditorRealisedGainLossBetween { get; set; }
+        public string?[]? LedgerIDCreditorRealisedGainLossIn { get; set; }
+
+        public short? TermsDays { get; set; }
+
+        public short? TermsDaysGreaterThanOrEqualTo { get; set; }
+        public short? TermsDaysGreaterThan { get; set; }
+        public short? TermsDaysLessThan { get; set; }
+        public short? TermsDaysLessThanOrEqualTo { get; set; }
+        public short? TermsDaysNotEqualTo { get; set; }
+        public short?[]? TermsDaysBetween { get; set; }
+        public short?[]? TermsDaysIn { get; set; }
+
+        public short? TermsType { get; set; }
+
+        public short? TermsTypeGreaterThanOrEqualTo { get; set; }
+        public short? TermsTypeGreaterThan { get; set; }
+        public short? TermsTypeLessThan { get; set; }
+        public short? TermsTypeLessThanOrEqualTo { get; set; }
+        public short? TermsTypeNotEqualTo { get; set; }
+        public short?[]? TermsTypeBetween { get; set; }
+        public short?[]? TermsTypeIn { get; set; }
+
+        public string? PO_Workflows_RecID { get; set; }
+
+        public string? PO_Workflows_RecIDStartsWith { get; set; }
+        public string? PO_Workflows_RecIDEndsWith { get; set; }
+        public string? PO_Workflows_RecIDContains { get; set; }
+        public string? PO_Workflows_RecIDLike { get; set; }
+        public string?[]? PO_Workflows_RecIDBetween { get; set; }
+        public string?[]? PO_Workflows_RecIDIn { get; set; }
+
+        public bool? IsDefault { get; set; }
+
+        public Guid? DefaultPayment_BA_BankAccount_RecID { get; set; }
+        public Guid?[]? DefaultPayment_BA_BankAccount_RecIDIn { get; set; }
+
+    }
+    #endregion
+
+    #region "Currency"
+    [Serializable()]
+    public partial class FX_Currency
+    {
+        [Required]
+        [PrimaryKey]
+        public string? RecID { get; set; }
+        [Required]
+        public DateTimeOffset LastSavedDateTime { get; set; }
+        [Required]
+        public string? LastSavedByStaffID { get; set; }
+        public string? Name { get; set; }
+        public string? ShortName { get; set; }
+        public short? DecimalPlaces { get; set; }
+        [Required]
+        public bool IsLocal { get; set; }
+        [Required]
+        public bool IsEnabled { get; set; }
+        public byte[]? Picture { get; set; }
+        public string? Symbol { get; set; }
+        [References(typeof(BA_BankAccount))]
+        public Guid? Default_BA_BankAccount_RecID { get; set; }
+    }
+
+
+    [Route("/Queries/FX_Currency", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public partial class FX_CurrencyQuery : QueryDb<FX_Currency>
+    {
+
+        public string? RecID { get; set; }
+        public string? RecIDStartsWith { get; set; }
+        public string? RecIDEndsWith { get; set; }
+        public string? RecIDContains { get; set; }
+        public string? RecIDLike { get; set; }
+        public string?[]? RecIDBetween { get; set; }
+        public string?[]? RecIDIn { get; set; }
+
+        public DateTimeOffset? LastSavedDateTime { get; set; }
+
+        public DateTimeOffset? LastSavedDateTimeGreaterThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeGreaterThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThan { get; set; }
+        public DateTimeOffset? LastSavedDateTimeLessThanOrEqualTo { get; set; }
+        public DateTimeOffset? LastSavedDateTimeNotEqualTo { get; set; }
+        public DateTimeOffset[]? LastSavedDateTimeBetween { get; set; }
+        public DateTimeOffset[]? LastSavedDateTimeIn { get; set; }
+
+        public string? LastSavedByStaffID { get; set; }
+
+        public string? LastSavedByStaffIDStartsWith { get; set; }
+        public string? LastSavedByStaffIDEndsWith { get; set; }
+        public string? LastSavedByStaffIDContains { get; set; }
+        public string? LastSavedByStaffIDLike { get; set; }
+        public string?[]? LastSavedByStaffIDBetween { get; set; }
+        public string?[]? LastSavedByStaffIDIn { get; set; }
+
+        public string? Name { get; set; }
+
+        public string? NameStartsWith { get; set; }
+        public string? NameEndsWith { get; set; }
+        public string? NameContains { get; set; }
+        public string? NameLike { get; set; }
+        public string?[]? NameBetween { get; set; }
+        public string?[]? NameIn { get; set; }
+
+        public string? ShortName { get; set; }
+
+        public string? ShortNameStartsWith { get; set; }
+        public string? ShortNameEndsWith { get; set; }
+        public string? ShortNameContains { get; set; }
+        public string? ShortNameLike { get; set; }
+        public string?[]? ShortNameBetween { get; set; }
+        public string?[]? ShortNameIn { get; set; }
+
+        public short? DecimalPlaces { get; set; }
+
+        public short? DecimalPlacesGreaterThanOrEqualTo { get; set; }
+        public short? DecimalPlacesGreaterThan { get; set; }
+        public short? DecimalPlacesLessThan { get; set; }
+        public short? DecimalPlacesLessThanOrEqualTo { get; set; }
+        public short? DecimalPlacesNotEqualTo { get; set; }
+        public short?[]? DecimalPlacesBetween { get; set; }
+        public short?[]? DecimalPlacesIn { get; set; }
+
+        public bool? IsLocal { get; set; }
+
+        public bool? IsEnabled { get; set; }
+
+        public byte[]? Picture { get; set; }
+
+        public string? Symbol { get; set; }
+
+        public string? SymbolStartsWith { get; set; }
+        public string? SymbolEndsWith { get; set; }
+        public string? SymbolContains { get; set; }
+        public string? SymbolLike { get; set; }
+        public string?[]? SymbolBetween { get; set; }
+        public string?[]? SymbolIn { get; set; }
+
+        public Guid? Default_BA_BankAccount_RecID { get; set; }
+        public Guid?[]? Default_BA_BankAccount_RecIDIn { get; set; }
+
+    }
+    #endregion
+
     #region "Debtors"
     public partial class v_Jiwa_Debtor_List
     {

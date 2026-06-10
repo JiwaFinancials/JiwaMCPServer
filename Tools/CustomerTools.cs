@@ -27,7 +27,7 @@ public class CustomerTools : JiwaToolBase
             return result.ToJson<Debtor>();
         });
 
-    [McpServerTool(ReadOnly = true), Description("Retrieve outstanding transactions (invoices/credits) for a customer. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. When the user requests all or a complete list, page using skip and take until fewer rows than take are returned or zero rows are returned, then aggregate all pages.")]
+    [McpServerTool(ReadOnly = true), Description("Retrieve outstanding transactions (invoices and payments) for a customer. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. When the user requests all or a complete list, page using skip and take until fewer rows than take are returned or zero rows are returned, then aggregate all pages.")]
     public Task<string> GetCustomerTransactions(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Debtor_Transactions_ListQuery requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
