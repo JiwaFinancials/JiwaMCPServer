@@ -12,12 +12,20 @@ namespace JiwaMcpServer.Tools;
 [McpServerToolType]
 public class ProductTools : JiwaToolBase
 {
-    [McpServerTool(ReadOnly = true), Description("Search for products by field. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. When the user requests all or a complete list, page using skip and take until fewer rows than take are returned or zero rows are returned, then aggregate all pages.")]
-    public Task<string> SearchProducts(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Inventory_Item_ListQuery requestDTO, CancellationToken ct = default)
+    [McpServerTool(ReadOnly = true), Description("Search for products by field. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
+    public Task<string> SearchProducts(
+        JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Inventory_Item_ListQuery requestDTO,
+        bool confirmLargeResultSet = false,
+        string? confirmationToken = null,
+        CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
-            return response.Results.ToJson<List<v_Jiwa_Inventory_Item_List>>();
+            var confirmationMessage = await ValidateLargeResultSetConfirmationAsync(requestDTO, confirmLargeResultSet, confirmationToken, ct);
+            if (!string.IsNullOrEmpty(confirmationMessage))
+                return confirmationMessage;
+
+            var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
+            return allResults.ToJson<List<v_Jiwa_Inventory_Item_List>>();
         });
 
     [McpServerTool, Description("Get full details for a product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Don't get Picture from here. Use GetProductPicture if the user wants a Picture.")]
@@ -28,28 +36,52 @@ public class ProductTools : JiwaToolBase
             return result.ToJson<InventoryItem>();
         });
 
-    [McpServerTool(ReadOnly = true), Description("Get stock on hand quantities for a product by field. Products are also known as inventory items. Supports pagination via skip and take parameters. A single call may return only a partial result set. When the user requests all or a complete list, page using skip and take until fewer rows than take are returned or zero rows are returned, then aggregate all pages.")]
-    public Task<string> GetStockOnHand(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_IN_SOHWithBinLocationsQuery requestDTO, CancellationToken ct = default)
+    [McpServerTool(ReadOnly = true), Description("Get stock on hand quantities for a product by field. Products are also known as inventory items. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
+    public Task<string> GetStockOnHand(
+        JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_IN_SOHWithBinLocationsQuery requestDTO,
+        bool confirmLargeResultSet = false,
+        string? confirmationToken = null,
+        CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
-            return response.Results.ToJson<List<v_IN_SOHWithBinLocations>>();
+            var confirmationMessage = await ValidateLargeResultSetConfirmationAsync(requestDTO, confirmLargeResultSet, confirmationToken, ct);
+            if (!string.IsNullOrEmpty(confirmationMessage))
+                return confirmationMessage;
+
+            var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
+            return allResults.ToJson<List<v_IN_SOHWithBinLocations>>();
         });
 
-    [McpServerTool(ReadOnly = true), Description("Retrieves a list of inventory item classifications. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. When the user requests all or a complete list, page using skip and take until fewer rows than take are returned or zero rows are returned, then aggregate all pages.")]
-    public Task<string> SearchProductClassifications(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.IN_ClassificationQuery requestDTO, CancellationToken ct = default)
+    [McpServerTool(ReadOnly = true), Description("Retrieves a list of inventory item classifications. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
+    public Task<string> SearchProductClassifications(
+        JiwaFinancials.Jiwa.JiwaServiceModel.Tables.IN_ClassificationQuery requestDTO,
+        bool confirmLargeResultSet = false,
+        string? confirmationToken = null,
+        CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
-            return response.Results.ToJson<List<IN_Classification>>();
+            var confirmationMessage = await ValidateLargeResultSetConfirmationAsync(requestDTO, confirmLargeResultSet, confirmationToken, ct);
+            if (!string.IsNullOrEmpty(confirmationMessage))
+                return confirmationMessage;
+
+            var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
+            return allResults.ToJson<List<IN_Classification>>();
         });
 
-    [McpServerTool(ReadOnly = true), Description("Retrieves a list of inventory item categories. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. When the user requests all or a complete list, page using skip and take until fewer rows than take are returned or zero rows are returned, then aggregate all pages.")]
-    public Task<string> SearchProductCategories(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.IN_CategoriesQuery requestDTO, CancellationToken ct = default)
+    [McpServerTool(ReadOnly = true), Description("Retrieves a list of inventory item categories. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
+    public Task<string> SearchProductCategories(
+        JiwaFinancials.Jiwa.JiwaServiceModel.Tables.IN_CategoriesQuery requestDTO,
+        bool confirmLargeResultSet = false,
+        string? confirmationToken = null,
+        CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
-            return response.Results.ToJson<List<IN_Categories>>();
+            var confirmationMessage = await ValidateLargeResultSetConfirmationAsync(requestDTO, confirmLargeResultSet, confirmationToken, ct);
+            if (!string.IsNullOrEmpty(confirmationMessage))
+                return confirmationMessage;
+
+            var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
+            return allResults.ToJson<List<IN_Categories>>();
         });
 
     [McpServerTool, Description("Get the picture for a product (inventory item) by InventoryID or PartNo. Returns the picture as image content.")]

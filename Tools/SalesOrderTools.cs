@@ -46,23 +46,43 @@ public class SalesOrderTools : JiwaToolBase
     [McpServerTool(Name = "SearchSalesInformation", ReadOnly = true), Description("Search and return sales information by field. Includes part nos that were sold. Sales orders are also known as sales invoices. Lots of current and historical sales data. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
+        "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
+        "Then call again with confirmLargeResultSet=true and that token. " +
         "You can use the GetSalesOrder tool to retrieve full details for a specific sales order if required.")]
-    public Task<string> SearchSalesInformation(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_SalesInformationQuery requestDTO, CancellationToken ct = default)
+    public Task<string> SearchSalesInformation(
+        JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_SalesInformationQuery requestDTO,
+        bool confirmLargeResultSet = false,
+        string? confirmationToken = null,
+        CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
-            return response.Results.ToJson<List<v_Jiwa_SalesInformation>>();
+            var confirmationMessage = await ValidateLargeResultSetConfirmationAsync(requestDTO, confirmLargeResultSet, confirmationToken, ct);
+            if (!string.IsNullOrEmpty(confirmationMessage))
+                return confirmationMessage;
+
+            var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
+            return allResults.ToJson<List<v_Jiwa_SalesInformation>>();
         });
 
     [McpServerTool(Name = "SearchSalesOrders", ReadOnly = true), Description("Search and return sales orders by field. Sales orders are also known as sales invoices. Lots of current and historical header level sales data. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
+        "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
+        "Then call again with confirmLargeResultSet=true and that token. " +
         "You can use the GetSalesOrder tool to retrieve full details for a specific sales order if required.")]
-    public Task<string> SearchSalesOrders(JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_SalesOrdersQuery requestDTO, CancellationToken ct = default)
+    public Task<string> SearchSalesOrders(
+        JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_SalesOrdersQuery requestDTO,
+        bool confirmLargeResultSet = false,
+        string? confirmationToken = null,
+        CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var response = await JiwaApiClient.GetAsync(requestDTO, ct);
-            return response.Results.ToJson<List<v_Jiwa_SalesOrders>>();
+            var confirmationMessage = await ValidateLargeResultSetConfirmationAsync(requestDTO, confirmLargeResultSet, confirmationToken, ct);
+            if (!string.IsNullOrEmpty(confirmationMessage))
+                return confirmationMessage;
+
+            var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
+            return allResults.ToJson<List<v_Jiwa_SalesOrders>>();
         });
 
 }

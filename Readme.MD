@@ -7,9 +7,12 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 - [Prerequisites](#prerequisites)
 - [Project Structure](#project-structure)
 - [Available Tools](#available-tools)
+- [Large Result Set Confirmation](#large-result-set-confirmation)
+- [Warehouse Context Synchronization](#warehouse-context-synchronization)
 - [Configuration](#configuration)
   - [Per-Request API Key](#per-request-api-key)
 - [Building and Running](#building-and-running)
+- [Testing](#testing)
 - [Using with VS Code and GitHub Copilot](#using-with-vs-code-and-github-copilot)
 - [Connecting an MCP Client](#connecting-an-mcp-client)
 - [Deploying to a Server](#deploying-to-a-server)
@@ -37,9 +40,14 @@ JiwaMcpServer/
 │   ├── CustomerTools.cs
 │   ├── ProductTools.cs
 │   ├── SalesOrderTools.cs
+│   ├── PurchaseOrderTools.cs
+│   ├── SupplierTools.cs
+│   ├── WarehouseTools.cs
 │   └── SchemaTools.cs
-└── Services/
-    └── JiwaApiClient.cs
+├── Services/
+│   └── JiwaApiClient.cs
+└── JiwaMcpServer.Tests/
+    └── JiwaMcpServer.Tests.csproj
 ```
 
 ---
@@ -49,30 +57,124 @@ JiwaMcpServer/
 ### CustomerTools
 | Tool | Description |
 |---|---|
-| `SearchCustomers` | Search for customers (debtors/accounts) by field |
-| `GetCustomer` | Get full details for a customer |
-| `GetCustomerTransactions` | Retrieve outstanding transactions (invoices/credits) for a customer |
+| `SearchCustomers` | Search for customers (debtors/accounts) by field. |
+| `GetCustomer` | Get full details for a customer. |
+| `GetCustomerTransactions` | Retrieve outstanding customer transactions. |
+| `SearchCustomerClassifications` | Retrieve available customer/debtor classifications. |
+| `SearchCustomerCategories` | Retrieve available customer/debtor categories. |
 
 ### ProductTools
 | Tool | Description |
 |---|---|
-| `SearchProducts` | Search for products (inventory items) by field |
-| `GetProduct` | Get full details for a product |
-| `GetStockOnHand` | Get stock on hand quantities for a product |
+| `SearchProducts` | Search for products (inventory items) by field. |
+| `GetProduct` | Get full details for a product. |
+| `GetStockOnHand` | Get stock-on-hand quantities for products. |
+| `SearchProductClassifications` | Retrieve available product classifications. |
+| `SearchProductCategories` | Retrieve available product categories. |
+| `GetProductPicture` | Retrieve a product image by `InventoryID` or `PartNo`. |
 
 ### SalesOrderTools
 | Tool | Description |
 |---|---|
-| `SearchSalesOrders` | Search for sales orders (invoices) by field |
-| `GetSalesOrder` | Get full details for a sales order |
-| `CreateSalesOrder` | Create a new sales order for a customer |
-| `ModifySalesOrder` | Modify an existing sales order |
-| `AddAProductToASalesOrder` | Add a product line to an existing sales order |
+| `GetSalesOrder` | Get full details for a sales order (sales invoice). |
+| `CreateSalesOrder` | Create a sales order. |
+| `ModifySalesOrder` | Modify an existing sales order. |
+| `AddAProductToASalesOrder` | Add a product line to an existing sales order. |
+| `SearchSalesInformation` | Search detailed sales information (including sold part numbers). |
+| `SearchSalesOrders` | Search sales order headers. |
+
+### PurchaseOrderTools
+| Tool | Description |
+|---|---|
+| `GetPurchaseOrder` | Get full details for a purchase order. |
+| `CreatePurchaseOrder` | Create a purchase order. |
+| `ModifyPurchaseOrder` | Modify an existing purchase order. |
+| `AddAProductToAPurchaseOrder` | Add a product line to an existing purchase order. |
+| `SearchPurchaseInformation` | Search detailed purchase information (including purchased part numbers). |
+| `SearchPurchaseOrders` | Search purchase order headers. |
+
+### SupplierTools
+| Tool | Description |
+|---|---|
+| `SearchSuppliers` | Search suppliers (creditors) by field. |
+| `GetSupplier` | Get full details for a supplier. |
+| `SearchCreditorClassifications` | Retrieve available supplier/creditor classifications. |
+
+### WarehouseTools
+| Tool | Description |
+|---|---|
+| `SearchWarehouses` | Search logical warehouses by field. |
+| `GetCurrentLogicalWarehouse` | Get the current logical warehouse for the session. |
+| `ChangeCurrentLogicalWarehouse` | Change the current logical warehouse for the session. |
 
 ### SchemaTools
 | Tool | Description |
 |---|---|
-| `GetDtoSchema` | Returns the DTO schema for any Jiwa DTO type by name (useful for discovering available fields before calling other tools) |
+| `GetDtoSchema` | Return the DTO schema for any Jiwa DTO type by name. |
+
+---
+
+## Large Result Set Confirmation
+
+Most search/list tools support safe handling of large datasets.
+
+When a query exceeds the warning threshold, call flow is:
+
+1. Call tool with `confirmLargeResultSet=false` (default).
+2. If result is large, the tool returns a warning and a short-lived `confirmationToken`.
+3. Call the same tool again with `confirmLargeResultSet=true` and that token.
+
+This avoids unintentionally returning very large payloads in a single tool call.
+
+---
+
+## Warehouse Context Synchronization
+
+The Jiwa system maintains warehouse context at **three** distinct levels:
+
+1. **API Server Context** (Jiwa REST API): Warehouse state for API requests
+2. **MCP Server Context** (JiwaMcpServer): Stateless per-request API calls
+3. **Jiwa Client Context** (AI Chat): `Manager.CurrentLogicalWarehouse` in the Jiwa client application
+
+### The Synchronization Challenge
+
+When you use `ChangeCurrentLogicalWarehouse`:
+
+| Step | What Happens | State |
+|------|--------------|-------|
+| 1. Call tool | MCP Server updates Jiwa API | API warehouse ✓ |
+| 2. Tool returns | Response includes new warehouse ID | Response data ready |
+| 3. **REQUIRED ACTION** | **AI Chat must update** `Manager.CurrentLogicalWarehouse` | AI Chat warehouse needs update |
+| 4. Call GetCurrentLogicalWarehouse | Verify and get full details | Confirmation |
+
+**The Critical Issue:** The MCP Server cannot directly update `Manager.CurrentLogicalWarehouse` because it's in a different process (the Jiwa client application). The AI Chat must be instructed to do this.
+
+### How ChangeCurrentLogicalWarehouse Response Works
+
+The tool returns a structured response with the new warehouse context:
+
+```json
+{
+  "success": true,
+  "newWarehouseId": "WAREHOUSE_ID_12345",
+  "newWarehouseDetails": { /* warehouse data */ }
+}
+```
+
+### Required Workflow for AI Chat
+
+1. **Call** `ChangeCurrentLogicalWarehouse(newWarehouseId)` → **API updated** ✓
+2. **Receive response** with `newWarehouseId`
+3. **Update Jiwa Client** `Manager.CurrentLogicalWarehouse = newWarehouseId` ← **Critical Step**
+4. **Call** `GetCurrentLogicalWarehouse` → **Verify and get details** ✓
+5. **Inform user** "Warehouse changed to [warehouse name]"
+
+### Why Both Updates Are Necessary
+
+- **API Context Update**: Ensures future API calls use the correct warehouse
+- **Manager Update**: Ensures the Jiwa AI Chat client displays and uses the correct warehouse
+
+If either is missed, the contexts diverge and operations use the wrong warehouse.
 
 ---
 
@@ -83,7 +185,8 @@ Configuration is stored in `appsettings.json` in the application directory.
 ```json
 {
   "JiwaAPIURL": "https://your-jiwa-instance.example.com",
-  "JiwaAPIKey": ""
+  "JiwaAPIKey": "",
+  "PageSize": 100
 }
 ```
 
@@ -91,8 +194,9 @@ Configuration is stored in `appsettings.json` in the application directory.
 |---|---|
 | `JiwaAPIURL` | The base URL of your Jiwa Financials REST API |
 | `JiwaAPIKey` | *(Optional)* A server-side fallback Jiwa API key. When set, it is used for any request that does not supply its own key via the `X-Jiwa-API-Key` header. Can be left blank if all clients supply their own key. |
+| `PageSize` | *(Optional)* Default page size used by paginated search/list tools. Default is `100`. |
 
-> **Note:** `JiwaAPIURL` is required. `JiwaAPIKey` is optional — see [Per-Request API Key](#per-request-api-key) below.
+> **Note:** `JiwaAPIURL` is required. `JiwaAPIKey` and `PageSize` are optional — see [Per-Request API Key](#per-request-api-key) below.
 
 ### Per-Request API Key
 
@@ -117,6 +221,7 @@ By default the server listens on `http://localhost:5000`. To change this, set th
 {
   "JiwaAPIURL": "https://your-jiwa-instance.example.com",
   "JiwaAPIKey": "your-api-key-here",
+  "PageSize": 100,
   "urls": "http://0.0.0.0:8080"
 }
 ```
@@ -152,6 +257,18 @@ dotnet publish -c Release -r win-x64 --self-contained true -o ./publish
 ```
 
 Replace `win-x64` with your target runtime (e.g. `linux-x64`, `osx-x64`). Copy `appsettings.json` alongside the executable and edit it with your settings before running.
+
+---
+
+## Testing
+
+A dedicated test project is included at `JiwaMcpServer.Tests/` with coverage for tool behavior, pagination, and error handling.
+
+Run all tests:
+
+```powershell
+dotnet test JiwaMcpServer.Tests/JiwaMcpServer.Tests.csproj
+```
 
 ---
 

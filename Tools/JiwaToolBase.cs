@@ -2,6 +2,7 @@ using JiwaMcpServer.Services;
 using Microsoft.Extensions.DependencyInjection;
 using ServiceStack;
 using ServiceStack.Metadata;
+using System.Collections.Concurrent;
 using System.Reflection;
 
 namespace JiwaMcpServer.Tools;
@@ -14,6 +15,7 @@ public abstract class JiwaToolBase
 {
     private static readonly Assembly JiwaDtosAssembly = typeof(JiwaFinancials.Jiwa.JiwaServiceModel.DebtorGETRequest).Assembly;
     private const string JiwaDtoNamespacePrefix = "JiwaFinancials.Jiwa.JiwaServiceModel";
+    private static readonly ConcurrentDictionary<string, (string QueryFingerprint, DateTimeOffset ExpiresAt)> PendingLargeResultSetConfirmations = new();
 
     protected static string CreateDtoSchema(Type dtoType)
     {
@@ -51,6 +53,130 @@ public abstract class JiwaToolBase
     {
         var dtoType = ResolveJiwaDtoType(dtoTypeName);
         return CreateDtoSchema(dtoType);
+    }
+
+    protected static async Task<List<T>> GetAllQueryResultsAsync<T>(QueryDb<T> requestDTO, int pageSize, CancellationToken ct = default)
+    {
+        if (pageSize <= 0)
+            throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be greater than zero.");
+
+        var originalTake = requestDTO.Take;
+        var originalSkip = requestDTO.Skip;
+
+        try
+        {
+            var allResults = new List<T>();
+            requestDTO.Take = pageSize;
+            requestDTO.Skip = 0;
+
+            while (true)
+            {
+                var response = await JiwaApiClient.GetAsync(requestDTO, ct);
+
+                if (response.Results == null || response.Results.Count == 0)
+                    break;
+
+                allResults.AddRange(response.Results);
+
+                if (response.Total > 0 && allResults.Count >= response.Total)
+                    break;
+
+                if (response.Results.Count < pageSize)
+                    break;
+
+                requestDTO.Skip += pageSize;
+            }
+
+            return allResults;
+        }
+        finally
+        {
+            requestDTO.Take = originalTake;
+            requestDTO.Skip = originalSkip;
+        }
+    }
+
+    protected static async Task<string?> ValidateLargeResultSetConfirmationAsync<T>(
+        QueryDb<T> requestDTO,
+        bool confirmLargeResultSet,
+        string? confirmationToken,
+        CancellationToken ct,
+        int warningThreshold = 100,
+        TimeSpan? confirmationTokenLifetime = null)
+    {
+        var originalTake = requestDTO.Take;
+        var originalSkip = requestDTO.Skip;
+        var originalInclude = requestDTO.Include;
+        var tokenLifetime = confirmationTokenLifetime ?? TimeSpan.FromMinutes(5);
+
+        try
+        {
+            requestDTO.Take = 0;
+            requestDTO.Skip = 0;
+            requestDTO.Include = EnsureIncludeContainsTotal(requestDTO.Include);
+
+            var queryFingerprint = requestDTO.ToJson();
+            var countResponse = await JiwaApiClient.GetAsync(requestDTO, ct);
+
+            if (countResponse.Total <= warningThreshold)
+                return null;
+
+            var now = DateTimeOffset.UtcNow;
+            RemoveExpiredConfirmationTokens(now);
+
+            if (!confirmLargeResultSet)
+            {
+                var issuedToken = Guid.NewGuid().ToString("N");
+                PendingLargeResultSetConfirmations[issuedToken] = (queryFingerprint, now.Add(tokenLifetime));
+
+                return $"WARNING: This query will return {countResponse.Total} records which exceeds the threshold of {warningThreshold}. " +
+                       $"Please confirm with the user before proceeding. To proceed, call this tool again with confirmLargeResultSet=true and confirmationToken='{issuedToken}'. " +
+                       $"This token expires in {(int)tokenLifetime.TotalMinutes} minutes.";
+            }
+
+            if (string.IsNullOrWhiteSpace(confirmationToken) ||
+                !PendingLargeResultSetConfirmations.TryRemove(confirmationToken, out var pendingConfirmation) ||
+                pendingConfirmation.ExpiresAt <= now ||
+                !string.Equals(pendingConfirmation.QueryFingerprint, queryFingerprint, StringComparison.Ordinal))
+            {
+                return "ERROR: Missing or invalid confirmation token for large result set. Call again with confirmLargeResultSet=false to receive a new token.";
+            }
+
+            return null;
+        }
+        catch (WebServiceException ex)
+        {
+            return $"ERROR: Unable to validate large result set confirmation ({ex.StatusCode} {ex.StatusDescription}): {ex.ErrorMessage}";
+        }
+        catch (Exception ex)
+        {
+            return $"ERROR: Unable to validate large result set confirmation: {ex.Message}";
+        }
+        finally
+        {
+            requestDTO.Take = originalTake;
+            requestDTO.Skip = originalSkip;
+            requestDTO.Include = originalInclude;
+        }
+    }
+
+    protected static string EnsureIncludeContainsTotal(string? include)
+    {
+        if (string.IsNullOrWhiteSpace(include))
+            return "Total";
+
+        return include.Contains("Total", StringComparison.OrdinalIgnoreCase)
+            ? include
+            : $"{include},Total";
+    }
+
+    private static void RemoveExpiredConfirmationTokens(DateTimeOffset now)
+    {
+        foreach (var pending in PendingLargeResultSetConfirmations)
+        {
+            if (pending.Value.ExpiresAt <= now)
+                PendingLargeResultSetConfirmations.TryRemove(pending.Key, out _);
+        }
     }
 
     protected static async Task<string> InvokeToolAsync(Func<Task<string>> action)

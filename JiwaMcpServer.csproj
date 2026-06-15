@@ -10,11 +10,14 @@
     <AssemblyVersion>1.0.0.3</AssemblyVersion>
     <FileVersion>1.0.0.3</FileVersion>
     <ApplicationIcon>Jiwa Icon Round.ico</ApplicationIcon>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Remove="JiwaMcpServer.deps.json;JiwaMcpServer.runtimeconfig.json" />
-    <None Remove="JiwaMcpServer.deps.json;JiwaMcpServer.runtimeconfig.json" />
+    <Content Remove="JiwaMcpServer.deps.json;JiwaMcpServer.runtimeconfig.json;JiwaMcpServer.Tests/**" />
+    <None Remove="JiwaMcpServer.deps.json;JiwaMcpServer.runtimeconfig.json;JiwaMcpServer.Tests/**" />
+    <Compile Remove="JiwaMcpServer.Tests/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>

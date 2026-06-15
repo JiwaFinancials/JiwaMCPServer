@@ -16,6 +16,8 @@ builder.Host.UseWindowsService();
 ConfigurationManager configuration = builder.Configuration;
 Config.JiwaAPIURL = configuration.GetSection("JiwaAPIURL").Value;
 Config.JiwaAPIKey = configuration.GetSection("JiwaAPIKey").Value;
+var pageSizeConfig = configuration.GetSection("PageSize").Value;
+Config.PageSize = int.TryParse(pageSizeConfig, out var pageSize) ? pageSize : 100;
 if (string.IsNullOrWhiteSpace(Config.JiwaAPIURL))
 {
     throw new InvalidOperationException("JiwaAPIURL is blank - check appsettings.json");

@@ -5,6 +5,8 @@ VisualStudioVersion = 18.5.11709.299
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JiwaMcpServer", "JiwaMcpServer.csproj", "{675F849C-B380-93A8-0EA6-1FA62109442B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JiwaMcpServer.Tests", "JiwaMcpServer.Tests\JiwaMcpServer.Tests.csproj", "{025A68D4-32D0-42D8-BB3B-9D77AD1016B7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -15,6 +17,9 @@ Global
 		{675F849C-B380-93A8-0EA6-1FA62109442B}.Debug|x64.Build.0 = Debug|x64
 		{675F849C-B380-93A8-0EA6-1FA62109442B}.Release|x64.ActiveCfg = Release|x64
 		{675F849C-B380-93A8-0EA6-1FA62109442B}.Release|x64.Build.0 = Release|x64
+		{025A68D4-32D0-42D8-BB3B-9D77AD1016B7}.Debug|x64.ActiveCfg = Debug|x64
+		{025A68D4-32D0-42D8-BB3B-9D77AD1016B7}.Debug|x64.Build.0 = Debug|x64
+		{025A68D4-32D0-42D8-BB3B-9D77AD1016B7}.Release|x64.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
