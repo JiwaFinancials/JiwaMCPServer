@@ -38,6 +38,7 @@ JiwaMcpServer/
 ├── Tools/
 │   ├── JiwaToolBase.cs
 │   ├── CustomerTools.cs
+│   ├── FormTools.cs
 │   ├── ProductTools.cs
 │   ├── SalesOrderTools.cs
 │   ├── PurchaseOrderTools.cs
@@ -73,6 +74,12 @@ JiwaMcpServer/
 | `SearchProductCategories` | Retrieve available product categories. |
 | `GetProductPicture` | Retrieve a product image by `InventoryID` or `PartNo`. |
 
+### FormTools
+| Tool | Description |
+|---|---|
+| `SearchForms` | Search forms and plugins by field. |
+| `OpenAForm` | Open a Jiwa form or plugin, optionally with a specific record loaded via `DrillDownID`. |
+
 ### SalesOrderTools
 | Tool | Description |
 |---|---|
@@ -90,8 +97,10 @@ JiwaMcpServer/
 | `CreatePurchaseOrder` | Create a purchase order. |
 | `ModifyPurchaseOrder` | Modify an existing purchase order. |
 | `AddAProductToAPurchaseOrder` | Add a product line to an existing purchase order. |
-| `SearchPurchaseInformation` | Search detailed purchase information (including purchased part numbers). |
-| `SearchPurchaseOrders` | Search purchase order headers. |
+| `SearchPurchaseInformation` | Search current and historical purchase detail, including purchased part numbers; use `GetPurchaseOrder` to retrieve full details for a specific purchase order. |
+| `SearchPurchaseOrders` | Search current and historical purchase order header data. |
+
+`SearchPurchaseInformation` and `SearchPurchaseOrders` both support pagination via `skip` and `take`, and may require large-result confirmation before returning the full result set.
 
 ### SupplierTools
 | Tool | Description |
@@ -125,6 +134,8 @@ When a query exceeds the warning threshold, call flow is:
 3. Call the same tool again with `confirmLargeResultSet=true` and that token.
 
 This avoids unintentionally returning very large payloads in a single tool call.
+
+This is especially relevant for `SearchPurchaseInformation` and `SearchPurchaseOrders`, which can span current and historical purchasing data.
 
 ---
 

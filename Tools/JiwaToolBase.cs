@@ -16,6 +16,7 @@ public abstract class JiwaToolBase
     private static readonly Assembly JiwaDtosAssembly = typeof(JiwaFinancials.Jiwa.JiwaServiceModel.DebtorGETRequest).Assembly;
     private const string JiwaDtoNamespacePrefix = "JiwaFinancials.Jiwa.JiwaServiceModel";
     private static readonly ConcurrentDictionary<string, (string QueryFingerprint, DateTimeOffset ExpiresAt)> PendingLargeResultSetConfirmations = new();
+    private static readonly ConcurrentDictionary<string, DateTimeOffset> ConfirmedLargeResultSetQueries = new();
 
     protected static string CreateDtoSchema(Type dtoType)
     {
@@ -124,10 +125,14 @@ public abstract class JiwaToolBase
             var now = DateTimeOffset.UtcNow;
             RemoveExpiredConfirmationTokens(now);
 
+            if (ConfirmedLargeResultSetQueries.TryGetValue(queryFingerprint, out var confirmedUntil) && confirmedUntil > now)
+                return null;
+
             if (!confirmLargeResultSet)
             {
                 var issuedToken = Guid.NewGuid().ToString("N");
-                PendingLargeResultSetConfirmations[issuedToken] = (queryFingerprint, now.Add(tokenLifetime));
+                var expiresAt = now.Add(tokenLifetime);
+                PendingLargeResultSetConfirmations[issuedToken] = (queryFingerprint, expiresAt);
 
                 return $"WARNING: This query will return {countResponse.Total} records which exceeds the threshold of {warningThreshold}. " +
                        $"Please confirm with the user before proceeding. To proceed, call this tool again with confirmLargeResultSet=true and confirmationToken='{issuedToken}'. " +
@@ -142,6 +147,7 @@ public abstract class JiwaToolBase
                 return "ERROR: Missing or invalid confirmation token for large result set. Call again with confirmLargeResultSet=false to receive a new token.";
             }
 
+            ConfirmedLargeResultSetQueries[queryFingerprint] = pendingConfirmation.ExpiresAt;
             return null;
         }
         catch (WebServiceException ex)
@@ -176,6 +182,12 @@ public abstract class JiwaToolBase
         {
             if (pending.Value.ExpiresAt <= now)
                 PendingLargeResultSetConfirmations.TryRemove(pending.Key, out _);
+        }
+
+        foreach (var confirmed in ConfirmedLargeResultSetQueries)
+        {
+            if (confirmed.Value <= now)
+                ConfirmedLargeResultSetQueries.TryRemove(confirmed.Key, out _);
         }
     }
 

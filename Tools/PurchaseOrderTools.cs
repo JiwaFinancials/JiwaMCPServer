@@ -77,7 +77,6 @@ public class PurchaseOrderTools : JiwaToolBase
         CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            Debugger.Launch();
             var confirmationMessage = await ValidateLargeResultSetConfirmationAsync(requestDTO, confirmLargeResultSet, confirmationToken, ct);
             if (!string.IsNullOrEmpty(confirmationMessage))
                 return confirmationMessage;

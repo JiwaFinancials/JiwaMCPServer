@@ -5289,6 +5289,89 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel.Tables
     }
     #endregion
 
+    #region "Forms"
+    [Serializable()]
+    public partial class SY_Forms
+    {
+        [Required]
+        [PrimaryKey]
+        public string? ClassName { get; set; }
+        public string? Description { get; set; }
+        public int? FormType { get; set; }
+        public string? HelpPageName { get; set; }
+        public string? AssemblyFullName { get; set; }
+        public bool? ChangeTrackingEnabled { get; set; }
+        public int? ChangeTrackingRetentionDays { get; set; }
+    }
+
+
+    [Route("/Queries/SY_Forms", "GET")]
+    [ApiResponse(Description = "Read OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public partial class SY_FormsQuery : QueryDb<SY_Forms>
+    {
+
+        public string? ClassName { get; set; }
+        public string? ClassNameStartsWith { get; set; }
+        public string? ClassNameEndsWith { get; set; }
+        public string? ClassNameContains { get; set; }
+        public string? ClassNameLike { get; set; }
+        public string?[]? ClassNameBetween { get; set; }
+        public string?[]? ClassNameIn { get; set; }
+
+        public string? Description { get; set; }
+
+        public string? DescriptionStartsWith { get; set; }
+        public string? DescriptionEndsWith { get; set; }
+        public string? DescriptionContains { get; set; }
+        public string? DescriptionLike { get; set; }
+        public string?[]? DescriptionBetween { get; set; }
+        public string?[]? DescriptionIn { get; set; }
+
+        public int? FormType { get; set; }
+
+        public int? FormTypeGreaterThanOrEqualTo { get; set; }
+        public int? FormTypeGreaterThan { get; set; }
+        public int? FormTypeLessThan { get; set; }
+        public int? FormTypeLessThanOrEqualTo { get; set; }
+        public int? FormTypeNotEqualTo { get; set; }
+        public int?[]? FormTypeBetween { get; set; }
+        public int?[]? FormTypeIn { get; set; }
+
+        public string? HelpPageName { get; set; }
+
+        public string? HelpPageNameStartsWith { get; set; }
+        public string? HelpPageNameEndsWith { get; set; }
+        public string? HelpPageNameContains { get; set; }
+        public string? HelpPageNameLike { get; set; }
+        public string?[]? HelpPageNameBetween { get; set; }
+        public string?[]? HelpPageNameIn { get; set; }
+
+        public string? AssemblyFullName { get; set; }
+
+        public string? AssemblyFullNameStartsWith { get; set; }
+        public string? AssemblyFullNameEndsWith { get; set; }
+        public string? AssemblyFullNameContains { get; set; }
+        public string? AssemblyFullNameLike { get; set; }
+        public string?[]? AssemblyFullNameBetween { get; set; }
+        public string?[]? AssemblyFullNameIn { get; set; }
+
+        public bool? ChangeTrackingEnabled { get; set; }
+
+        public int? ChangeTrackingRetentionDays { get; set; }
+
+        public int? ChangeTrackingRetentionDaysGreaterThanOrEqualTo { get; set; }
+        public int? ChangeTrackingRetentionDaysGreaterThan { get; set; }
+        public int? ChangeTrackingRetentionDaysLessThan { get; set; }
+        public int? ChangeTrackingRetentionDaysLessThanOrEqualTo { get; set; }
+        public int? ChangeTrackingRetentionDaysNotEqualTo { get; set; }
+        public int?[]? ChangeTrackingRetentionDaysBetween { get; set; }
+        public int?[]? ChangeTrackingRetentionDaysIn { get; set; }
+
+    }
+    #endregion
+
     #region "General Ledger"
     [Serializable()]
     public partial class GL_Ledger
