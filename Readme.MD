@@ -197,7 +197,12 @@ Configuration is stored in `appsettings.json` in the application directory.
 {
   "JiwaAPIURL": "https://your-jiwa-instance.example.com",
   "JiwaAPIKey": "",
-  "PageSize": 100
+  "PageSize": 100,
+  "Plugins": {
+    "Enabled": true,
+    "Folder": "Plugins",
+    "Assemblies": []
+  }
 }
 ```
 
@@ -206,8 +211,20 @@ Configuration is stored in `appsettings.json` in the application directory.
 | `JiwaAPIURL` | The base URL of your Jiwa Financials REST API |
 | `JiwaAPIKey` | *(Optional)* A server-side fallback Jiwa API key. When set, it is used for any request that does not supply its own key via the `X-Jiwa-API-Key` header. Can be left blank if all clients supply their own key. |
 | `PageSize` | *(Optional)* Default page size used by paginated search/list tools. Default is `100`. |
+| `Plugins` | *(Optional)* Plugin loading settings. `Folder` is scanned for `*.dll` assemblies at startup, and `Assemblies` can include explicit relative or absolute DLL paths. |
 
-> **Note:** `JiwaAPIURL` is required. `JiwaAPIKey` and `PageSize` are optional — see [Per-Request API Key](#per-request-api-key) below.
+> **Note:** `JiwaAPIURL` is required. `JiwaAPIKey`, `PageSize`, and `Plugins` are optional — see [Per-Request API Key](#per-request-api-key) below.
+
+### Plugin Tools
+
+Customers can extend the server by dropping plugin DLLs into the configured plugin folder (default: `Plugins` under the app directory). On startup, JiwaMcpServer loads those assemblies and registers any MCP tools found in them.
+
+To expose tools from a plugin assembly:
+
+1. Reference the same MCP SDK packages used by JiwaMcpServer.
+2. Add tool classes marked with `[McpServerToolType]`.
+3. Add methods marked with `[McpServerTool]`.
+4. Copy the built plugin DLL (and its dependencies) into the `Plugins` folder, or list explicit DLL paths in `Plugins:Assemblies`.
 
 ### Per-Request API Key
 

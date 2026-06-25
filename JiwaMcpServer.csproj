@@ -15,9 +15,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Remove="JiwaMcpServer.deps.json;JiwaMcpServer.runtimeconfig.json;JiwaMcpServer.Tests/**" />
-    <None Remove="JiwaMcpServer.deps.json;JiwaMcpServer.runtimeconfig.json;JiwaMcpServer.Tests/**" />
-    <Compile Remove="JiwaMcpServer.Tests/**/*.cs" />
+    <Content Remove="JiwaMcpServer.deps.json;JiwaMcpServer.runtimeconfig.json;JiwaMcpServer.Tests/**;JiwaMcpServerSamplePlugin/**" />
+    <None Remove="JiwaMcpServer.deps.json;JiwaMcpServer.runtimeconfig.json;JiwaMcpServer.Tests/**;JiwaMcpServerSamplePlugin/**" />
+    <Compile Remove="JiwaMcpServer.Tests/**/*.cs;JiwaMcpServerSamplePlugin/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>

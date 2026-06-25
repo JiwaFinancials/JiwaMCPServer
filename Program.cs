@@ -2,7 +2,6 @@ using JiwaMcpServer.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -23,11 +22,22 @@ if (string.IsNullOrWhiteSpace(Config.JiwaAPIURL))
     throw new InvalidOperationException("JiwaAPIURL is blank - check appsettings.json");
 }
 
+var startupLogger = LoggerFactory
+    .Create(logging => logging.AddSimpleConsole(options => options.SingleLine = true))
+    .CreateLogger("Startup");
+
+var pluginAssemblies = PluginAssemblyLoader.LoadPluginAssemblies(configuration, builder.Environment.ContentRootPath, startupLogger);
+
 // Register MCP server with HTTP streaming transport and auto-discover tools
-builder.Services
+var mcpBuilder = builder.Services
     .AddMcpServer()
     .WithHttpTransport()
-    .WithToolsFromAssembly();
+    .WithToolsFromAssembly(typeof(Program).Assembly, null);
+
+foreach (var pluginAssembly in pluginAssemblies)
+{
+    mcpBuilder.WithToolsFromAssembly(pluginAssembly, null);
+}
 
 builder.Services.AddCors(options =>
 {
