@@ -49,15 +49,31 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Register IHttpContextAccessor for tools to access HTTP context (session ID, etc.)
+builder.Services.AddHttpContextAccessor();
+
+// Register FileStorageService as a singleton so files persist across tool invocations
+builder.Services.AddSingleton<FileStorageService>();
+
 var app = builder.Build();
 
 app.UseCors();
 
-// Capture the Jiwa API key supplied by the client for this request
+// Set session ID and API key for each request
 app.Use(async (context, next) =>
 {
+    // Generate a session ID based on the request connection
+    // This ensures all tool calls within a single MCP connection share the same file storage
+    var sessionId = context.Request.Headers["X-Session-ID"].FirstOrDefault()
+                    ?? context.Connection.Id
+                    ?? Guid.NewGuid().ToString();
+
+    FileStorageService.SetSessionId(sessionId);
+
+    // Capture the Jiwa API key supplied by the client for this request
     var clientApiKey = context.Request.Headers["X-Jiwa-API-Key"].FirstOrDefault();
     JiwaMcpServer.Services.JiwaApiClient.CurrentApiKey.Value = clientApiKey;
+
     await next(context);
 });
 

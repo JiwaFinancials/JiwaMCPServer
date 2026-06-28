@@ -37,6 +37,7 @@ JiwaMcpServer/
 ├── appsettings.json
 ├── Tools/
 │   ├── JiwaToolBase.cs
+│   ├── FileTools.cs              (File upload, retrieval, CSV/XML/JSON queries)
 │   ├── CustomerTools.cs
 │   ├── FormTools.cs
 │   ├── ProductTools.cs
@@ -46,7 +47,8 @@ JiwaMcpServer/
 │   ├── WarehouseTools.cs
 │   └── SchemaTools.cs
 ├── Services/
-│   └── JiwaApiClient.cs
+│   ├── JiwaApiClient.cs
+│   └── FileStorageService.cs     (NEW: File storage with session isolation)
 └── JiwaMcpServer.Tests/
     └── JiwaMcpServer.Tests.csproj
 ```
@@ -54,6 +56,29 @@ JiwaMcpServer/
 ---
 
 ## Available Tools
+
+### FileTools
+| Tool | Description |
+|---|---|
+| `upload_file` | Upload and store a base64-encoded file. Returns a unique `fileId` for reference. Supports text files up to 50 MB; allowed MIME types: `text/*`, `application/json`, `application/xml`. |
+| `read_uploaded_file` | Retrieve the content of a previously uploaded file by its `fileId`, or omit the ID to read the most recently uploaded file in this session. |
+| `query_csv` | Execute natural language queries on CSV files (e.g., "How many rows?", "Show me the Name column"). If no `fileId` is provided, queries the most recently uploaded CSV file in this session. Supports field extraction, counting, and summarization. |
+| `query_xml` | Execute natural language queries on XML files (e.g., "How many elements?", "Find the config element"). If no `fileId` is provided, queries the most recently uploaded XML file in this session. Supports element search, structure summarization, and top 10 result limiting. |
+| `query_json` | Execute natural language queries on JSON files (e.g., "How many keys?", "Show me the settings property"). If no `fileId` is provided, queries the most recently uploaded JSON file in this session. Supports key search, value extraction, array/object navigation, and top 10 result limiting. |
+
+**Latest File Convenience:** You don't need to copy/paste `fileId` values! All file query tools (`query_csv`, `query_xml`, `query_json`) and `read_uploaded_file` will automatically use the most recently uploaded file in your session if you omit or leave empty the `fileId` parameter. This enables natural workflows like:
+1. Upload a CSV file
+2. Ask "show me the file I just uploaded" (implicitly uses latest)
+3. Ask "how many rows?" (implicitly queries the latest file)
+
+**Session Isolation:** Files are stored per client connection. When you upload a file, it is available for all subsequent calls within the same MCP connection session. Each new client connection (e.g., new VS Code session, new chat window) gets its own isolated file storage space. See [`FILE_SESSION_FIX.md`](FILE_SESSION_FIX.md) for technical details.
+
+**File Support Documentation:**
+- **Quick Start**: See [`FILE_SUPPORT_QUICK_REFERENCE.md`](FILE_SUPPORT_QUICK_REFERENCE.md)
+- **Full Architecture**: See [`MCP_FILE_SUPPORT_IMPLEMENTATION.md`](MCP_FILE_SUPPORT_IMPLEMENTATION.md)
+- **Session & Isolation Details**: See [`FILE_SESSION_FIX.md`](FILE_SESSION_FIX.md)
+- **Configuration Options**: See [`CONFIGURATION_SCENARIOS.md`](CONFIGURATION_SCENARIOS.md)
+- **Implementation Details**: See [`IMPLEMENTATION_INDEX.md`](IMPLEMENTATION_INDEX.md)
 
 ### CustomerTools
 | Tool | Description |
