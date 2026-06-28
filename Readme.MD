@@ -251,6 +251,8 @@ To expose tools from a plugin assembly:
 3. Add methods marked with `[McpServerTool]`.
 4. Copy the built plugin DLL (and its dependencies) into the `Plugins` folder, or list explicit DLL paths in `Plugins:Assemblies`.
 
+A project named JiwaMcpServerSamplePlugin is now included that illustrates how to create a plugin based tool.
+
 ### Per-Request API Key
 
 In addition to (or instead of) a server-side `JiwaAPIKey` in `appsettings.json`, clients can supply a Jiwa API key on a per-request basis using the `X-Jiwa-API-Key` HTTP header:
