@@ -65,6 +65,8 @@ JiwaMcpServer/
 | `query_csv` | Execute natural language queries on CSV files (e.g., "How many rows?", "Show me the Name column"). If no `fileId` is provided, queries the most recently uploaded CSV file in this session. Supports field extraction, counting, and summarization. |
 | `query_xml` | Execute natural language queries on XML files (e.g., "How many elements?", "Find the config element"). If no `fileId` is provided, queries the most recently uploaded XML file in this session. Supports element search, structure summarization, and top 10 result limiting. |
 | `query_json` | Execute natural language queries on JSON files (e.g., "How many keys?", "Show me the settings property"). If no `fileId` is provided, queries the most recently uploaded JSON file in this session. Supports key search, value extraction, array/object navigation, and top 10 result limiting. |
+| `list_local_directory` | List files/folders from an allowed local or UNC path. Access is restricted to configured `LocalFileSystem:AllowedRoots`. |
+| `read_local_file` | Read text content from an allowed local or UNC file path. Output is limited by `LocalFileSystem:MaxReadBytes` and may be truncated. |
 
 **Latest File Convenience:** You don't need to copy/paste `fileId` values! All file query tools (`query_csv`, `query_xml`, `query_json`) and `read_uploaded_file` will automatically use the most recently uploaded file in your session if you omit or leave empty the `fileId` parameter. This enables natural workflows like:
 1. Upload a CSV file
@@ -227,6 +229,13 @@ Configuration is stored in `appsettings.json` in the application directory.
     "Enabled": true,
     "Folder": "Plugins",
     "Assemblies": []
+  },
+  "LocalFileSystem": {
+    "AllowedRoots": [
+      "C:\\Allowed\\Folder",
+      "\\\\fileserver\\share\\finance"
+    ],
+    "MaxReadBytes": 262144
   }
 }
 ```
@@ -237,8 +246,10 @@ Configuration is stored in `appsettings.json` in the application directory.
 | `JiwaAPIKey` | *(Optional)* A server-side fallback Jiwa API key. When set, it is used for any request that does not supply its own key via the `X-Jiwa-API-Key` header. Can be left blank if all clients supply their own key. |
 | `PageSize` | *(Optional)* Default page size used by paginated search/list tools. Default is `100`. |
 | `Plugins` | *(Optional)* Plugin loading settings. `Folder` is scanned for `*.dll` assemblies at startup, and `Assemblies` can include explicit relative or absolute DLL paths. |
+| `LocalFileSystem:AllowedRoots` | *(Optional)* Absolute local and/or UNC root paths that `list_local_directory` and `read_local_file` are allowed to access. If empty, local file tools are disabled. |
+| `LocalFileSystem:MaxReadBytes` | *(Optional)* Maximum bytes returned by one `read_local_file` call. Default is `262144` (256 KB). |
 
-> **Note:** `JiwaAPIURL` is required. `JiwaAPIKey`, `PageSize`, and `Plugins` are optional — see [Per-Request API Key](#per-request-api-key) below.
+> **Note:** `JiwaAPIURL` is required. `JiwaAPIKey`, `PageSize`, `Plugins`, and `LocalFileSystem` are optional — see [Per-Request API Key](#per-request-api-key) below.
 
 ### Plugin Tools
 

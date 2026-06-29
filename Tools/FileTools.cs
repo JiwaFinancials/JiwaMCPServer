@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
+using System.Text;
 
 namespace JiwaMcpServer.Tools;
 
@@ -300,5 +301,208 @@ public class FileTools : JiwaToolBase
                 error = result.Error
             }.ToJson();
         });
+    }
+
+    [McpServerTool(ReadOnly = true), Description("List files and folders under an allowed local or UNC directory path. Access is restricted to LocalFileSystem:AllowedRoots in appsettings.json")]
+    public Task<string> ListLocalDirectory(
+        string path,
+        bool includeFiles = true,
+        bool includeDirectories = true,
+        int maxEntries = 200)
+    {
+        return InvokeToolAsync(async () =>
+        {
+            if (!includeFiles && !includeDirectories)
+            {
+                return new { error = "At least one of includeFiles or includeDirectories must be true" }.ToJson();
+            }
+
+            if (maxEntries <= 0)
+            {
+                return new { error = "maxEntries must be greater than 0" }.ToJson();
+            }
+
+            if (!TryResolveAllowedPath(path, out var fullPath, out var error))
+            {
+                return new { error }.ToJson();
+            }
+
+            if (!Directory.Exists(fullPath))
+            {
+                return new { error = $"Directory '{fullPath}' was not found" }.ToJson();
+            }
+
+            var entries = new List<object>();
+            var remaining = maxEntries;
+
+            if (includeDirectories)
+            {
+                foreach (var directory in Directory.EnumerateDirectories(fullPath).Take(remaining))
+                {
+                    entries.Add(new
+                    {
+                        type = "directory",
+                        name = Path.GetFileName(directory),
+                        path = directory
+                    });
+                }
+
+                remaining = maxEntries - entries.Count;
+            }
+
+            if (includeFiles && remaining > 0)
+            {
+                foreach (var file in Directory.EnumerateFiles(fullPath).Take(remaining))
+                {
+                    var info = new FileInfo(file);
+                    entries.Add(new
+                    {
+                        type = "file",
+                        name = Path.GetFileName(file),
+                        path = file,
+                        sizeBytes = info.Length
+                    });
+                }
+            }
+
+            return new
+            {
+                path = fullPath,
+                entriesReturned = entries.Count,
+                maxEntries,
+                entries
+            }.ToJson();
+        });
+    }
+
+    [McpServerTool(ReadOnly = true), Description("Read a text file from an allowed local or UNC path. Access is restricted to LocalFileSystem:AllowedRoots in appsettings.json")]
+    public Task<string> ReadLocalFile(
+        string path,
+        int? maxBytes = null)
+    {
+        return InvokeToolAsync(async () =>
+        {
+            if (!TryResolveAllowedPath(path, out var fullPath, out var error))
+            {
+                return new { error }.ToJson();
+            }
+
+            if (!File.Exists(fullPath))
+            {
+                return new { error = $"File '{fullPath}' was not found" }.ToJson();
+            }
+
+            var configuredMaxBytes = Config.LocalFileSystemMaxReadBytes > 0 ? Config.LocalFileSystemMaxReadBytes : 256 * 1024;
+            var effectiveMaxBytes = Math.Min(maxBytes ?? configuredMaxBytes, configuredMaxBytes);
+            if (effectiveMaxBytes <= 0)
+            {
+                return new { error = "maxBytes must be greater than 0" }.ToJson();
+            }
+
+            var fileInfo = new FileInfo(fullPath);
+            var bytesToRead = (int)Math.Min(fileInfo.Length, effectiveMaxBytes);
+            var buffer = new byte[bytesToRead];
+            var totalRead = 0;
+
+            using (var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                while (totalRead < bytesToRead)
+                {
+                    var read = await stream.ReadAsync(buffer.AsMemory(totalRead, bytesToRead - totalRead));
+                    if (read == 0)
+                    {
+                        break;
+                    }
+
+                    totalRead += read;
+                }
+            }
+
+            var text = Encoding.UTF8.GetString(buffer, 0, totalRead);
+            var isTruncated = fileInfo.Length > totalRead;
+
+            return new
+            {
+                path = fullPath,
+                sizeBytes = fileInfo.Length,
+                readBytes = totalRead,
+                truncated = isTruncated,
+                maxBytes = effectiveMaxBytes,
+                content = text
+            }.ToJson();
+        });
+    }
+
+    private static bool TryResolveAllowedPath(string requestedPath, out string fullPath, out string error)
+    {
+        fullPath = string.Empty;
+        error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(requestedPath))
+        {
+            error = "path is required";
+            return false;
+        }
+
+        string[] allowedRoots = Config.LocalFileSystemAllowedRoots
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Select(path => path.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (allowedRoots.Length == 0)
+        {
+            error = "Local file access is disabled. Configure LocalFileSystem:AllowedRoots in appsettings.json";
+            return false;
+        }
+
+        try
+        {
+            fullPath = Path.GetFullPath(requestedPath);
+        }
+        catch (Exception ex)
+        {
+            error = $"Invalid path '{requestedPath}': {ex.Message}";
+            return false;
+        }
+
+        var resolvedPath = fullPath;
+        var isAllowed = allowedRoots
+            .Select(TryNormalizeRoot)
+            .Where(normalizedRoot => !string.IsNullOrEmpty(normalizedRoot))
+            .Any(normalizedRoot => IsPathWithinRoot(resolvedPath, normalizedRoot!));
+
+        if (!isAllowed)
+        {
+            error = $"Path '{fullPath}' is outside allowed roots";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static string? TryNormalizeRoot(string root)
+    {
+        try
+        {
+            return Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool IsPathWithinRoot(string fullPath, string normalizedRoot)
+    {
+        var normalizedPath = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (string.Equals(normalizedPath, normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var rootPrefix = normalizedRoot + Path.DirectorySeparatorChar;
+        return normalizedPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase);
     }
 }

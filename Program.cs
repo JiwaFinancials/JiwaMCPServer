@@ -17,6 +17,19 @@ Config.JiwaAPIURL = configuration.GetSection("JiwaAPIURL").Value;
 Config.JiwaAPIKey = configuration.GetSection("JiwaAPIKey").Value;
 var pageSizeConfig = configuration.GetSection("PageSize").Value;
 Config.PageSize = int.TryParse(pageSizeConfig, out var pageSize) ? pageSize : 100;
+
+var configuredRoots = configuration.GetSection("LocalFileSystem:AllowedRoots").Get<string[]>() ?? Array.Empty<string>();
+Config.LocalFileSystemAllowedRoots = configuredRoots
+    .Where(path => !string.IsNullOrWhiteSpace(path))
+    .Select(path => path.Trim())
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
+var maxReadBytesConfig = configuration.GetSection("LocalFileSystem:MaxReadBytes").Value;
+Config.LocalFileSystemMaxReadBytes = int.TryParse(maxReadBytesConfig, out var maxReadBytes) && maxReadBytes > 0
+    ? maxReadBytes
+    : 256 * 1024;
+
 if (string.IsNullOrWhiteSpace(Config.JiwaAPIURL))
 {
     throw new InvalidOperationException("JiwaAPIURL is blank - check appsettings.json");

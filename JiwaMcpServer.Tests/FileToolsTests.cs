@@ -842,5 +842,104 @@ public class FileToolsTests
         Assert.Contains("json", result.ToLowerInvariant());
     }
 
+    [Fact]
+    public async Task ListLocalDirectory_AllowedRoot_ReturnsEntries()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            Directory.CreateDirectory(Path.Combine(tempRoot, "SubFolder"));
+            await File.WriteAllTextAsync(Path.Combine(tempRoot, "sample.txt"), "sample content");
+
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+
+            var result = await _fileTools.ListLocalDirectory(tempRoot);
+
+            Assert.DoesNotContain("error", result.ToLowerInvariant());
+            Assert.Contains("SubFolder", result);
+            Assert.Contains("sample.txt", result);
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ReadLocalFile_AllowedRoot_ReturnsContent()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var originalMaxReadBytes = Config.LocalFileSystemMaxReadBytes;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            var filePath = Path.Combine(tempRoot, "readme.txt");
+            await File.WriteAllTextAsync(filePath, "hello from local file");
+
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+            Config.LocalFileSystemMaxReadBytes = 1024;
+
+            var result = await _fileTools.ReadLocalFile(filePath);
+
+            Assert.DoesNotContain("error", result.ToLowerInvariant());
+            Assert.Contains("hello from local file", result);
+            Assert.Contains("\"truncated\":false", result.ToLowerInvariant());
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            Config.LocalFileSystemMaxReadBytes = originalMaxReadBytes;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ReadLocalFile_PathOutsideAllowlist_ReturnsError()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+        var outsideRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerOutside-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            Directory.CreateDirectory(outsideRoot);
+            var outsideFilePath = Path.Combine(outsideRoot, "outside.txt");
+            await File.WriteAllTextAsync(outsideFilePath, "outside");
+
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+
+            var result = await _fileTools.ReadLocalFile(outsideFilePath);
+
+            Assert.Contains("error", result.ToLowerInvariant());
+            Assert.Contains("outside allowed roots", result.ToLowerInvariant());
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+
+            if (Directory.Exists(outsideRoot))
+            {
+                Directory.Delete(outsideRoot, true);
+            }
+        }
+    }
+
     #endregion
 }
