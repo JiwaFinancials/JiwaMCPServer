@@ -1,10 +1,11 @@
 using JiwaFinancials.Jiwa.JiwaServiceModel;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors;
+using JiwaFinancials.Jiwa.JiwaServiceModel.SalesOrders;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
-using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors;
 
 namespace JiwaMcpServer.Tools;
 
@@ -33,6 +34,30 @@ public class CustomerTools : JiwaToolBase
         {
             var result = await JiwaApiClient.GetAsync(requestDTO, ct);
             return result.ToJson<Debtor>();
+        });
+
+    [McpServerTool, Description("Create a new customer. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> CreateCustomer(DebtorPOSTRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.PostAsync(requestDTO, ct);
+            return result.ToJson<Debtor>();
+        });
+
+    [McpServerTool, Description("Modify a customer. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> ModifyCustomer(DebtorPATCHRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            return result.ToJson<Debtor>();
+        });
+
+    [McpServerTool, Description("Delete a customer. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> DeleteCustomer(DebtorDELETERequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            await JiwaApiClient.DeleteAsync(requestDTO, ct);
+            return new { Deleted = true, DebtorID = requestDTO.DebtorID }.ToJson();
         });
 
     [McpServerTool(ReadOnly = true), Description("Retrieve outstanding transactions (invoices and payments) for a customer. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]

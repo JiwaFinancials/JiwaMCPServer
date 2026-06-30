@@ -1,4 +1,5 @@
 using JiwaFinancials.Jiwa.JiwaServiceModel;
+using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
@@ -34,6 +35,30 @@ public class ProductTools : JiwaToolBase
         {
             var result = await JiwaApiClient.GetAsync(requestDTO, ct);
             return result.ToJson<InventoryItem>();
+        });
+
+    [McpServerTool, Description("Create a new product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> CreateProduct(InventoryPOSTRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.PostAsync(requestDTO, ct);
+            return result.ToJson<InventoryItem>();
+        });
+
+    [McpServerTool, Description("Modify a product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> ModifyProduct(InventoryPATCHRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            return result.ToJson<InventoryItem>();
+        });
+
+    [McpServerTool, Description("Delete a product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> DeleteProduct(InventoryDELETERequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            await JiwaApiClient.DeleteAsync(requestDTO, ct);
+            return new { Deleted = true, InventoryItemID = requestDTO.InventoryID }.ToJson();
         });
 
     [McpServerTool(ReadOnly = true), Description("Get stock on hand quantities for a product by field. Products are also known as inventory items. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]

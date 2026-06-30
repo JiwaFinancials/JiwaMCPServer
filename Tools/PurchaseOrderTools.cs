@@ -36,6 +36,14 @@ public class PurchaseOrderTools : JiwaToolBase
             return result.ToJson<PurchaseOrder>();
         });
 
+    [McpServerTool, Description("Delete a purchase order. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    public Task<string> DeletePurchaseOrder(PurchaseOrderDELETERequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            await JiwaApiClient.DeleteAsync(requestDTO, ct);
+            return new { Deleted = true, PurchaseOrderID = requestDTO.PurchaseOrderID }.ToJson();
+        });
+
     [McpServerTool, Description("Add a product to an existing purchase order. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> AddAProductToAPurchaseOrder(PurchaseOrderLinePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>

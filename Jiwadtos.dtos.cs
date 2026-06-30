@@ -35,6 +35,40 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
     {
         public virtual string? CreditorID { get; set; }
     }
+
+    [Route("/Creditors", "POST")]
+    [ApiResponse(Description = "Created OK", StatusCode = 201)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public class CreditorPOSTRequest : JiwaFinancials.Jiwa.JiwaServiceModel.Creditors.Creditor, IReturn<JiwaServiceModel.Creditors.Creditor>
+    {
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? CreditorID { get; set; }
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override DateTimeOffset? LastSavedDateTime { get; set; }
+    }
+
+    [Route("/Creditors/{CreditorID}", "PATCH")]
+    [ApiResponse(Description = "Updated OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    [ApiResponse(Description = "No creditor with the CreditorID provided was found", StatusCode = 404)]
+    public class CreditorPATCHRequest : JiwaFinancials.Jiwa.JiwaServiceModel.Creditors.Creditor, IReturn<JiwaServiceModel.Creditors.Creditor>
+    {
+        public override string? CreditorID { get; set; }
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override DateTimeOffset? LastSavedDateTime { get; set; }
+    }
+
+    [Route("/Creditors/{CreditorID}", "DELETE")]
+    [ApiResponse(204, "Deleted OK")]
+    [ApiResponse(401, "Not authenticated")]
+    [ApiResponse(403, "Not authorised")]
+    [ApiResponse(404, "No creditor with the CreditorID provided was found")]
+    public class CreditorDELETERequest : IReturnVoid
+    {
+        public string? CreditorID { get; set; }
+    }
     #endregion
 
     #region "Debtors"
@@ -48,6 +82,135 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
     {
         public virtual string? DebtorID { get; set; }
     }
+
+    [Route("/Debtors", "POST")]
+    [ApiResponse(Description = "Created OK", StatusCode = 201)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public class DebtorPOSTRequest : JiwaFinancials.Jiwa.JiwaServiceModel.Debtors.Debtor, IReturn<JiwaServiceModel.Debtors.Debtor>
+    {
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? DebtorID { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override DateTimeOffset? LastSavedDateTime { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override DateTime? LastPurchaseDate { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override DateTime? LastPaymentDate { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override bool? DebtorIsBranchAccount { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? RemainingNormalPrepaidLabourPackHours { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? RemainingSpecialPrepaidLabourPackHours { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override short? FXDecimalPlaces { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? ParentDebtorID { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? ParentDebtorAccountNo { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? ParentDebtorName { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? PriceSchemeDescription { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? DefaultCurrencyID { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? DefaultCurrencyName { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? DefaultCurrencyShortName { get; set; }
+    }
+
+    [Route("/Debtors/{DebtorID}", "PATCH")]
+    [ApiResponse(Description = "Updated OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    [ApiResponse(Description = "No debtor with the DebtorID provided was found", StatusCode = 404)]
+    public class DebtorPATCHRequest : JiwaFinancials.Jiwa.JiwaServiceModel.Debtors.Debtor, IReturn<JiwaServiceModel.Debtors.Debtor>
+    {
+        public override string? DebtorID { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override DateTimeOffset? LastSavedDateTime { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override DateTime? LastPurchaseDate { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override DateTime? LastPaymentDate { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? CurrentBalance { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? Period1Balance { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? Period2Balance { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? Period3Balance { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? Period4Balance { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override bool? DebtorIsBranchAccount { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? RemainingNormalPrepaidLabourPackHours { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? RemainingSpecialPrepaidLabourPackHours { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override short? FXDecimalPlaces { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? ParentDebtorID { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? ParentDebtorAccountNo { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? ParentDebtorName { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? PriceSchemeDescription { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? DefaultCurrencyID { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? DefaultCurrencyName { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? DefaultCurrencyShortName { get; set; }
+    }
+
+    [Route("/Debtors/{DebtorID}", "DELETE")]
+    [ApiResponse(204, "Deleted OK")]
+    [ApiResponse(401, "Not authenticated")]
+    [ApiResponse(403, "Not authorised")]
+    [ApiResponse(404, "No debtor with the DebtorID provided was found")]
+    public class DebtorDELETERequest : IReturnVoid
+    {
+        public string? DebtorID { get; set; }
+    }
     #endregion
 
     #region "Inventory"
@@ -60,6 +223,114 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
         : IReturn<InventoryItem>
     {
         public virtual string? InventoryID { get; set; }
+    }
+
+    [Route("/Inventory", "POST")]
+    [ApiResponse(Description = "Created OK", StatusCode = 201)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    public class InventoryPOSTRequest : JiwaFinancials.Jiwa.JiwaServiceModel.Inventory.InventoryItem, IReturn<JiwaServiceModel.Inventory.InventoryItem>
+    {
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? InventoryID { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override DateTimeOffset? LastSavedDateTime { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? SCost { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override bool? UseStandardCost { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? StandardCost { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override int? PartEncodeOrder { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? GSTInwardsDescription { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? GSTInwardsRate { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? GSTOutwardsDescription { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? GSTOutwardsRate { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? GSTAdjustmentsINDescription { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? GSTAdjustmentsINRate { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? GSTAdjustmentsOUTDescription { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? GSTAdjustmentsOUTRate { get; set; }
+    }
+
+    [Route("/Inventory/{InventoryID}", "PATCH")]
+    [ApiResponse(Description = "Updated OK", StatusCode = 200)]
+    [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
+    [ApiResponse(Description = "Not authorised", StatusCode = 403)]
+    [ApiResponse(Description = "No inventory with the InventoryID provided was found", StatusCode = 404)]
+    public class InventoryPATCHRequest : JiwaFinancials.Jiwa.JiwaServiceModel.Inventory.InventoryItem, IReturn<JiwaServiceModel.Inventory.InventoryItem>
+    {
+        public override string? InventoryID { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override DateTimeOffset? LastSavedDateTime { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? SCost { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override bool? UseStandardCost { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? StandardCost { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override int? PartEncodeOrder { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? GSTInwardsDescription { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? GSTInwardsRate { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? GSTOutwardsDescription { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? GSTOutwardsRate { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? GSTAdjustmentsINDescription { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? GSTAdjustmentsINRate { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override string? GSTAdjustmentsOUTDescription { get; set; }
+
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public override decimal? GSTAdjustmentsOUTRate { get; set; }
+    }
+
+    [Route("/Inventory/{InventoryID}", "DELETE")]
+    [ApiResponse(204, "Deleted OK")]
+    [ApiResponse(401, "Not authenticated")]
+    [ApiResponse(403, "Not authorised")]
+    [ApiResponse(404, "No inventory with the InventoryID provided was found")]
+    public class InventoryDELETERequest : IReturnVoid
+    {
+        public string? InventoryID { get; set; }
     }
     #endregion
 
@@ -239,6 +510,16 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
 
         [System.Runtime.Serialization.IgnoreDataMember]
         public override DateTimeOffset? LastSavedDateTime { get; set; }
+    }
+
+    [Route("/PurchaseOrders/{PurchaseOrderID}", "DELETE")]
+    [ApiResponse(204, "Deleted OK")]
+    [ApiResponse(401, "Not authenticated")]
+    [ApiResponse(403, "Not authorised")]
+    [ApiResponse(404, "No purchase order with the PurchaseOrderID provided was found")]
+    public class PurchaseOrderDELETERequest : IReturnVoid
+    {
+        public string? PurchaseOrderID { get; set; }
     }
 
     [Route("/PurchaseOrders/{PurchaseOrderID}/Lines", "POST")]

@@ -207,7 +207,7 @@ public class FileToolsTests
             .RootElement.GetProperty("fileId").GetString();
 
         // Act
-        var readResult = await _fileTools.ReadUploadedFile(fileId);
+        var readResult = await _fileTools.ReadUploadedFile(fileId!);
 
         // Assert
         Assert.NotNull(readResult);
@@ -268,7 +268,7 @@ public class FileToolsTests
             .RootElement.GetProperty("fileId").GetString();
 
         // Act
-        var result = await _fileTools.QueryCsv(fileId, "How many rows?");
+        var result = await _fileTools.QueryCsv(fileId!, "How many rows?");
 
         // Assert
         Assert.NotNull(result);
@@ -290,7 +290,7 @@ public class FileToolsTests
             .RootElement.GetProperty("fileId").GetString();
 
         // Act
-        var result = await _fileTools.QueryCsv(fileId, "Show me the Name column");
+        var result = await _fileTools.QueryCsv(fileId!, "Show me the Name column");
 
         // Assert
         Assert.NotNull(result);
@@ -312,7 +312,7 @@ public class FileToolsTests
             .RootElement.GetProperty("fileId").GetString();
 
         // Act
-        var result = await _fileTools.QueryCsv(fileId, "Show me the Product column");
+        var result = await _fileTools.QueryCsv(fileId!, "Show me the Product column");
 
         // Assert
         Assert.NotNull(result);
@@ -335,7 +335,7 @@ public class FileToolsTests
             .RootElement.GetProperty("fileId").GetString();
 
         // Act
-        var result = await _fileTools.QueryCsv(fileId, "");
+        var result = await _fileTools.QueryCsv(fileId!, "");
 
         // Assert
         Assert.NotNull(result);
@@ -367,7 +367,7 @@ public class FileToolsTests
             .RootElement.GetProperty("fileId").GetString();
 
         // Act - will fail parsing as CSV
-        var result = await _fileTools.QueryCsv(fileId, "count");
+        var result = await _fileTools.QueryCsv(fileId!, "count");
 
         // Assert - Should handle gracefully
         Assert.NotNull(result);
@@ -392,7 +392,7 @@ public class FileToolsTests
             .RootElement.GetProperty("fileId").GetString();
 
         // Act
-        var result = await _fileTools.QueryCsv(fileId, "List all persons");
+        var result = await _fileTools.QueryCsv(fileId!, "List all persons");
 
         // Assert
         Assert.NotNull(result);
@@ -478,7 +478,7 @@ public class FileToolsTests
             .RootElement.GetProperty("fileId").GetString();
 
         // Act
-        var result = await _fileTools.QueryCsv(fileId, "count");
+        var result = await _fileTools.QueryCsv(fileId!, "count");
 
         // Assert - should either handle or return error gracefully
         Assert.NotNull(result);
@@ -498,7 +498,7 @@ public class FileToolsTests
             .RootElement.GetProperty("fileId").GetString();
 
         // Act
-        var result = await _fileTools.QueryCsv(fileId, "Show Name");
+        var result = await _fileTools.QueryCsv(fileId!, "Show Name");
 
         // Assert
         Assert.NotNull(result);
@@ -615,7 +615,7 @@ public class FileToolsTests
         await _fileTools.UploadFile("second.txt", "text/plain", contentBase64_2);
 
         // Act - Read with explicit fileId (should override latest logic)
-        var readResult = await _fileTools.ReadUploadedFile(fileId1);
+        var readResult = await _fileTools.ReadUploadedFile(fileId1!);
 
         // Assert
         Assert.DoesNotContain("error", readResult.ToLowerInvariant());
@@ -705,7 +705,7 @@ public class FileToolsTests
         var uploadResult = await _fileTools.UploadFile("notxml.txt", "text/plain", contentBase64);
         var fileId = System.Text.Json.JsonDocument.Parse(uploadResult)
             .RootElement.GetProperty("fileId").GetString();
-        var result = await _fileTools.QueryXml(fileId, "query");
+        var result = await _fileTools.QueryXml(fileId!, "query");
 
         // Assert
         Assert.Contains("error", result.ToLowerInvariant());
@@ -815,7 +815,7 @@ public class FileToolsTests
         var uploadResult = await _fileTools.UploadFile("notjson.txt", "text/plain", contentBase64);
         var fileId = System.Text.Json.JsonDocument.Parse(uploadResult)
             .RootElement.GetProperty("fileId").GetString();
-        var result = await _fileTools.QueryJson(fileId, "query");
+        var result = await _fileTools.QueryJson(fileId!, "query");
 
         // Assert
         Assert.Contains("error", result.ToLowerInvariant());
@@ -834,7 +834,7 @@ public class FileToolsTests
         var uploadResult = await _fileTools.UploadFile("bad.json", "application/json", contentBase64);
         var fileId = System.Text.Json.JsonDocument.Parse(uploadResult)
             .RootElement.GetProperty("fileId").GetString();
-        var result = await _fileTools.QueryJson(fileId, "query");
+        var result = await _fileTools.QueryJson(fileId!, "query");
 
         // Assert
         Assert.Contains("error", result.ToLowerInvariant());

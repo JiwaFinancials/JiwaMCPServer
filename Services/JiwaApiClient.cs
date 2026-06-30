@@ -71,6 +71,20 @@ public static class JiwaApiClient
         }
     }
 
+    public static async Task DeleteAsync(ServiceStack.IReturnVoid requestDTO, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(Config.JiwaAPIURL))
+        {
+            throw new InvalidOperationException("JiwaAPIURL is not configured.");
+        }
+
+        using (JsonApiClient client = new JsonApiClient(Config.JiwaAPIURL))
+        {
+            client.BearerToken = ResolveApiKey();
+            await client.DeleteAsync(requestDTO, ct);
+        }
+    }
+
     /// <summary>
     /// Performs a GET to a relative URL with a raw JSON body and returns the response bytes and content-type.
     /// </summary>

@@ -146,6 +146,29 @@ public class JiwaApiClientTests
     }
 
     [Fact]
+    public async System.Threading.Tasks.Task DeleteAsync_ThrowsWhenJiwaAPIURLNotConfigured()
+    {
+        // Arrange
+        var originalUrl = Config.JiwaAPIURL;
+        try
+        {
+            Config.JiwaAPIURL = null;
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+                () => JiwaApiClient.DeleteAsync(
+                    new JiwaFinancials.Jiwa.JiwaServiceModel.DebtorDELETERequest(),
+                    CancellationToken.None));
+
+            Assert.NotNull(exception);
+        }
+        finally
+        {
+            Config.JiwaAPIURL = originalUrl;
+        }
+    }
+
+    [Fact]
     public async System.Threading.Tasks.Task GetRawBytesAsync_ThrowsWhenJiwaAPIURLNotConfigured()
     {
         // Arrange
