@@ -37,7 +37,7 @@ JiwaMcpServer/
 ├── appsettings.json
 ├── Tools/
 │   ├── JiwaToolBase.cs
-│   ├── FileTools.cs              (File upload, retrieval, CSV/XML/JSON queries)
+│   ├── FileTools.cs              (File upload, retrieval, CSV/XML/JSON/Excel queries)
 │   ├── CustomerTools.cs
 │   ├── FormTools.cs
 │   ├── ProductTools.cs
@@ -60,20 +60,26 @@ JiwaMcpServer/
 ### FileTools
 | Tool | Description |
 |---|---|
-| `upload_file` | Upload and store a base64-encoded file. Returns a unique `fileId` for reference. Supports text files up to 50 MB; allowed MIME types: `text/*`, `application/json`, `application/xml`. |
+| `upload_file` | Upload and store a base64-encoded file. Returns a unique `fileId` for reference. Supports text files up to 50 MB; allowed MIME types: `text/*`, `application/json`, `application/xml`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`. |
 | `read_uploaded_file` | Retrieve the content of a previously uploaded file by its `fileId`, or omit the ID to read the most recently uploaded file in this session. |
 | `query_csv` | Execute natural language queries on CSV files (e.g., "How many rows?", "Show me the Name column"). If no `fileId` is provided, queries the most recently uploaded CSV file in this session. Supports field extraction, counting, and summarization. |
+| `query_excel` | Execute natural language queries on Excel (`.xlsx`) files by `fileId` or local path. Optional `sheetName` and `range` parameters target specific worksheet data. If omitted, it uses the latest uploaded Excel file in the session and the worksheet used range. |
+| `describe_excel` | Describe an Excel workbook by `fileId` or local path. Returns sheet list, used ranges, selected sheet/range, inferred headers, and data row count to help craft better follow-up questions. |
+| `read_excel_rows` | Read Excel rows deterministically for import workflows by `fileId` or local path. Returns `headers`, `rows`, `totalRows`, `returnedRows`, and `hasMore`, with optional `sheetName`, `range`, `skip`, and `take` paging controls. |
 | `query_xml` | Execute natural language queries on XML files (e.g., "How many elements?", "Find the config element"). If no `fileId` is provided, queries the most recently uploaded XML file in this session. Supports element search, structure summarization, and top 10 result limiting. |
 | `query_json` | Execute natural language queries on JSON files (e.g., "How many keys?", "Show me the settings property"). If no `fileId` is provided, queries the most recently uploaded JSON file in this session. Supports key search, value extraction, array/object navigation, and top 10 result limiting. |
 | `list_local_directory` | List files/folders from an allowed local or UNC path. Access is restricted to configured `LocalFileSystem:AllowedRoots`. |
 | `read_local_file` | Read text content from an allowed local or UNC file path. Output is limited by `LocalFileSystem:MaxReadBytes` and may be truncated. |
+| `query_local_structured_file` | Query a local structured file directly by path with natural language. Supports `.csv`, `.xml`, `.json`, and `.xlsx` under `LocalFileSystem:AllowedRoots`. |
 
-**Latest File Convenience:** You don't need to copy/paste `fileId` values! All file query tools (`query_csv`, `query_xml`, `query_json`) and `read_uploaded_file` will automatically use the most recently uploaded file in your session if you omit or leave empty the `fileId` parameter. This enables natural workflows like:
+**Latest File Convenience:** You don't need to copy/paste `fileId` values! All file query tools (`query_csv`, `query_excel`, `query_xml`, `query_json`) and `read_uploaded_file` will automatically use the most recently uploaded file in your session if you omit or leave empty the `fileId` parameter. This enables natural workflows like:
 1. Upload a CSV file
 2. Ask "show me the file I just uploaded" (implicitly uses latest)
 3. Ask "how many rows?" (implicitly queries the latest file)
 
-**Session Isolation:** Files are stored per client connection. When you upload a file, it is available for all subsequent calls within the same MCP connection session. Each new client connection (e.g., new VS Code session, new chat window) gets its own isolated file storage space. See [`FILE_SESSION_FIX.md`](FILE_SESSION_FIX.md) for technical details.
+For deterministic import pipelines (for example debtor/customer imports), use `read_excel_rows` instead of natural-language query tools so row data is returned in a predictable paged structure.
+
+**Session Isolation:** Files are stored per client connection.
 
 **File Support Documentation:**
 - **Quick Start**: See [`FILE_SUPPORT_QUICK_REFERENCE.md`](FILE_SUPPORT_QUICK_REFERENCE.md)

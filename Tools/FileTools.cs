@@ -8,7 +8,7 @@ using System.Text;
 namespace JiwaMcpServer.Tools;
 
 /// <summary>
-/// MCP tools for file upload, retrieval, and CSV querying.
+/// MCP tools for file upload, retrieval, and structured file querying.
 /// Supports the Jiwa Chat client's file handling workflow.
 /// </summary>
 [McpServerToolType]
@@ -56,7 +56,7 @@ public class FileTools : JiwaToolBase
     /// <param name="contentBase64">The file content encoded as base64</param>
     /// <param name="clientSessionId">Optional session ID for grouping files. If provided, subsequent read/query calls with the same ID will be able to access files uploaded in this call</param>
     /// <returns>JSON response with fileId or error message</returns>
-    [McpServerTool(ReadOnly = false), Description("Upload a file with base64-encoded content. Returns a fileId for later reference. Supports text files up to 50 MB. Allowed MIME types: text/*, application/json, application/xml")]
+    [McpServerTool(ReadOnly = false), Description("Upload a file with base64-encoded content. Returns a fileId for later reference. Supports text files up to 50 MB. Allowed MIME types: text/*, application/json, application/xml, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
     public Task<string> UploadFile(
         string fileName,
         string mimeType,
@@ -189,6 +189,307 @@ public class FileTools : JiwaToolBase
                 return new
                 {
                     results = result.Results ?? new List<string>()
+                }.ToJson();
+            }
+
+            return new
+            {
+                error = result.Error
+            }.ToJson();
+        });
+    }
+
+    /// <summary>
+    /// Queries an Excel file using natural language questions.
+    /// Accepts either an uploaded fileId or a local path to an .xlsx file under allowed roots.
+    /// If pathOrFileId is omitted, queries the most recently uploaded Excel file in this session.
+    /// </summary>
+    /// <param name="pathOrFileId">Uploaded fileId or local .xlsx path under allowed roots</param>
+    /// <param name="question">Natural language question about the Excel data (e.g., "How many rows?", "Show me the Name column")</param>
+    /// <param name="sheetName">Optional worksheet name. Defaults to first worksheet</param>
+    /// <param name="range">Optional range address (e.g., A1:D20). Defaults to used range</param>
+    /// <param name="clientSessionId">Optional session ID. If provided, ensures access to files from that session</param>
+    /// <returns>JSON response with query results or error message</returns>
+    [McpServerTool(ReadOnly = true), Description("Query an Excel (.xlsx) file using natural language questions. Accepts either fileId or local path (under LocalFileSystem:AllowedRoots). Optional sheetName and range let you target specific worksheet data. If pathOrFileId is empty, uses the latest uploaded Excel file in this session")]
+    public Task<string> QueryExcel(
+        string pathOrFileId = "",
+        string question = "",
+        string sheetName = "",
+        string range = "",
+        string? clientSessionId = null)
+    {
+        return InvokeToolAsync(async () =>
+        {
+            // Set the session ID: prefer explicit clientSessionId, then HTTP context, then use AsyncLocal default
+            if (!string.IsNullOrWhiteSpace(clientSessionId))
+            {
+                FileStorageService.SetSessionId(clientSessionId);
+            }
+            else
+            {
+                var contextSessionId = GetSessionIdFromContext();
+                if (contextSessionId != null)
+                {
+                    FileStorageService.SetSessionId(contextSessionId);
+                }
+                // else: let AsyncLocal value persist (set by middleware or test setup)
+            }
+
+            string? fileIdForQuery = null;
+
+            if (!string.IsNullOrWhiteSpace(pathOrFileId))
+            {
+                var looksLikePath = Path.IsPathRooted(pathOrFileId) ||
+                                    pathOrFileId.Contains(Path.DirectorySeparatorChar) ||
+                                    pathOrFileId.Contains(Path.AltDirectorySeparatorChar);
+
+                if (looksLikePath)
+                {
+                    if (!TryResolveAllowedPath(pathOrFileId, out var fullPath, out var pathError))
+                    {
+                        return new { error = pathError }.ToJson();
+                    }
+
+                    if (!File.Exists(fullPath))
+                    {
+                        return new { error = $"File '{fullPath}' was not found" }.ToJson();
+                    }
+
+                    if (!fullPath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return new { error = "Only .xlsx files are supported for query_excel path input" }.ToJson();
+                    }
+
+                    var fileBytes = await File.ReadAllBytesAsync(fullPath);
+                    var uploadResult = _fileStorage.UploadFile(
+                        Path.GetFileName(fullPath),
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        Convert.ToBase64String(fileBytes));
+
+                    if (!uploadResult.IsSuccess || string.IsNullOrWhiteSpace(uploadResult.FileId))
+                    {
+                        return new { error = uploadResult.Error ?? "Failed to stage local Excel file for querying" }.ToJson();
+                    }
+
+                    fileIdForQuery = uploadResult.FileId;
+                }
+                else
+                {
+                    fileIdForQuery = pathOrFileId;
+                }
+            }
+
+            var result = _fileStorage.QueryExcelOrLatest(
+                fileIdForQuery,
+                question,
+                string.IsNullOrWhiteSpace(sheetName) ? null : sheetName,
+                string.IsNullOrWhiteSpace(range) ? null : range);
+
+            if (result.IsSuccess)
+            {
+                return new
+                {
+                    results = result.Results ?? new List<string>()
+                }.ToJson();
+            }
+
+            return new
+            {
+                error = result.Error
+            }.ToJson();
+        });
+    }
+
+    /// <summary>
+    /// Describes an Excel workbook, including sheets, used ranges, and selected sheet/range context.
+    /// Accepts either an uploaded fileId or a local path to an .xlsx file under allowed roots.
+    /// </summary>
+    /// <param name="pathOrFileId">Uploaded fileId or local .xlsx path under allowed roots</param>
+    /// <param name="sheetName">Optional worksheet name. Defaults to first worksheet</param>
+    /// <param name="range">Optional range address (e.g., A1:D20). Defaults to used range</param>
+    /// <param name="clientSessionId">Optional session ID. If provided, ensures access to files from that session</param>
+    /// <returns>JSON response with workbook description or error message</returns>
+    [McpServerTool(ReadOnly = true), Description("Describe an Excel (.xlsx) workbook by fileId or local path under LocalFileSystem:AllowedRoots. Returns sheet list, used ranges, selected sheet/range, headers, and row counts")]
+    public Task<string> DescribeExcel(
+        string pathOrFileId = "",
+        string sheetName = "",
+        string range = "",
+        string? clientSessionId = null)
+    {
+        return InvokeToolAsync(async () =>
+        {
+            // Set the session ID: prefer explicit clientSessionId, then HTTP context, then use AsyncLocal default
+            if (!string.IsNullOrWhiteSpace(clientSessionId))
+            {
+                FileStorageService.SetSessionId(clientSessionId);
+            }
+            else
+            {
+                var contextSessionId = GetSessionIdFromContext();
+                if (contextSessionId != null)
+                {
+                    FileStorageService.SetSessionId(contextSessionId);
+                }
+                // else: let AsyncLocal value persist (set by middleware or test setup)
+            }
+
+            string? fileIdForDescribe = null;
+
+            if (!string.IsNullOrWhiteSpace(pathOrFileId))
+            {
+                var looksLikePath = Path.IsPathRooted(pathOrFileId) ||
+                                    pathOrFileId.Contains(Path.DirectorySeparatorChar) ||
+                                    pathOrFileId.Contains(Path.AltDirectorySeparatorChar);
+
+                if (looksLikePath)
+                {
+                    if (!TryResolveAllowedPath(pathOrFileId, out var fullPath, out var pathError))
+                    {
+                        return new { error = pathError }.ToJson();
+                    }
+
+                    if (!File.Exists(fullPath))
+                    {
+                        return new { error = $"File '{fullPath}' was not found" }.ToJson();
+                    }
+
+                    if (!fullPath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return new { error = "Only .xlsx files are supported for describe_excel path input" }.ToJson();
+                    }
+
+                    var fileBytes = await File.ReadAllBytesAsync(fullPath);
+                    var uploadResult = _fileStorage.UploadFile(
+                        Path.GetFileName(fullPath),
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        Convert.ToBase64String(fileBytes));
+
+                    if (!uploadResult.IsSuccess || string.IsNullOrWhiteSpace(uploadResult.FileId))
+                    {
+                        return new { error = uploadResult.Error ?? "Failed to stage local Excel file for description" }.ToJson();
+                    }
+
+                    fileIdForDescribe = uploadResult.FileId;
+                }
+                else
+                {
+                    fileIdForDescribe = pathOrFileId;
+                }
+            }
+
+            var result = _fileStorage.DescribeExcelOrLatest(
+                fileIdForDescribe,
+                string.IsNullOrWhiteSpace(sheetName) ? null : sheetName,
+                string.IsNullOrWhiteSpace(range) ? null : range);
+
+            if (result.IsSuccess)
+            {
+                return new
+                {
+                    summary = result.Summary
+                }.ToJson();
+            }
+
+            return new
+            {
+                error = result.Error
+            }.ToJson();
+        });
+    }
+
+    /// <summary>
+    /// Reads deterministic Excel rows for import workflows.
+    /// Accepts either an uploaded fileId or a local path to an .xlsx file under allowed roots.
+    /// </summary>
+    /// <param name="pathOrFileId">Uploaded fileId or local .xlsx path under allowed roots</param>
+    /// <param name="sheetName">Optional worksheet name. Defaults to first worksheet</param>
+    /// <param name="range">Optional range address (e.g., A1:D200). Defaults to used range</param>
+    /// <param name="skip">Number of data rows to skip after headers</param>
+    /// <param name="take">Maximum number of rows to return (capped at 1000)</param>
+    /// <param name="clientSessionId">Optional session ID. If provided, ensures access to files from that session</param>
+    /// <returns>JSON response with headers, rows, and paging metadata</returns>
+    [McpServerTool(ReadOnly = true), Description("Read Excel (.xlsx) rows deterministically for import by fileId or local path under LocalFileSystem:AllowedRoots. Supports optional sheetName, range, skip, and take paging")]
+    public Task<string> ReadExcelRows(
+        string pathOrFileId = "",
+        string sheetName = "",
+        string range = "",
+        int skip = 0,
+        int take = 200,
+        string? clientSessionId = null)
+    {
+        return InvokeToolAsync(async () =>
+        {
+            // Set the session ID: prefer explicit clientSessionId, then HTTP context, then use AsyncLocal default
+            if (!string.IsNullOrWhiteSpace(clientSessionId))
+            {
+                FileStorageService.SetSessionId(clientSessionId);
+            }
+            else
+            {
+                var contextSessionId = GetSessionIdFromContext();
+                if (contextSessionId != null)
+                {
+                    FileStorageService.SetSessionId(contextSessionId);
+                }
+                // else: let AsyncLocal value persist (set by middleware or test setup)
+            }
+
+            string? fileIdForRead = null;
+
+            if (!string.IsNullOrWhiteSpace(pathOrFileId))
+            {
+                var looksLikePath = Path.IsPathRooted(pathOrFileId) ||
+                                    pathOrFileId.Contains(Path.DirectorySeparatorChar) ||
+                                    pathOrFileId.Contains(Path.AltDirectorySeparatorChar);
+
+                if (looksLikePath)
+                {
+                    if (!TryResolveAllowedPath(pathOrFileId, out var fullPath, out var pathError))
+                    {
+                        return new { error = pathError }.ToJson();
+                    }
+
+                    if (!File.Exists(fullPath))
+                    {
+                        return new { error = $"File '{fullPath}' was not found" }.ToJson();
+                    }
+
+                    if (!fullPath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return new { error = "Only .xlsx files are supported for read_excel_rows path input" }.ToJson();
+                    }
+
+                    var fileBytes = await File.ReadAllBytesAsync(fullPath);
+                    var uploadResult = _fileStorage.UploadFile(
+                        Path.GetFileName(fullPath),
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        Convert.ToBase64String(fileBytes));
+
+                    if (!uploadResult.IsSuccess || string.IsNullOrWhiteSpace(uploadResult.FileId))
+                    {
+                        return new { error = uploadResult.Error ?? "Failed to stage local Excel file for row reading" }.ToJson();
+                    }
+
+                    fileIdForRead = uploadResult.FileId;
+                }
+                else
+                {
+                    fileIdForRead = pathOrFileId;
+                }
+            }
+
+            var result = _fileStorage.ReadExcelRowsOrLatest(
+                fileIdForRead,
+                string.IsNullOrWhiteSpace(sheetName) ? null : sheetName,
+                string.IsNullOrWhiteSpace(range) ? null : range,
+                skip,
+                take);
+
+            if (result.IsSuccess)
+            {
+                return new
+                {
+                    data = result.Data
                 }.ToJson();
             }
 
@@ -431,6 +732,138 @@ public class FileTools : JiwaToolBase
                 content = text
             }.ToJson();
         });
+    }
+
+    [McpServerTool(ReadOnly = true), Description("Query a local structured file by path using natural language. Supports .csv, .xml, .json, and .xlsx under LocalFileSystem:AllowedRoots")]
+    public Task<string> QueryLocalStructuredFile(
+        string path,
+        string question,
+        string? clientSessionId = null)
+    {
+        return InvokeToolAsync(async () =>
+        {
+            if (string.IsNullOrWhiteSpace(question))
+            {
+                return new { error = "question is required" }.ToJson();
+            }
+
+            // Set the session ID: prefer explicit clientSessionId, then HTTP context, then use AsyncLocal default
+            if (!string.IsNullOrWhiteSpace(clientSessionId))
+            {
+                FileStorageService.SetSessionId(clientSessionId);
+            }
+            else
+            {
+                var contextSessionId = GetSessionIdFromContext();
+                if (contextSessionId != null)
+                {
+                    FileStorageService.SetSessionId(contextSessionId);
+                }
+                // else: let AsyncLocal value persist (set by middleware or test setup)
+            }
+
+            if (!TryResolveAllowedPath(path, out var fullPath, out var error))
+            {
+                return new { error }.ToJson();
+            }
+
+            if (!File.Exists(fullPath))
+            {
+                return new { error = $"File '{fullPath}' was not found" }.ToJson();
+            }
+
+            if (!TryGetStructuredFileQueryInfo(fullPath, out var queryType, out var mimeType, out error))
+            {
+                return new { error }.ToJson();
+            }
+
+            var fileBytes = await File.ReadAllBytesAsync(fullPath);
+            var uploadResult = _fileStorage.UploadFile(
+                Path.GetFileName(fullPath),
+                mimeType!,
+                Convert.ToBase64String(fileBytes));
+
+            if (!uploadResult.IsSuccess || string.IsNullOrWhiteSpace(uploadResult.FileId))
+            {
+                return new { error = uploadResult.Error ?? "Failed to stage local file for querying" }.ToJson();
+            }
+
+            var fileId = uploadResult.FileId;
+
+            if (string.Equals(queryType, "csv", StringComparison.OrdinalIgnoreCase))
+            {
+                var result = _fileStorage.QueryCsv(fileId, question);
+                return result.IsSuccess
+                    ? new { results = result.Results ?? new List<string>() }.ToJson()
+                    : new { error = result.Error }.ToJson();
+            }
+
+            if (string.Equals(queryType, "xml", StringComparison.OrdinalIgnoreCase))
+            {
+                var result = _fileStorage.QueryXml(fileId, question);
+                return result.IsSuccess
+                    ? new { results = result.Results ?? new List<string>() }.ToJson()
+                    : new { error = result.Error }.ToJson();
+            }
+
+            if (string.Equals(queryType, "json", StringComparison.OrdinalIgnoreCase))
+            {
+                var result = _fileStorage.QueryJson(fileId, question);
+                return result.IsSuccess
+                    ? new { results = result.Results ?? new List<string>() }.ToJson()
+                    : new { error = result.Error }.ToJson();
+            }
+
+            if (string.Equals(queryType, "excel", StringComparison.OrdinalIgnoreCase))
+            {
+                var result = _fileStorage.QueryExcel(fileId, question);
+                return result.IsSuccess
+                    ? new { results = result.Results ?? new List<string>() }.ToJson()
+                    : new { error = result.Error }.ToJson();
+            }
+
+            return new { error = "Unsupported file type for local structured query" }.ToJson();
+        });
+    }
+
+    private static bool TryGetStructuredFileQueryInfo(string fullPath, out string queryType, out string mimeType, out string error)
+    {
+        queryType = string.Empty;
+        mimeType = string.Empty;
+        error = string.Empty;
+
+        var extension = Path.GetExtension(fullPath);
+
+        if (string.Equals(extension, ".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            queryType = "csv";
+            mimeType = "text/csv";
+            return true;
+        }
+
+        if (string.Equals(extension, ".xml", StringComparison.OrdinalIgnoreCase))
+        {
+            queryType = "xml";
+            mimeType = "application/xml";
+            return true;
+        }
+
+        if (string.Equals(extension, ".json", StringComparison.OrdinalIgnoreCase))
+        {
+            queryType = "json";
+            mimeType = "application/json";
+            return true;
+        }
+
+        if (string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+        {
+            queryType = "excel";
+            mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            return true;
+        }
+
+        error = $"Unsupported file extension '{extension}'. Supported extensions: .csv, .xml, .json, .xlsx";
+        return false;
     }
 
     private static bool TryResolveAllowedPath(string requestedPath, out string fullPath, out string error)

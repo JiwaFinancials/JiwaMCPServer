@@ -444,7 +444,12 @@ public class FileToolsTests
     public async Task FileTools_AllowedMimeTypes_Application()
     {
         // Arrange
-        var mimeTypes = new[] { "application/json", "application/xml" };
+        var mimeTypes = new[]
+        {
+            "application/json",
+            "application/xml",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        };
 
         foreach (var mimeType in mimeTypes)
         {
@@ -621,6 +626,202 @@ public class FileToolsTests
         Assert.DoesNotContain("error", readResult.ToLowerInvariant());
         Assert.Contains(content1, readResult); // Should get first file, not latest
         Assert.Contains("first.txt", readResult);
+    }
+
+    #endregion
+
+    #region query_excel Tests
+
+    [Fact]
+    public async Task QueryExcel_ValidWorkbook_ReturnsQueryResults()
+    {
+        // Arrange
+        using var workbook = new ClosedXML.Excel.XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Data");
+        worksheet.Cell(1, 1).Value = "Name";
+        worksheet.Cell(1, 2).Value = "Age";
+        worksheet.Cell(2, 1).Value = "Alice";
+        worksheet.Cell(2, 2).Value = 30;
+        worksheet.Cell(3, 1).Value = "Bob";
+        worksheet.Cell(3, 2).Value = 25;
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var contentBase64 = Convert.ToBase64String(stream.ToArray());
+
+        await _fileTools.UploadFile("people.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentBase64);
+
+        // Act
+        var result = await _fileTools.QueryExcel("", "Show me the Name column");
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.DoesNotContain("error", result.ToLowerInvariant());
+        Assert.Contains("Alice", result);
+        Assert.Contains("Bob", result);
+    }
+
+    [Fact]
+    public async Task QueryExcel_InvalidMimeType_ReturnsError()
+    {
+        // Arrange
+        var contentBase64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("not an excel file"));
+        var uploadResult = await _fileTools.UploadFile("bad.txt", "text/plain", contentBase64);
+        var fileId = System.Text.Json.JsonDocument.Parse(uploadResult)
+            .RootElement.GetProperty("fileId").GetString();
+
+        // Act
+        var result = await _fileTools.QueryExcel(fileId!, "count");
+
+        // Assert
+        Assert.Contains("error", result.ToLowerInvariant());
+        Assert.Contains("not an excel file", result.ToLowerInvariant());
+    }
+
+    [Fact]
+    public async Task QueryExcel_SpecificSheetAndRange_ReturnsTargetedRows()
+    {
+        // Arrange
+        using var workbook = new ClosedXML.Excel.XLWorkbook();
+
+        var summarySheet = workbook.Worksheets.Add("Summary");
+        summarySheet.Cell(1, 1).Value = "Metric";
+        summarySheet.Cell(1, 2).Value = "Value";
+        summarySheet.Cell(2, 1).Value = "Total";
+        summarySheet.Cell(2, 2).Value = 99;
+
+        var customersSheet = workbook.Worksheets.Add("Customers");
+        customersSheet.Cell(1, 1).Value = "Name";
+        customersSheet.Cell(1, 2).Value = "City";
+        customersSheet.Cell(2, 1).Value = "Alice";
+        customersSheet.Cell(2, 2).Value = "Melbourne";
+        customersSheet.Cell(3, 1).Value = "Bob";
+        customersSheet.Cell(3, 2).Value = "Sydney";
+        customersSheet.Cell(4, 1).Value = "Charlie";
+        customersSheet.Cell(4, 2).Value = "Perth";
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var contentBase64 = Convert.ToBase64String(stream.ToArray());
+
+        await _fileTools.UploadFile("customers.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentBase64);
+
+        // Act
+        var result = await _fileTools.QueryExcel("", "How many rows?", "Customers", "A1:B3");
+
+        // Assert
+        Assert.DoesNotContain("error", result.ToLowerInvariant());
+        Assert.Contains("Total rows: 2", result);
+    }
+
+    [Fact]
+    public async Task DescribeExcel_ReturnsWorkbookSummary()
+    {
+        // Arrange
+        using var workbook = new ClosedXML.Excel.XLWorkbook();
+
+        var customersSheet = workbook.Worksheets.Add("Customers");
+        customersSheet.Cell(1, 1).Value = "Name";
+        customersSheet.Cell(1, 2).Value = "City";
+        customersSheet.Cell(2, 1).Value = "Alice";
+        customersSheet.Cell(2, 2).Value = "Melbourne";
+        customersSheet.Cell(3, 1).Value = "Bob";
+        customersSheet.Cell(3, 2).Value = "Sydney";
+
+        var ordersSheet = workbook.Worksheets.Add("Orders");
+        ordersSheet.Cell(1, 1).Value = "OrderNo";
+        ordersSheet.Cell(2, 1).Value = "SO1001";
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var contentBase64 = Convert.ToBase64String(stream.ToArray());
+
+        await _fileTools.UploadFile("workbook.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentBase64);
+
+        // Act
+        var result = await _fileTools.DescribeExcel("", "Customers", "A1:B3");
+
+        // Assert
+        Assert.DoesNotContain("error", result.ToLowerInvariant());
+        Assert.Contains("sheetcount", result.ToLowerInvariant());
+        Assert.Contains("customers", result.ToLowerInvariant());
+        Assert.Contains("datarowcount", result.ToLowerInvariant());
+    }
+
+    [Fact]
+    public async Task ReadExcelRows_PathInput_ReturnsStructuredRows()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            var excelPath = Path.Combine(tempRoot, "customers.xlsx");
+
+            using (var workbook = new ClosedXML.Excel.XLWorkbook())
+            {
+                var worksheet = workbook.Worksheets.Add("Customers");
+                worksheet.Cell(1, 1).Value = "Code";
+                worksheet.Cell(1, 2).Value = "Name";
+                worksheet.Cell(2, 1).Value = "C001";
+                worksheet.Cell(2, 2).Value = "Alice Pty Ltd";
+                worksheet.Cell(3, 1).Value = "C002";
+                worksheet.Cell(3, 2).Value = "Bob Traders";
+                workbook.SaveAs(excelPath);
+            }
+
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+
+            var result = await _fileTools.ReadExcelRows(excelPath, "Customers", "A1:B3", 0, 50);
+
+            Assert.DoesNotContain("error", result.ToLowerInvariant());
+            Assert.Contains("headers", result.ToLowerInvariant());
+            Assert.Contains("rows", result.ToLowerInvariant());
+            Assert.Contains("alice pty ltd", result.ToLowerInvariant());
+            Assert.Contains("totalrows", result.ToLowerInvariant());
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ReadExcelRows_Paging_ReturnsExpectedWindow()
+    {
+        // Arrange
+        using var workbook = new ClosedXML.Excel.XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Customers");
+        worksheet.Cell(1, 1).Value = "Code";
+        worksheet.Cell(1, 2).Value = "Name";
+        worksheet.Cell(2, 1).Value = "C001";
+        worksheet.Cell(2, 2).Value = "Alice";
+        worksheet.Cell(3, 1).Value = "C002";
+        worksheet.Cell(3, 2).Value = "Bob";
+        worksheet.Cell(4, 1).Value = "C003";
+        worksheet.Cell(4, 2).Value = "Charlie";
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        var contentBase64 = Convert.ToBase64String(stream.ToArray());
+
+        var upload = await _fileTools.UploadFile("customers.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", contentBase64);
+        var fileId = System.Text.Json.JsonDocument.Parse(upload).RootElement.GetProperty("fileId").GetString();
+
+        // Act
+        var result = await _fileTools.ReadExcelRows(fileId!, "Customers", "A1:B4", 1, 1);
+
+        // Assert
+        Assert.DoesNotContain("error", result.ToLowerInvariant());
+        Assert.Contains("\"returnedrows\":1", result.Replace(" ", string.Empty).ToLowerInvariant());
+        Assert.Contains("\"hasmore\":true", result.Replace(" ", string.Empty).ToLowerInvariant());
+        Assert.Contains("bob", result.ToLowerInvariant());
+        Assert.DoesNotContain("alice", result.ToLowerInvariant());
     }
 
     #endregion
@@ -898,6 +1099,75 @@ public class FileToolsTests
         {
             Config.LocalFileSystemAllowedRoots = originalRoots;
             Config.LocalFileSystemMaxReadBytes = originalMaxReadBytes;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task QueryLocalStructuredFile_ExcelPath_ReturnsRowCount()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            var excelPath = Path.Combine(tempRoot, "customers.xlsx");
+
+            using (var workbook = new ClosedXML.Excel.XLWorkbook())
+            {
+                var worksheet = workbook.Worksheets.Add("Customers");
+                worksheet.Cell(1, 1).Value = "Name";
+                worksheet.Cell(1, 2).Value = "City";
+                worksheet.Cell(2, 1).Value = "Alice";
+                worksheet.Cell(2, 2).Value = "Melbourne";
+                worksheet.Cell(3, 1).Value = "Bob";
+                worksheet.Cell(3, 2).Value = "Sydney";
+                workbook.SaveAs(excelPath);
+            }
+
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+
+            var result = await _fileTools.QueryLocalStructuredFile(excelPath, "How many rows?");
+
+            Assert.DoesNotContain("error", result.ToLowerInvariant());
+            Assert.Contains("Total rows: 2", result);
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task QueryLocalStructuredFile_UnsupportedExtension_ReturnsError()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            var unsupportedFile = Path.Combine(tempRoot, "data.txt");
+            await File.WriteAllTextAsync(unsupportedFile, "content");
+
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+
+            var result = await _fileTools.QueryLocalStructuredFile(unsupportedFile, "count");
+
+            Assert.Contains("error", result.ToLowerInvariant());
+            Assert.Contains("unsupported file extension", result.ToLowerInvariant());
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
             if (Directory.Exists(tempRoot))
             {
                 Directory.Delete(tempRoot, true);

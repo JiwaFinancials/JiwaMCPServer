@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
@@ -39,7 +40,8 @@ public class FileStorageService
         "text/xml",
         "text/json",
         "application/json",
-        "application/xml"
+        "application/xml",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     };
 
     /// <summary>
@@ -123,6 +125,15 @@ public class FileStorageService
     }
 
     /// <summary>
+    /// Determines whether a file should be treated as an Excel workbook.
+    /// </summary>
+    private static bool IsExcelFile(FileMetadata metadata)
+    {
+        return metadata.MimeType.Contains("spreadsheetml", StringComparison.OrdinalIgnoreCase) ||
+               metadata.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Generates a stable unique file ID based on content hash and timestamp.
     /// </summary>
     private static string GenerateFileId()
@@ -157,7 +168,7 @@ public class FileStorageService
 
         // Validate MIME type
         if (!IsAllowedMimeType(mimeType))
-            return UploadFileResult.CreateError($"MIME type '{mimeType}' is not allowed. Allowed types: text/*, application/json, application/xml");
+            return UploadFileResult.CreateError($"MIME type '{mimeType}' is not allowed. Allowed types: text/*, application/json, application/xml, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
         // Decode base64
         byte[] content;
@@ -468,6 +479,355 @@ public class FileStorageService
     }
 
     /// <summary>
+    /// Queries an Excel file by file ID with a natural language question.
+    /// </summary>
+    /// <param name="fileId">The file ID of the Excel file</param>
+    /// <param name="question">Natural language question about the worksheet data</param>
+    /// <param name="sheetName">Optional worksheet name. Defaults to first worksheet if not provided</param>
+    /// <param name="range">Optional range address (e.g., A1:D20). Defaults to used range when omitted</param>
+    /// <returns>Query result with matching rows or summary</returns>
+    public QueryCsvResult QueryExcel(string fileId, string question, string? sheetName = null, string? range = null)
+    {
+        if (string.IsNullOrWhiteSpace(fileId))
+            return QueryCsvResult.CreateError("fileId is required");
+
+        if (string.IsNullOrWhiteSpace(question))
+            return QueryCsvResult.CreateError("question is required");
+
+        var sessionId = GetCurrentSessionId();
+
+        CleanupExpiredFiles(sessionId);
+
+        if (!_sessionStorage.TryGetValue(sessionId, out var sessionFiles))
+            return QueryCsvResult.CreateError($"File '{fileId}' not found");
+
+        if (!sessionFiles.TryGetValue(fileId, out var metadata))
+            return QueryCsvResult.CreateError($"File '{fileId}' not found");
+
+        if (!IsExcelFile(metadata))
+            return QueryCsvResult.CreateError($"File '{fileId}' is not an Excel file (type: {metadata.MimeType})");
+
+        ParseCsvResult excelResult;
+        try
+        {
+            excelResult = ParseExcel(metadata.Content, sheetName, range);
+        }
+        catch (Exception ex)
+        {
+            return QueryCsvResult.CreateError($"Failed to parse Excel: {ex.Message}");
+        }
+
+        if (!excelResult.IsSuccess)
+            return QueryCsvResult.CreateError(excelResult.Error ?? "Unknown Excel parse error");
+
+        return ExecuteSimpleQuery(excelResult.Rows ?? new(), excelResult.Headers ?? new(), question);
+    }
+
+    /// <summary>
+    /// Queries an Excel file by optional ID with a natural language question,
+    /// defaulting to the most recently uploaded file if ID is not provided.
+    /// </summary>
+    /// <param name="fileId">The file ID, or null/empty to use the most recently uploaded file</param>
+    /// <param name="question">Natural language question about the worksheet data</param>
+    /// <param name="sheetName">Optional worksheet name. Defaults to first worksheet if not provided</param>
+    /// <param name="range">Optional range address (e.g., A1:D20). Defaults to used range when omitted</param>
+    /// <returns>Query result with matching rows or summary</returns>
+    public QueryCsvResult QueryExcelOrLatest(string? fileId, string question, string? sheetName = null, string? range = null)
+    {
+        if (!string.IsNullOrWhiteSpace(fileId))
+            return QueryExcel(fileId, question, sheetName, range);
+
+        var lastFileId = GetLastUploadedFileId();
+        if (string.IsNullOrWhiteSpace(lastFileId))
+            return QueryCsvResult.CreateError("No fileId provided and no recent files in this session");
+
+        return QueryExcel(lastFileId, question, sheetName, range);
+    }
+
+    /// <summary>
+    /// Describes workbook structure and selected sheet/range details for an Excel file by file ID.
+    /// </summary>
+    public DescribeExcelResult DescribeExcel(string fileId, string? sheetName = null, string? range = null)
+    {
+        if (string.IsNullOrWhiteSpace(fileId))
+            return DescribeExcelResult.CreateError("fileId is required");
+
+        var sessionId = GetCurrentSessionId();
+
+        CleanupExpiredFiles(sessionId);
+
+        if (!_sessionStorage.TryGetValue(sessionId, out var sessionFiles))
+            return DescribeExcelResult.CreateError($"File '{fileId}' not found");
+
+        if (!sessionFiles.TryGetValue(fileId, out var metadata))
+            return DescribeExcelResult.CreateError($"File '{fileId}' not found");
+
+        if (!IsExcelFile(metadata))
+            return DescribeExcelResult.CreateError($"File '{fileId}' is not an Excel file (type: {metadata.MimeType})");
+
+        try
+        {
+            using var stream = new MemoryStream(metadata.Content);
+            using var workbook = new XLWorkbook(stream);
+
+            var worksheets = workbook.Worksheets.ToList();
+            if (worksheets.Count == 0)
+                return DescribeExcelResult.CreateError("Excel workbook has no worksheets");
+
+            IXLWorksheet? selectedSheet;
+            if (!string.IsNullOrWhiteSpace(sheetName))
+            {
+                selectedSheet = worksheets.FirstOrDefault(ws =>
+                    string.Equals(ws.Name, sheetName, StringComparison.OrdinalIgnoreCase));
+                if (selectedSheet == null)
+                    return DescribeExcelResult.CreateError($"Worksheet '{sheetName}' was not found");
+            }
+            else
+            {
+                selectedSheet = worksheets[0];
+            }
+
+            IXLRange? selectedRange;
+            if (!string.IsNullOrWhiteSpace(range))
+            {
+                try
+                {
+                    selectedRange = selectedSheet.Range(range);
+                }
+                catch (Exception ex)
+                {
+                    return DescribeExcelResult.CreateError($"Invalid Excel range '{range}': {ex.Message}");
+                }
+            }
+            else
+            {
+                selectedRange = selectedSheet.RangeUsed();
+            }
+
+            var usedRange = selectedSheet.RangeUsed();
+            var headers = new List<string>();
+            var dataRows = 0;
+
+            if (selectedRange != null)
+            {
+                var firstRow = selectedRange.RangeAddress.FirstAddress.RowNumber;
+                var firstColumn = selectedRange.RangeAddress.FirstAddress.ColumnNumber;
+                var lastColumn = selectedRange.RangeAddress.LastAddress.ColumnNumber;
+                var lastRow = selectedRange.RangeAddress.LastAddress.RowNumber;
+
+                for (var column = firstColumn; column <= lastColumn; column++)
+                {
+                    var header = selectedSheet.Cell(firstRow, column).GetValue<string>().Trim();
+                    if (string.IsNullOrWhiteSpace(header))
+                        header = $"Column{column - firstColumn + 1}";
+
+                    headers.Add(header);
+                }
+
+                dataRows = Math.Max(0, lastRow - firstRow);
+            }
+
+            var sheetInfos = worksheets
+                .Select(ws =>
+                {
+                    var wsUsedRange = ws.RangeUsed();
+                    return new DescribeExcelResult.ExcelSheetInfo
+                    {
+                        Name = ws.Name,
+                        UsedRange = wsUsedRange?.RangeAddress.ToString(),
+                        RowCount = wsUsedRange?.RowCount() ?? 0,
+                        ColumnCount = wsUsedRange?.ColumnCount() ?? 0
+                    };
+                })
+                .ToList();
+
+            return DescribeExcelResult.CreateSuccess(new DescribeExcelResult.ExcelSummary
+            {
+                SheetCount = worksheets.Count,
+                Sheets = sheetInfos,
+                SelectedSheet = selectedSheet.Name,
+                UsedRange = usedRange?.RangeAddress.ToString(),
+                SelectedRange = selectedRange?.RangeAddress.ToString(),
+                Headers = headers,
+                DataRowCount = dataRows
+            });
+        }
+        catch (Exception ex)
+        {
+            return DescribeExcelResult.CreateError($"Failed to describe Excel: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Describes workbook structure and selected sheet/range details for an optional file ID,
+    /// defaulting to the most recently uploaded file if ID is not provided.
+    /// </summary>
+    public DescribeExcelResult DescribeExcelOrLatest(string? fileId, string? sheetName = null, string? range = null)
+    {
+        if (!string.IsNullOrWhiteSpace(fileId))
+            return DescribeExcel(fileId, sheetName, range);
+
+        var lastFileId = GetLastUploadedFileId();
+        if (string.IsNullOrWhiteSpace(lastFileId))
+            return DescribeExcelResult.CreateError("No fileId provided and no recent files in this session");
+
+        return DescribeExcel(lastFileId, sheetName, range);
+    }
+
+    /// <summary>
+    /// Reads Excel rows as structured data for deterministic import workflows.
+    /// </summary>
+    public ReadExcelRowsResult ReadExcelRows(string fileId, string? sheetName = null, string? range = null, int skip = 0, int take = 200)
+    {
+        if (string.IsNullOrWhiteSpace(fileId))
+            return ReadExcelRowsResult.CreateError("fileId is required");
+
+        if (skip < 0)
+            return ReadExcelRowsResult.CreateError("skip must be greater than or equal to 0");
+
+        if (take <= 0)
+            return ReadExcelRowsResult.CreateError("take must be greater than 0");
+
+        if (take > 1000)
+            take = 1000;
+
+        var sessionId = GetCurrentSessionId();
+
+        CleanupExpiredFiles(sessionId);
+
+        if (!_sessionStorage.TryGetValue(sessionId, out var sessionFiles))
+            return ReadExcelRowsResult.CreateError($"File '{fileId}' not found");
+
+        if (!sessionFiles.TryGetValue(fileId, out var metadata))
+            return ReadExcelRowsResult.CreateError($"File '{fileId}' not found");
+
+        if (!IsExcelFile(metadata))
+            return ReadExcelRowsResult.CreateError($"File '{fileId}' is not an Excel file (type: {metadata.MimeType})");
+
+        return ExtractExcelRows(metadata.Content, sheetName, range, skip, take);
+    }
+
+    /// <summary>
+    /// Reads Excel rows as structured data for an optional file ID,
+    /// defaulting to the most recently uploaded file if ID is not provided.
+    /// </summary>
+    public ReadExcelRowsResult ReadExcelRowsOrLatest(string? fileId, string? sheetName = null, string? range = null, int skip = 0, int take = 200)
+    {
+        if (!string.IsNullOrWhiteSpace(fileId))
+            return ReadExcelRows(fileId, sheetName, range, skip, take);
+
+        var lastFileId = GetLastUploadedFileId();
+        if (string.IsNullOrWhiteSpace(lastFileId))
+            return ReadExcelRowsResult.CreateError("No fileId provided and no recent files in this session");
+
+        return ReadExcelRows(lastFileId, sheetName, range, skip, take);
+    }
+
+    private static ReadExcelRowsResult ExtractExcelRows(byte[] content, string? sheetName, string? rangeAddress, int skip, int take)
+    {
+        try
+        {
+            using var stream = new MemoryStream(content);
+            using var workbook = new XLWorkbook(stream);
+
+            IXLWorksheet? worksheet;
+            if (!string.IsNullOrWhiteSpace(sheetName))
+            {
+                worksheet = workbook.Worksheets.FirstOrDefault(ws =>
+                    string.Equals(ws.Name, sheetName, StringComparison.OrdinalIgnoreCase));
+                if (worksheet == null)
+                    return ReadExcelRowsResult.CreateError($"Worksheet '{sheetName}' was not found");
+            }
+            else
+            {
+                worksheet = workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                    return ReadExcelRowsResult.CreateError("Excel workbook has no worksheets");
+            }
+
+            IXLRange? selectedRange;
+            if (!string.IsNullOrWhiteSpace(rangeAddress))
+            {
+                try
+                {
+                    selectedRange = worksheet.Range(rangeAddress);
+                }
+                catch (Exception ex)
+                {
+                    return ReadExcelRowsResult.CreateError($"Invalid Excel range '{rangeAddress}': {ex.Message}");
+                }
+            }
+            else
+            {
+                selectedRange = worksheet.RangeUsed();
+            }
+
+            if (selectedRange == null)
+                return ReadExcelRowsResult.CreateError("Excel worksheet has no data");
+
+            var firstColumn = selectedRange.RangeAddress.FirstAddress.ColumnNumber;
+            var lastColumn = selectedRange.RangeAddress.LastAddress.ColumnNumber;
+            var firstRow = selectedRange.RangeAddress.FirstAddress.RowNumber;
+            var lastRow = selectedRange.RangeAddress.LastAddress.RowNumber;
+
+            var headers = new List<string>();
+            for (var column = firstColumn; column <= lastColumn; column++)
+            {
+                var header = worksheet.Cell(firstRow, column).GetValue<string>().Trim();
+                if (string.IsNullOrWhiteSpace(header))
+                {
+                    header = $"Column{column - firstColumn + 1}";
+                }
+
+                headers.Add(header);
+            }
+
+            var allRows = new List<Dictionary<string, string>>();
+            for (var rowNumber = firstRow + 1; rowNumber <= lastRow; rowNumber++)
+            {
+                var row = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var hasAnyValue = false;
+
+                for (var column = firstColumn; column <= lastColumn; column++)
+                {
+                    var value = worksheet.Cell(rowNumber, column).GetValue<string>().Trim();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        hasAnyValue = true;
+                    }
+
+                    row[headers[column - firstColumn]] = value;
+                }
+
+                if (hasAnyValue)
+                {
+                    allRows.Add(row);
+                }
+            }
+
+            var pagedRows = allRows.Skip(skip).Take(take).ToList();
+            var totalRows = allRows.Count;
+
+            return ReadExcelRowsResult.CreateSuccess(new ReadExcelRowsResult.ExcelRowsData
+            {
+                SheetName = worksheet.Name,
+                Range = selectedRange.RangeAddress.ToString(),
+                Headers = headers,
+                Rows = pagedRows,
+                TotalRows = totalRows,
+                ReturnedRows = pagedRows.Count,
+                Skip = skip,
+                Take = take,
+                HasMore = skip + pagedRows.Count < totalRows
+            });
+        }
+        catch (Exception ex)
+        {
+            return ReadExcelRowsResult.CreateError($"Failed to read Excel rows: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Parses CSV content and returns headers and rows.
     /// </summary>
     private static ParseCsvResult ParseCsv(string content)
@@ -566,6 +926,102 @@ public class FileStorageService
         catch (Exception ex)
         {
             return ParseXmlResult.CreateError($"Failed to parse XML: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Parses Excel workbook content and returns worksheet headers and rows.
+    /// </summary>
+    private static ParseCsvResult ParseExcel(byte[] content, string? sheetName = null, string? rangeAddress = null)
+    {
+        try
+        {
+            using var stream = new MemoryStream(content);
+            using var workbook = new XLWorkbook(stream);
+
+            IXLWorksheet? worksheet;
+            if (!string.IsNullOrWhiteSpace(sheetName))
+            {
+                worksheet = workbook.Worksheets.FirstOrDefault(ws =>
+                    string.Equals(ws.Name, sheetName, StringComparison.OrdinalIgnoreCase));
+                if (worksheet == null)
+                    return ParseCsvResult.CreateError($"Worksheet '{sheetName}' was not found");
+            }
+            else
+            {
+                worksheet = workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                    return ParseCsvResult.CreateError("Excel workbook has no worksheets");
+            }
+
+            IXLRange? selectedRange;
+            if (!string.IsNullOrWhiteSpace(rangeAddress))
+            {
+                try
+                {
+                    selectedRange = worksheet.Range(rangeAddress);
+                }
+                catch (Exception ex)
+                {
+                    return ParseCsvResult.CreateError($"Invalid Excel range '{rangeAddress}': {ex.Message}");
+                }
+
+                if (selectedRange == null)
+                    return ParseCsvResult.CreateError($"Excel range '{rangeAddress}' could not be resolved");
+            }
+            else
+            {
+                selectedRange = worksheet.RangeUsed();
+            }
+
+            if (selectedRange == null)
+                return ParseCsvResult.CreateError("Excel worksheet has no data");
+
+            var firstColumn = selectedRange.RangeAddress.FirstAddress.ColumnNumber;
+            var lastColumn = selectedRange.RangeAddress.LastAddress.ColumnNumber;
+            var firstRow = selectedRange.RangeAddress.FirstAddress.RowNumber;
+            var lastRow = selectedRange.RangeAddress.LastAddress.RowNumber;
+
+            var headers = new List<string>();
+            for (var column = firstColumn; column <= lastColumn; column++)
+            {
+                var header = worksheet.Cell(firstRow, column).GetValue<string>().Trim();
+                if (string.IsNullOrWhiteSpace(header))
+                {
+                    header = $"Column{column - firstColumn + 1}";
+                }
+
+                headers.Add(header);
+            }
+
+            var rows = new List<Dictionary<string, string>>();
+            for (var rowNumber = firstRow + 1; rowNumber <= lastRow; rowNumber++)
+            {
+                var row = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var hasAnyValue = false;
+
+                for (var column = firstColumn; column <= lastColumn; column++)
+                {
+                    var value = worksheet.Cell(rowNumber, column).GetValue<string>().Trim();
+                    if (!string.IsNullOrWhiteSpace(value))
+                    {
+                        hasAnyValue = true;
+                    }
+
+                    row[headers[column - firstColumn]] = value;
+                }
+
+                if (hasAnyValue)
+                {
+                    rows.Add(row);
+                }
+            }
+
+            return ParseCsvResult.CreateSuccess(headers, rows);
+        }
+        catch (Exception ex)
+        {
+            return ParseCsvResult.CreateError($"Excel parsing error: {ex.Message}");
         }
     }
 
@@ -963,6 +1419,70 @@ public class FileStorageService
 
         public static ParseJsonResult CreateError(string error) =>
             new() { IsSuccess = false, Error = error };
+    }
+
+    /// <summary>
+    /// Result of Excel row extraction operation
+    /// </summary>
+    public class ReadExcelRowsResult
+    {
+        public bool IsSuccess { get; set; }
+        public ExcelRowsData? Data { get; set; }
+        public string? Error { get; set; }
+
+        public static ReadExcelRowsResult CreateSuccess(ExcelRowsData data) =>
+            new() { IsSuccess = true, Data = data };
+
+        public static ReadExcelRowsResult CreateError(string error) =>
+            new() { IsSuccess = false, Error = error };
+
+        public class ExcelRowsData
+        {
+            public string SheetName { get; set; } = string.Empty;
+            public string Range { get; set; } = string.Empty;
+            public List<string> Headers { get; set; } = new();
+            public List<Dictionary<string, string>> Rows { get; set; } = new();
+            public int TotalRows { get; set; }
+            public int ReturnedRows { get; set; }
+            public int Skip { get; set; }
+            public int Take { get; set; }
+            public bool HasMore { get; set; }
+        }
+    }
+
+    /// <summary>
+    /// Result of Excel description operation
+    /// </summary>
+    public class DescribeExcelResult
+    {
+        public bool IsSuccess { get; set; }
+        public ExcelSummary? Summary { get; set; }
+        public string? Error { get; set; }
+
+        public static DescribeExcelResult CreateSuccess(ExcelSummary summary) =>
+            new() { IsSuccess = true, Summary = summary };
+
+        public static DescribeExcelResult CreateError(string error) =>
+            new() { IsSuccess = false, Error = error };
+
+        public class ExcelSummary
+        {
+            public int SheetCount { get; set; }
+            public List<ExcelSheetInfo> Sheets { get; set; } = new();
+            public string? SelectedSheet { get; set; }
+            public string? UsedRange { get; set; }
+            public string? SelectedRange { get; set; }
+            public List<string> Headers { get; set; } = new();
+            public int DataRowCount { get; set; }
+        }
+
+        public class ExcelSheetInfo
+        {
+            public string Name { get; set; } = string.Empty;
+            public string? UsedRange { get; set; }
+            public int RowCount { get; set; }
+            public int ColumnCount { get; set; }
+        }
     }
 
     /// <summary>
