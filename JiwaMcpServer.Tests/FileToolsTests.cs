@@ -448,7 +448,10 @@ public class FileToolsTests
         {
             "application/json",
             "application/xml",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            "application/sql",
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         };
 
         foreach (var mimeType in mimeTypes)
@@ -467,6 +470,49 @@ public class FileToolsTests
         // Ensure all text/* variants are allowed
         var result = await _fileTools.UploadFile("test.txt", "text/custom-format", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("content")));
         Assert.DoesNotContain("error", result.ToLowerInvariant());
+    }
+
+    [Fact]
+    public async Task UploadFile_OctetStreamSupportedExtensions_AreAllowed()
+    {
+        var uploads = new[]
+        {
+            ("script.sql", "select 1;"),
+            ("manual.pdf", "%PDF-1.7"),
+            ("doc.docx", "docx"),
+            ("sheet.xlsx", "xlsx"),
+            ("image.png", "png"),
+            ("image.jpg", "jpg"),
+            ("image.gif", "gif"),
+            ("image.webp", "webp")
+        };
+
+        foreach (var (fileName, content) in uploads)
+        {
+            var result = await _fileTools.UploadFile(fileName, "application/octet-stream", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(content)));
+            Assert.DoesNotContain("error", result.ToLowerInvariant());
+        }
+    }
+
+    [Fact]
+    public async Task UploadFile_OctetStreamUnsupportedExtension_ReturnsError()
+    {
+        var result = await _fileTools.UploadFile("binary.exe", "application/octet-stream", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("content")));
+
+        Assert.Contains("error", result.ToLowerInvariant());
+        Assert.Contains("not allowed", result.ToLowerInvariant());
+    }
+
+    [Fact]
+    public async Task UploadFile_ImageMimeTypes_AreAllowed()
+    {
+        var imageMimeTypes = new[] { "image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp" };
+
+        foreach (var mimeType in imageMimeTypes)
+        {
+            var result = await _fileTools.UploadFile("image.bin", mimeType, Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("img")));
+            Assert.DoesNotContain("error", result.ToLowerInvariant());
+        }
     }
 
     [Fact]

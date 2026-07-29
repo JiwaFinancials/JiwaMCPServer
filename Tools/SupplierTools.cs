@@ -25,7 +25,7 @@ public class SupplierTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<v_Jiwa_CreditorSummary>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
     [McpServerTool, Description("Get full details for a supplier. Suppliers are also known as creditors. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
@@ -73,6 +73,6 @@ public class SupplierTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<CR_Classification>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 }

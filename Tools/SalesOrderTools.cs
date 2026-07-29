@@ -61,7 +61,7 @@ public class SalesOrderTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<v_Jiwa_SalesInformation>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
     [McpServerTool(Name = "SearchSalesOrders", ReadOnly = true), Description("Search and return sales orders by field. Sales orders are also known as sales invoices. Lots of current and historical header level sales data. " +
@@ -82,7 +82,7 @@ public class SalesOrderTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<v_Jiwa_SalesOrders>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
 }

@@ -1,4 +1,5 @@
 using JiwaMcpServer.Services;
+using JiwaMcpServer.Services.DocumentIntelligence;
 using Microsoft.AspNetCore.Http;
 using ModelContextProtocol.Server;
 using ServiceStack;
@@ -16,11 +17,13 @@ public class FileTools : JiwaToolBase
 {
     private readonly FileStorageService _fileStorage;
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly IDocumentExtractor? _documentExtractor;
 
-    public FileTools(FileStorageService fileStorage, IHttpContextAccessor? httpContextAccessor = null)
+    public FileTools(FileStorageService fileStorage, IHttpContextAccessor? httpContextAccessor = null, IDocumentExtractor? documentExtractor = null)
     {
         _fileStorage = fileStorage;
         _httpContextAccessor = httpContextAccessor ?? new HttpContextAccessor();
+        _documentExtractor = documentExtractor;
     }
 
     /// <summary>
@@ -56,7 +59,7 @@ public class FileTools : JiwaToolBase
     /// <param name="contentBase64">The file content encoded as base64</param>
     /// <param name="clientSessionId">Optional session ID for grouping files. If provided, subsequent read/query calls with the same ID will be able to access files uploaded in this call</param>
     /// <returns>JSON response with fileId or error message</returns>
-    [McpServerTool(ReadOnly = false), Description("Upload a file with base64-encoded content. Returns a fileId for later reference. Supports text files up to 50 MB. Allowed MIME types: text/*, application/json, application/xml, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")]
+    [McpServerTool(ReadOnly = false), Description("Upload a file with base64-encoded content and get a fileId. IMPORTANT workflow for PDF/DOCX/XLSX/image analysis: after upload_file, immediately call document_ingest with sourceFileId=<fileId> to build searchable chunks and structured metadata. read_uploaded_file is only a text preview tool, not the full document intelligence path. Supports files up to 50 MB. Allowed MIME types: text/*, application/json, application/xml, application/sql, application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.openxmlformats-officedocument.wordprocessingml.document, image/png, image/jpeg, image/gif, image/webp, and application/octet-stream for .sql/.pdf/.docx/.xlsx/.png/.jpg/.jpeg/.gif/.webp files")]
     public Task<string> UploadFile(
         string fileName,
         string mimeType,
@@ -99,53 +102,94 @@ public class FileTools : JiwaToolBase
 
     /// <summary>
     /// Reads an uploaded file and returns its content as text.
+    /// PDFs are automatically parsed to extract their text content rather than returning raw binary.
     /// If fileId is not provided or is empty, reads the most recently uploaded file in this session.
-    /// Use this to retrieve files previously uploaded via upload_file.
     /// </summary>
-    /// <param name="fileId">The file ID returned from upload_file, or empty/null to use the most recent file</param>
-    /// <param name="clientSessionId">Optional session ID. If provided, ensures access to files from that session</param>
-    /// <returns>JSON response with file content or error message</returns>
-    [McpServerTool(ReadOnly = true), Description("Read an uploaded file by its fileId and return the content as text. If fileId is omitted or empty, reads the most recently uploaded file from this session. Returns an error if the file is not found or cannot be read as text")]
+    [McpServerTool(ReadOnly = true), Description(
+        "Read an uploaded file by its fileId and return a text preview. " +
+        "For PDFs this is a lightweight extraction preview only. " +
+        "When the user asks questions about a document, extract invoice fields, extract tables, or run semantic retrieval, ALWAYS use document_ingest first and then use document_search/document_extract_invoice/document_extract_tables. " +
+        "If fileId is omitted or empty, reads the most recently uploaded file from this session.")]
     public Task<string> ReadUploadedFile(
         string fileId = "",
         string? clientSessionId = null)
     {
         return InvokeToolAsync(async () =>
         {
-            // Set the session ID: prefer explicit clientSessionId, then HTTP context, then use AsyncLocal default
             if (!string.IsNullOrWhiteSpace(clientSessionId))
-            {
                 FileStorageService.SetSessionId(clientSessionId);
-            }
             else
             {
                 var contextSessionId = GetSessionIdFromContext();
                 if (contextSessionId != null)
-                {
                     FileStorageService.SetSessionId(contextSessionId);
-                }
-                // else: let AsyncLocal value persist (set by middleware or test setup)
             }
 
-            var result = _fileStorage.ReadFileOrLatest(
-                string.IsNullOrWhiteSpace(fileId) ? null : fileId);
+            // First get metadata to check the MIME type without decoding
+            var resolvedId = string.IsNullOrWhiteSpace(fileId) ? null : fileId;
+            var binary = _fileStorage.ReadFileBinaryOrLatest(resolvedId);
 
-            if (result.IsSuccess)
+            if (!binary.IsSuccess || binary.ContentBytes is null)
+                return new { error = binary.Error }.ToJson();
+
+            var isPdf = IsPdf(binary.MimeType ?? string.Empty, binary.FileName ?? string.Empty);
+
+            if (isPdf && _documentExtractor is not null)
             {
-                return new
+                try
                 {
-                    fileName = result.FileName,
-                    mimeType = result.MimeType,
-                    content = result.Content
-                }.ToJson();
+                    var extraction = await _documentExtractor.ExtractAsync(
+                        binary.FileName ?? "document.pdf",
+                        binary.MimeType ?? "application/pdf",
+                        binary.ContentBytes,
+                        CancellationToken.None);
+
+                    if (extraction.ExtractedCharacterCount >= 40)
+                    {
+                        var pageText = string.Join(
+                            "\n\n",
+                            extraction.Pages.Select(p => $"[Page {p.PageNumber}]\n{p.Text}"));
+
+                        return new
+                        {
+                            fileName = binary.FileName,
+                            mimeType = binary.MimeType,
+                            pageCount = extraction.Pages.Count,
+                            content = pageText
+                        }.ToJson();
+                    }
+
+                    return new
+                    {
+                        fileName = binary.FileName,
+                        mimeType = binary.MimeType,
+                        warning = extraction.NeedsOcr
+                            ? "This PDF contains no extractable text layer (likely a scanned document). " +
+                              "Configure AzureDocumentIntelligence or Tesseract in appsettings.json to enable OCR, " +
+                              "then call document_ingest with the fileId to process it."
+                            : "Minimal text extracted from PDF. " +
+                              "For accurate extraction call document_ingest with sourceFileId to run the full pipeline.",
+                        content = string.Empty
+                    }.ToJson();
+                }
+                catch (Exception ex)
+                {
+                    return new { error = $"PDF text extraction failed: {ex.Message}" }.ToJson();
+                }
             }
 
-            return new
-            {
-                error = result.Error
-            }.ToJson();
+            // Non-PDF: decode as UTF-8 text as before
+            var result = _fileStorage.ReadFileOrLatest(resolvedId);
+            if (result.IsSuccess)
+                return new { fileName = result.FileName, mimeType = result.MimeType, content = result.Content }.ToJson();
+
+            return new { error = result.Error }.ToJson();
         });
     }
+
+    private static bool IsPdf(string mimeType, string fileName)
+        => mimeType.Contains("pdf", StringComparison.OrdinalIgnoreCase)
+           || fileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Queries a CSV file using natural language questions.

@@ -42,7 +42,7 @@ public class FormTools : JiwaToolBase
                 f.ChangeTrackingRetentionDays
             }).ToList();
 
-            return response.ToJson();
+            return CreateSearchResponseJson(response, Config.PageSize);
         });
 
 

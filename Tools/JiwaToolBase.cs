@@ -97,6 +97,20 @@ public abstract class JiwaToolBase
         }
     }
 
+    protected static string CreateSearchResponseJson<T>(IReadOnlyCollection<T> results, int pageSize)
+    {
+        var returned = results.Count;
+        var response = new
+        {
+            total = returned,
+            returned,
+            pageSize,
+            results
+        };
+
+        return response.ToJson();
+    }
+
     protected static async Task<string?> ValidateLargeResultSetConfirmationAsync<T>(
         QueryDb<T> requestDTO,
         bool confirmLargeResultSet,

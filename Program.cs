@@ -1,4 +1,5 @@
 using JiwaMcpServer.Services;
+using JiwaMcpServer.Services.DocumentIntelligence;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -67,6 +68,9 @@ builder.Services.AddHttpContextAccessor();
 
 // Register FileStorageService as a singleton so files persist across tool invocations
 builder.Services.AddSingleton<FileStorageService>();
+
+// Register document intelligence and RAG services
+builder.Services.AddDocumentIntelligence(configuration);
 
 var app = builder.Build();
 

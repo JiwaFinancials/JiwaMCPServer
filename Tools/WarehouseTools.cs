@@ -29,7 +29,7 @@ public class WarehouseTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<v_WarehouseSelection>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
     [McpServerTool, Description(@"Get the current logical warehouse. 

@@ -70,7 +70,7 @@ public class PurchaseOrderTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<v_Jiwa_PurchaseInformation>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
     [McpServerTool(Name = "SearchPurchaseOrders", ReadOnly = true), Description("Search and return purchase orders by field. Lots of current and historical header level purchase data. " +
@@ -90,7 +90,7 @@ public class PurchaseOrderTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<v_Jiwa_PurchaseOrders>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
     }

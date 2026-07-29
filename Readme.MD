@@ -38,19 +38,37 @@ JiwaMcpServer/
 ├── Tools/
 │   ├── JiwaToolBase.cs
 │   ├── FileTools.cs              (File upload, retrieval, CSV/XML/JSON/Excel queries)
+│   ├── DocumentTools.cs          (Document intelligence + RAG: ingest/search/extract)
 │   ├── CustomerTools.cs
 │   ├── FormTools.cs
 │   ├── ProductTools.cs
 │   ├── SalesOrderTools.cs
 │   ├── PurchaseOrderTools.cs
+│   ├── CreditorPurchaseTools.cs
 │   ├── SupplierTools.cs
 │   ├── WarehouseTools.cs
 │   └── SchemaTools.cs
 ├── Services/
 │   ├── JiwaApiClient.cs
-│   └── FileStorageService.cs     (NEW: File storage with session isolation)
+│   ├── FileStorageService.cs
+│   └── DocumentIntelligence/
+│       ├── DocumentIntelligenceOptions.cs  (Configuration binding)
+│       ├── DocumentModels.cs               (Domain records & DTOs)
+│       ├── Interfaces.cs                   (All service contracts)
+│       ├── DocumentPipeline.cs             (Core orchestrator + background worker)
+│       ├── SemanticChunker.cs              (Overlap-aware token chunker)
+│       ├── Extractors.cs                   (PDF / DOCX / XLSX / CSV / Text / Image)
+│       ├── OcrServices.cs                  (Azure DI + Tesseract + composite)
+│       ├── OpenAiEmbeddingService.cs       (OpenAI / Azure OpenAI + deterministic fallback)
+│       ├── InMemoryDocumentRepository.cs   (Default in-process store)
+│       ├── InMemoryVectorStore.cs          (Cosine-similarity in-memory vector search)
+│       ├── InfrastructureServices.cs       (Malware scanner, audit logger, deterministic embedder)
+│       ├── DocumentProcessingQueue.cs      (Unbounded background channel)
+│       ├── ServiceCollectionExtensions.cs  (AddDocumentIntelligence())
+│       └── DatabaseSchema.sql              (PostgreSQL + pgvector production schema)
 └── JiwaMcpServer.Tests/
-    └── JiwaMcpServer.Tests.csproj
+    ├── JiwaMcpServer.Tests.csproj
+    └── DocumentPipelineTests.cs
 ```
 
 ---
@@ -60,7 +78,7 @@ JiwaMcpServer/
 ### FileTools
 | Tool | Description |
 |---|---|
-| `upload_file` | Upload and store a base64-encoded file. Returns a unique `fileId` for reference. Supports text files up to 50 MB; allowed MIME types: `text/*`, `application/json`, `application/xml`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`. |
+| `upload_file` | Upload and store a base64-encoded file. Returns a unique `fileId` for reference. Supports text files up to 50 MB; allowed MIME types: `text/*`, `application/json`, `application/xml`, `application/sql`, `application/pdf`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `image/png`, `image/jpeg`, `image/gif`, `image/webp`, and `application/octet-stream` for `.sql`/`.pdf`/`.docx`/`.xlsx`/`.png`/`.jpg`/`.jpeg`/`.gif`/`.webp` files. |
 | `read_uploaded_file` | Retrieve the content of a previously uploaded file by its `fileId`, or omit the ID to read the most recently uploaded file in this session. |
 | `query_csv` | Execute natural language queries on CSV files (e.g., "How many rows?", "Show me the Name column"). If no `fileId` is provided, queries the most recently uploaded CSV file in this session. Supports field extraction, counting, and summarization. |
 | `query_excel` | Execute natural language queries on Excel (`.xlsx`) files by `fileId` or local path. Optional `sheetName` and `range` parameters target specific worksheet data. If omitted, it uses the latest uploaded Excel file in the session and the worksheet used range. |
@@ -81,12 +99,141 @@ For deterministic import pipelines (for example debtor/customer imports), use `r
 
 **Session Isolation:** Files are stored per client connection.
 
-**File Support Documentation:**
-- **Quick Start**: See [`FILE_SUPPORT_QUICK_REFERENCE.md`](FILE_SUPPORT_QUICK_REFERENCE.md)
-- **Full Architecture**: See [`MCP_FILE_SUPPORT_IMPLEMENTATION.md`](MCP_FILE_SUPPORT_IMPLEMENTATION.md)
-- **Session & Isolation Details**: See [`FILE_SESSION_FIX.md`](FILE_SESSION_FIX.md)
-- **Configuration Options**: See [`CONFIGURATION_SCENARIOS.md`](CONFIGURATION_SCENARIOS.md)
-- **Implementation Details**: See [`IMPLEMENTATION_INDEX.md`](IMPLEMENTATION_INDEX.md)
+---
+
+### DocumentTools — Document Intelligence & RAG
+
+Full ingestion-to-retrieval pipeline for PDFs, DOCX, XLSX, CSV, plain text, and images.
+All document operations are scoped to a `tenantId`, which defaults to the session ID when omitted, providing strict isolation.
+
+| Tool | Description |
+|---|---|
+| `document_ingest` | Ingest a document via base64 or a previously uploaded `sourceFileId`. Runs extraction → OCR fallback → metadata classification → chunking → embeddings → vector indexing. Returns `documentId` and status. |
+| `document_search` | Semantic (vector) search across indexed documents. Returns ranked chunks with page citations and a synthesised answer seed. |
+| `document_get_summary` | Return title, type, page count, key dates, key entities, invoice metadata, and a condensed text summary. Cached for 15 minutes. |
+| `document_extract_invoice` | Extract structured invoice fields: `invoiceNumber`, `vendor`, `invoiceDate`, `totalAmount`, `taxAmount`, `currency`. |
+| `document_extract_tables` | Return all extracted tables (headers + rows) with page references. Optional `pageNumber` filter. |
+| `document_delete` | Delete document, all chunks, embeddings, and metadata. |
+| `document_reindex` | Re-run the full processing pipeline for an existing document (useful after enabling OCR). |
+| `document_contracts` | Return the complete JSON request/response schema for all document tools. |
+
+#### Example: Invoice Question-Answering
+
+```
+1. upload_file("invoice.pdf", "application/pdf", <base64>)  → fileId="abc123"
+2. document_ingest(tenantId="acme", sourceFileId="abc123", processAsync=false)
+   → documentId="d-001", status=Indexed, invoice.totalAmount=408.86
+3. document_search(tenantId="acme", query="invoice total", topK=3)
+   → result[0].text="The invoice total is $408.86 (Page 1)"
+   → suggestedAnswer="Top match (Page 1-1): The invoice total is $408.86..."
+```
+
+#### Processing Pipeline
+
+```
+upload_file
+  └─► document_ingest
+        ├─► File validation (size, MIME, malware scan)
+        ├─► Duplicate hash check
+        ├─► Extraction  (PDF text layer / DOCX / XLSX / CSV / plain text)
+        ├─► OCR fallback (Azure Document Intelligence → Tesseract, when extraction < 40 chars)
+        ├─► Metadata classification  (Invoice / Statement / Contract / Manual / Report)
+        ├─► Invoice field extraction  (regex on full text)
+        ├─► Semantic chunking  (1000–1500 token target, 150–200 token overlap)
+        ├─► Embedding generation  (OpenAI / Azure OpenAI → deterministic fallback)
+        └─► Vector indexing  (in-memory cosine similarity, or pgvector in production)
+```
+
+#### Configuration (`appsettings.json → DocumentIntelligence`)
+
+```json
+"DocumentIntelligence": {
+  "MaxDocumentSizeBytes": 83886080,
+  "MaxPages": 1200,
+  "EnableBackgroundProcessing": true,
+  "ChunkTargetTokens": 1200,
+  "ChunkMinTokens": 1000,
+  "ChunkMaxTokens": 1500,
+  "ChunkOverlapTokens": 180,
+  "MaxSearchResults": 10,
+  "EmbeddingDimensions": 1536,
+  "MinimumExtractedCharactersBeforeOcr": 40,
+  "Embeddings": {
+    "Provider": "disabled",
+    "Endpoint": "",
+    "ApiKey": "",
+    "Model": "text-embedding-3-small"
+  },
+  "AzureDocumentIntelligence": {
+    "Enabled": false,
+    "Endpoint": "",
+    "ApiKey": "",
+    "ModelId": "prebuilt-read"
+  },
+  "Tesseract": {
+    "Enabled": false,
+    "ExecutablePath": "tesseract",
+    "Language": "eng"
+  }
+}
+```
+
+`Provider` accepts `"openai"`, `"azure-openai"`, or `"disabled"` (deterministic fallback used when disabled — suitable for development and testing).
+
+#### Production Vector Store Options
+
+| Store | Notes |
+|---|---|
+| **PostgreSQL pgvector** | See `Services/DocumentIntelligence/DatabaseSchema.sql`. Replace `InMemoryVectorStore` with a pgvector implementation via `IVectorStore`. Recommended for self-hosted deployments. |
+| **Azure AI Search** | Implement `IVectorStore` with the Azure AI Search SDK. Supports hybrid keyword + vector search. |
+| **Chroma / Qdrant** | Implement `IVectorStore` against their HTTP APIs. Both support tenant namespacing. |
+| **In-memory** (default) | Cosine similarity over all tenant chunks. Sufficient for development and low-volume production. |
+
+#### Sequence Diagram — End-to-End Invoice Q&A
+
+```
+User           Chat UI       MCP Bridge     MCP Server (DocumentTools)     LLM
+ │                │               │                    │                    │
+ │  upload PDF    │               │                    │                    │
+ │──────────────►│  upload_file   │                    │                    │
+ │               │───────────────►│  upload_file       │                    │
+ │               │               │───────────────────►│ FileStorageService │
+ │               │               │◄─── fileId ────────│                    │
+ │               │               │                    │                    │
+ │  ingest doc   │               │                    │                    │
+ │               │───────────────►│  document_ingest   │                    │
+ │               │               │───────────────────►│ Extract → OCR      │
+ │               │               │                    │ Chunk → Embed      │
+ │               │               │◄── documentId ─────│ Index              │
+ │               │               │                    │                    │
+ │  ask question │               │                    │                    │
+ │──────────────►│               │                    │                    │
+ │               │  ask LLM      │                    │                    │
+ │               │───────────────────────────────────────────────────────►│
+ │               │               │                    │                    │
+ │               │               │    document_search │                    │
+ │               │               │◄───────────────────────────────────────│
+ │               │               │───────────────────►│ Vector search      │
+ │               │               │◄── ranked chunks ──│ + citations        │
+ │               │               │                    │                    │
+ │               │  chunks sent to LLM                │                    │
+ │               │───────────────────────────────────────────────────────►│
+ │               │◄──── "The invoice total is $408.86 (Page 1)" ──────────│
+ │◄──────────────│               │                    │                    │
+```
+
+#### Future Extensibility
+
+- **Swap extractors**: Implement `IDocumentExtractor` and register it before `CompositeDocumentExtractor` in DI.
+- **Production vector store**: Implement `IVectorStore` (pgvector, Azure AI Search, Qdrant, Chroma) and register in `AddDocumentIntelligence()`.
+- **Production embeddings**: Set `Embeddings:Provider` to `openai` or `azure-openai` and provide credentials — no code changes required.
+- **Production OCR**: Set `AzureDocumentIntelligence:Enabled=true` or `Tesseract:Enabled=true` for scanned PDF support.
+- **Audit trail**: Replace `LoggerAuditLogger` with a database-backed `IDocumentAuditLogger`.
+- **Multi-format pages**: Add per-page DOCX page-break detection; improve PDF page boundary detection.
+- **Reranking**: Add a cross-encoder reranking step in `DocumentPipeline.SearchAsync` before returning results.
+- **Incremental indexing**: Only reindex chunks whose source page text changed (diffing against stored page hashes).
+
+---
 
 ### CustomerTools
 | Tool | Description |
@@ -135,11 +282,59 @@ For deterministic import pipelines (for example debtor/customer imports), use `r
 
 `SearchPurchaseInformation` and `SearchPurchaseOrders` both support pagination via `skip` and `take`, and may require large-result confirmation before returning the full result set.
 
+### CreditorPurchaseTools
+Creditor purchase tools cover creditor purchase headers, lines, documents, notes, custom fields, type records, and batch searches.
+
+| Tool | Description |
+|---|---|
+| `ActivateCreditorPurchase` | Activate a creditor purchase. |
+| `CreateCreditorPurchase` | Create a creditor purchase. |
+| `GetCreditorPurchase` | Retrieve a creditor purchase. |
+| `UpdateCreditorPurchase` | Update a creditor purchase. |
+| `DeleteCreditorPurchase` | Delete a creditor purchase. |
+| `GetCreditorPurchaseLines` | Retrieve creditor purchase lines. |
+| `AddCreditorPurchaseLine` | Append a line to a creditor purchase. |
+| `GetCreditorPurchaseLine` | Retrieve a creditor purchase line. |
+| `UpdateCreditorPurchaseLine` | Update a creditor purchase line. |
+| `DeleteCreditorPurchaseLine` | Delete a creditor purchase line. |
+| `GetCreditorPurchaseDocuments` | Retrieve creditor purchase documents. |
+| `AddCreditorPurchaseDocument` | Append a document to a creditor purchase. |
+| `GetCreditorPurchaseDocument` | Retrieve a creditor purchase document. |
+| `UpdateCreditorPurchaseDocument` | Update a creditor purchase document. |
+| `DeleteCreditorPurchaseDocument` | Delete a creditor purchase document. |
+| `GetCreditorPurchaseNotes` | Retrieve creditor purchase notes. |
+| `AddCreditorPurchaseNote` | Append a note to a creditor purchase. |
+| `GetCreditorPurchaseNote` | Retrieve a creditor purchase note. |
+| `UpdateCreditorPurchaseNote` | Update a creditor purchase note. |
+| `DeleteCreditorPurchaseNote` | Delete a creditor purchase note. |
+| `GetCreditorPurchaseCustomFields` | Retrieve creditor purchase custom field definitions. |
+| `GetCreditorPurchaseCustomFieldValue` | Retrieve a creditor purchase custom field value. |
+| `UpdateCreditorPurchaseCustomFieldValue` | Update a creditor purchase custom field value. |
+| `GetCreditorPurchaseLineCustomFields` | Retrieve creditor purchase line custom field definitions. |
+| `GetCreditorPurchaseLineCustomFieldValues` | Retrieve creditor purchase line custom field values. |
+| `GetCreditorPurchaseLineCustomFieldValue` | Retrieve a creditor purchase line custom field value. |
+| `UpdateCreditorPurchaseLineCustomFieldValue` | Update a creditor purchase line custom field value. |
+| `GetCreditorPurchaseDocumentTypes` | Retrieve creditor purchase document types. |
+| `CreateCreditorPurchaseDocumentType` | Create a creditor purchase document type. |
+| `GetCreditorPurchaseDocumentType` | Retrieve a creditor purchase document type. |
+| `UpdateCreditorPurchaseDocumentType` | Update a creditor purchase document type. |
+| `DeleteCreditorPurchaseDocumentType` | Delete a creditor purchase document type. |
+| `GetCreditorPurchaseNoteTypes` | Retrieve creditor purchase note types. |
+| `CreateCreditorPurchaseNoteType` | Create a creditor purchase note type. |
+| `GetCreditorPurchaseNoteType` | Retrieve a creditor purchase note type. |
+| `UpdateCreditorPurchaseNoteType` | Update a creditor purchase note type. |
+| `DeleteCreditorPurchaseNoteType` | Delete a creditor purchase note type. |
+| `SearchCreditorPurchaseBatchInformation` | Search creditor purchase batch information, including invoice numbers. |
+| `SearchCreditorPurchaseBatches` | Search creditor purchase batches. |
+
 ### SupplierTools
 | Tool | Description |
 |---|---|
 | `SearchSuppliers` | Search suppliers (creditors) by field. |
 | `GetSupplier` | Get full details for a supplier. |
+| `CreateSupplier` | Create a supplier. |
+| `ModifySupplier` | Modify a supplier. |
+| `DeleteSupplier` | Delete a supplier. |
 | `SearchCreditorClassifications` | Retrieve available supplier/creditor classifications. |
 
 ### WarehouseTools
@@ -242,6 +437,35 @@ Configuration is stored in `appsettings.json` in the application directory.
       "\\\\fileserver\\share\\finance"
     ],
     "MaxReadBytes": 262144
+  },
+  "DocumentIntelligence": {
+    "MaxDocumentSizeBytes": 83886080,
+    "MaxPages": 1200,
+    "EnableBackgroundProcessing": true,
+    "ChunkTargetTokens": 1200,
+    "ChunkMinTokens": 1000,
+    "ChunkMaxTokens": 1500,
+    "ChunkOverlapTokens": 180,
+    "MaxSearchResults": 10,
+    "EmbeddingDimensions": 1536,
+    "MinimumExtractedCharactersBeforeOcr": 40,
+    "Embeddings": {
+      "Provider": "disabled",
+      "Endpoint": "",
+      "ApiKey": "",
+      "Model": "text-embedding-3-small"
+    },
+    "AzureDocumentIntelligence": {
+      "Enabled": false,
+      "Endpoint": "",
+      "ApiKey": "",
+      "ModelId": "prebuilt-read"
+    },
+    "Tesseract": {
+      "Enabled": false,
+      "ExecutablePath": "tesseract",
+      "Language": "eng"
+    }
   }
 }
 ```
@@ -252,10 +476,11 @@ Configuration is stored in `appsettings.json` in the application directory.
 | `JiwaAPIKey` | *(Optional)* A server-side fallback Jiwa API key. When set, it is used for any request that does not supply its own key via the `X-Jiwa-API-Key` header. Can be left blank if all clients supply their own key. |
 | `PageSize` | *(Optional)* Default page size used by paginated search/list tools. Default is `100`. |
 | `Plugins` | *(Optional)* Plugin loading settings. `Folder` is scanned for `*.dll` assemblies at startup, and `Assemblies` can include explicit relative or absolute DLL paths. |
-| `LocalFileSystem:AllowedRoots` | *(Optional)* Absolute local and/or UNC root paths that `list_local_directory` and `read_local_file` are allowed to access. If empty, local file tools are disabled. |
+| `LocalFileSystem:AllowedRoots` | *(Optional)* Absolute local and/or UNC root paths that `list_local_directory`, `read_local_file`, and path-based file tools (`query_excel`, `describe_excel`, `read_excel_rows`, `query_local_structured_file`) are allowed to access. If empty, local file tools are disabled. |
 | `LocalFileSystem:MaxReadBytes` | *(Optional)* Maximum bytes returned by one `read_local_file` call. Default is `262144` (256 KB). |
+| `DocumentIntelligence` | *(Optional)* Document ingestion, OCR, chunking, embeddings, and RAG settings. `EnableBackgroundProcessing` queues work, `Chunk*` controls chunking, `MinimumExtractedCharactersBeforeOcr` controls the OCR fallback threshold, and `Embeddings`/`AzureDocumentIntelligence`/`Tesseract` configure the retrieval and OCR backends. |
 
-> **Note:** `JiwaAPIURL` is required. `JiwaAPIKey`, `PageSize`, `Plugins`, and `LocalFileSystem` are optional — see [Per-Request API Key](#per-request-api-key) below.
+> **Note:** `JiwaAPIURL` is required. `JiwaAPIKey`, `PageSize`, `Plugins`, `LocalFileSystem`, and `DocumentIntelligence` are optional — see [Per-Request API Key](#per-request-api-key) below.
 
 ### Plugin Tools
 

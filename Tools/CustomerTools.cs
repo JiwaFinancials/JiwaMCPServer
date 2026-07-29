@@ -25,7 +25,7 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<v_Jiwa_Debtor_List>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
     [McpServerTool, Description("Get full details for a customer. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
@@ -73,7 +73,7 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<v_Jiwa_Debtor_Transactions_List>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
     [McpServerTool(ReadOnly = true), Description("Retrieves a list of debtor classifications. Debtors are also known as customers, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
@@ -89,7 +89,7 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<DB_Classification>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
     [McpServerTool(ReadOnly = true), Description("Retrieves a list of debtor categories. Debtors are also known as customers, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
@@ -105,6 +105,6 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return allResults.ToJson<List<DB_Categories>>();
+            return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 }

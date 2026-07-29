@@ -39,9 +39,20 @@ public class FileStorageService
         "text/html",
         "text/xml",
         "text/json",
+        "text/sql",
+        "text/x-sql",
         "application/json",
         "application/xml",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        "application/sql",
+        "application/x-sql",
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/gif",
+        "image/webp"
     };
 
     /// <summary>
@@ -62,6 +73,13 @@ public class FileStorageService
     /// Session-scoped storage: sessionId -> (fileId -> FileMetadata)
     /// </summary>
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, FileMetadata>> _sessionStorage =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Global lookup index for file IDs to support workflows where upload and follow-up
+    /// operations land on different MCP connections/sessions.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, (string SessionId, FileMetadata Metadata)> _fileIndexById =
         new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
@@ -87,7 +105,7 @@ public class FileStorageService
     /// <summary>
     /// Gets the current session ID. Generates a new one if not set.
     /// </summary>
-    private static string GetCurrentSessionId()
+    public static string GetCurrentSessionId()
     {
         // Always return AsyncLocal value if it's set
         if (!string.IsNullOrWhiteSpace(CurrentSessionId.Value))
@@ -111,7 +129,7 @@ public class FileStorageService
     /// <summary>
     /// Validates MIME type against the allowed list.
     /// </summary>
-    private static bool IsAllowedMimeType(string mimeType)
+    private static bool IsAllowedMimeType(string mimeType, string fileName)
     {
         if (string.IsNullOrWhiteSpace(mimeType))
             return false;
@@ -121,7 +139,23 @@ public class FileStorageService
             return true;
 
         // Check against explicit whitelist
-        return AllowedMimeTypes.Contains(mimeType);
+        if (AllowedMimeTypes.Contains(mimeType))
+            return true;
+
+        // Some chat clients upload known file types as generic octet-stream.
+        if (!mimeType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var extension = Path.GetExtension(fileName);
+        return extension.Equals(".sql", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".docx", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".png", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".jpg", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".gif", StringComparison.OrdinalIgnoreCase) ||
+               extension.Equals(".webp", StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -167,8 +201,8 @@ public class FileStorageService
             return UploadFileResult.CreateError("contentBase64 is required");
 
         // Validate MIME type
-        if (!IsAllowedMimeType(mimeType))
-            return UploadFileResult.CreateError($"MIME type '{mimeType}' is not allowed. Allowed types: text/*, application/json, application/xml, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        if (!IsAllowedMimeType(mimeType, fileName))
+            return UploadFileResult.CreateError($"MIME type '{mimeType}' is not allowed. Allowed types: text/*, application/json, application/xml, application/sql, application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.openxmlformats-officedocument.wordprocessingml.document, image/png, image/jpeg, image/gif, image/webp, and application/octet-stream for .sql/.pdf/.docx/.xlsx/.png/.jpg/.jpeg/.gif/.webp files");
 
         // Decode base64
         byte[] content;
@@ -207,6 +241,7 @@ public class FileStorageService
         // Store in session
         var sessionFiles = _sessionStorage.GetOrAdd(sessionId, _ => new ConcurrentDictionary<string, FileMetadata>());
         sessionFiles.TryAdd(fileId, metadata);
+        _fileIndexById[fileId] = (sessionId, metadata);
 
         // Track this as the latest uploaded file for the session
         _lastUploadedFilePerSession[sessionId] = fileId;
@@ -264,6 +299,82 @@ public class FileStorageService
             return ReadFileResult.CreateError("No fileId provided and no recent files in this session");
 
         return ReadFile(lastFileId);
+    }
+
+    /// <summary>
+    /// Reads an uploaded file as raw binary bytes.
+    /// </summary>
+    public ReadFileBinaryResult ReadFileBinary(string fileId)
+    {
+        if (string.IsNullOrWhiteSpace(fileId))
+            return ReadFileBinaryResult.CreateError("fileId is required");
+
+        var sessionId = GetCurrentSessionId();
+        CleanupExpiredFiles(sessionId);
+
+        if (!_sessionStorage.TryGetValue(sessionId, out var sessionFiles))
+            return ReadFileBinaryResult.CreateError($"File '{fileId}' not found (no files in session)");
+
+        if (!sessionFiles.TryGetValue(fileId, out var metadata))
+            return ReadFileBinaryResult.CreateError($"File '{fileId}' not found");
+
+        return ReadFileBinaryResult.CreateSuccess(metadata.Content, metadata.FileName, metadata.MimeType, metadata.SizeBytes);
+    }
+
+    /// <summary>
+    /// Reads an uploaded file as raw bytes by optional ID, defaulting to the latest file.
+    /// </summary>
+    public ReadFileBinaryResult ReadFileBinaryOrLatest(string? fileId)
+    {
+        if (!string.IsNullOrWhiteSpace(fileId))
+            return ReadFileBinary(fileId);
+
+        var lastFileId = GetLastUploadedFileId();
+        if (string.IsNullOrWhiteSpace(lastFileId))
+            return ReadFileBinaryResult.CreateError("No fileId provided and no recent files in this session");
+
+        return ReadFileBinary(lastFileId);
+    }
+
+    /// <summary>
+    /// Reads an uploaded file by file ID across all active sessions.
+    /// This is intended for server-side workflow continuity (upload in one connection,
+    /// ingest in another) while still requiring knowledge of the high-entropy file ID.
+    /// </summary>
+    public ReadFileBinaryResult ReadFileBinaryAcrossSessions(string fileId)
+    {
+        if (string.IsNullOrWhiteSpace(fileId))
+            return ReadFileBinaryResult.CreateError("fileId is required");
+
+        if (_fileIndexById.TryGetValue(fileId, out var indexed))
+        {
+            if (indexed.Metadata.ExpiresAt > DateTimeOffset.UtcNow)
+            {
+                return ReadFileBinaryResult.CreateSuccess(
+                    indexed.Metadata.Content,
+                    indexed.Metadata.FileName,
+                    indexed.Metadata.MimeType,
+                    indexed.Metadata.SizeBytes);
+            }
+
+            _fileIndexById.TryRemove(fileId, out _);
+        }
+
+        // Fallback scan in case index was stale/out-of-sync.
+        foreach (var session in _sessionStorage.Values)
+        {
+            if (session.TryGetValue(fileId, out var metadata) && metadata.ExpiresAt > DateTimeOffset.UtcNow)
+            {
+                _fileIndexById[fileId] = (string.Empty, metadata);
+                return ReadFileBinaryResult.CreateSuccess(
+                    metadata.Content,
+                    metadata.FileName,
+                    metadata.MimeType,
+                    metadata.SizeBytes);
+            }
+        }
+
+        return ReadFileBinaryResult.CreateError($"File '{fileId}' not found in any active session");
     }
 
     /// <summary>
@@ -811,7 +922,7 @@ public class FileStorageService
             return ReadExcelRowsResult.CreateSuccess(new ReadExcelRowsResult.ExcelRowsData
             {
                 SheetName = worksheet.Name,
-                Range = selectedRange.RangeAddress.ToString(),
+                Range = selectedRange?.RangeAddress?.ToString() ?? string.Empty,
                 Headers = headers,
                 Rows = pagedRows,
                 TotalRows = totalRows,
@@ -1315,6 +1426,7 @@ public class FileStorageService
         foreach (var expiredId in expiredIds)
         {
             sessionFiles.TryRemove(expiredId, out _);
+            _fileIndexById.TryRemove(expiredId, out _);
         }
 
         // Remove empty session
@@ -1353,6 +1465,25 @@ public class FileStorageService
             new() { IsSuccess = true, Content = content, FileName = fileName, MimeType = mimeType };
 
         public static ReadFileResult CreateError(string error) =>
+            new() { IsSuccess = false, Error = error };
+    }
+
+    /// <summary>
+    /// Result of binary file read operation
+    /// </summary>
+    public class ReadFileBinaryResult
+    {
+        public bool IsSuccess { get; set; }
+        public byte[]? ContentBytes { get; set; }
+        public string? FileName { get; set; }
+        public string? MimeType { get; set; }
+        public long SizeBytes { get; set; }
+        public string? Error { get; set; }
+
+        public static ReadFileBinaryResult CreateSuccess(byte[] contentBytes, string fileName, string mimeType, long sizeBytes) =>
+            new() { IsSuccess = true, ContentBytes = contentBytes, FileName = fileName, MimeType = mimeType, SizeBytes = sizeBytes };
+
+        public static ReadFileBinaryResult CreateError(string error) =>
             new() { IsSuccess = false, Error = error };
     }
 
