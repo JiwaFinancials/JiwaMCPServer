@@ -1483,6 +1483,25 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
     {
         public string? IN_LogicalID { get; set; }
     }
+
+    public class SetCurrentWarehouseRequest
+        : IReturn<IN_Logical>
+    {
+        /// <summary>
+        /// Logical warehouse ID. Use this if you have the exact ID.
+        /// </summary>
+        public string? IN_LogicalID { get; set; }
+
+        /// <summary>
+        /// Warehouse name(s) to match. Can be in formats:
+        /// - 'PhysicalName LogicalName' (e.g., 'Victoria Bulk')
+        /// - 'LogicalName PhysicalName' (e.g., 'Bulk Victoria')
+        /// - 'PhysicalName/LogicalName' (e.g., 'Victoria/Bulk')
+        /// - 'LogicalName/PhysicalName' (e.g., 'Bulk/Victoria')
+        /// - Just logical name alone (e.g., 'Bulk')
+        /// </summary>
+        public string? WarehouseName { get; set; }
+    }
     #endregion
 }
 #endregion

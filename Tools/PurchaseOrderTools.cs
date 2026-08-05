@@ -2,6 +2,7 @@ using JiwaFinancials.Jiwa.JiwaServiceModel;
 using JiwaFinancials.Jiwa.JiwaServiceModel.PurchaseOrders;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
+using JiwaMcpServer.ToolMetadata;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
@@ -12,7 +13,8 @@ namespace JiwaMcpServer.Tools;
 [McpServerToolType]
 public class PurchaseOrderTools : JiwaToolBase
 {
-    [McpServerTool, Description("Get full details for a purchase order. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Get")]
+    [McpServerTool(Name = "GetPurchaseOrderDetails"), Description("Get a specific purchase order with full details. Use this after identifying the purchase order you want. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> GetPurchaseOrder(PurchaseOrderGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -20,7 +22,8 @@ public class PurchaseOrderTools : JiwaToolBase
             return result.ToJson<PurchaseOrder>();
         });
 
-    [McpServerTool, Description("Create a new purchase order for a customer. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Create")]
+    [McpServerTool(Name = "CreatePurchaseOrder"), Description("Create a new purchase order for a supplier. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> CreatePurchaseOrder(PurchaseOrderPOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -28,7 +31,8 @@ public class PurchaseOrderTools : JiwaToolBase
             return result.ToJson<PurchaseOrder>();
         });
 
-    [McpServerTool, Description("Modify a purchase order. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Update")]
+    [McpServerTool(Name = "UpdatePurchaseOrder"), Description("Update an existing purchase order. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> ModifyPurchaseOrder(PurchaseOrderPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -36,7 +40,8 @@ public class PurchaseOrderTools : JiwaToolBase
             return result.ToJson<PurchaseOrder>();
         });
 
-    [McpServerTool, Description("Delete a purchase order. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Delete")]
+    [McpServerTool(Name = "DeletePurchaseOrder"), Description("Delete a purchase order. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> DeletePurchaseOrder(PurchaseOrderDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -44,7 +49,8 @@ public class PurchaseOrderTools : JiwaToolBase
             return new { Deleted = true, PurchaseOrderID = requestDTO.PurchaseOrderID }.ToJson();
         });
 
-    [McpServerTool, Description("Add a product to an existing purchase order. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Add")]
+    [McpServerTool(Name = "AddItemToPurchaseOrder"), Description("Add a product or line item to an existing purchase order. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> AddAProductToAPurchaseOrder(PurchaseOrderLinePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -52,12 +58,13 @@ public class PurchaseOrderTools : JiwaToolBase
             return result.ToJson<PurchaseOrderLine>();
         });
 
-    [McpServerTool(Name = "SearchPurchaseInformation", ReadOnly = true), Description("Search and return purchase information by field. Includes part nos that were purchased. Lots of current and historical purchase data. " +
+    [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Search")]
+    [McpServerTool(Name = "ListPurchaseHistory", ReadOnly = true), Description("List or search purchase history by supplier, product, invoice, or other fields. Includes part numbers that were purchased. Use this when the user asks for purchase history or what was bought. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
         "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
         "Then call again with confirmLargeResultSet=true and that token. " +
-        "You can use the GetPurchaseOrder tool to retrieve full details for a specific purchase order if required.")]
+        "You can use the GetPurchaseOrderDetails tool to retrieve full details for a specific purchase order if required.")]
     public Task<string> SearchPurchaseInformation(
         v_Jiwa_PurchaseInformationQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -73,7 +80,8 @@ public class PurchaseOrderTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
-    [McpServerTool(Name = "SearchPurchaseOrders", ReadOnly = true), Description("Search and return purchase orders by field. Lots of current and historical header level purchase data. " +
+    [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Search")]
+    [McpServerTool(Name = "ListPurchaseOrders", ReadOnly = true), Description("List or search purchase orders by supplier, order number, invoice, or other fields. Use this when the user asks to show purchase orders. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
         "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +

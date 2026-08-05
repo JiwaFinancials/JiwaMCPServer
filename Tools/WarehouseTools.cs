@@ -2,21 +2,35 @@ using JiwaFinancials.Jiwa.JiwaServiceModel;
 using JiwaFinancials.Jiwa.JiwaServiceModel.PurchaseOrders;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
+using JiwaMcpServer.ToolMetadata;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text.RegularExpressions;
 
 namespace JiwaMcpServer.Tools;
 
 [McpServerToolType]
 public class WarehouseTools : JiwaToolBase
 {
-    [McpServerTool(ReadOnly = true), Description(@"Search for warehouses by field. A logical warehouse represents a sub-division of a physical warehouse used for inventory management. 
-                                                   A physical warehouse contains one or more logical warehouses. 
+    private static readonly IReadOnlyDictionary<string, string[]> AustralianStateAliases = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["nsw"] = new[] { "new south wales", "nsw" },
+        ["vic"] = new[] { "victoria", "vic" },
+        ["qld"] = new[] { "queensland", "qld" },
+        ["sa"] = new[] { "south australia", "sa" },
+        ["wa"] = new[] { "western australia", "wa" },
+        ["tas"] = new[] { "tasmania", "tas" },
+        ["nt"] = new[] { "northern territory", "nt" },
+        ["act"] = new[] { "australian capital territory", "act" }
+    };
+
+    [BusinessTool(EntityType = "Warehouse", ActionType = "Search")]
+    [McpServerTool(Name = "ListWarehouses", ReadOnly = true), Description(@"List or search warehouses. A logical warehouse is a sub-division of a physical warehouse used for inventory management, and a physical warehouse contains one or more logical warehouses.
+                                                   Use this when the user asks to show warehouses or find a warehouse. Do not use it to determine the current warehouse; use GetCurrentWarehouse instead.
                                                    Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters.
-                                                   A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.
-                                                   Use for listing or finding warehouses. Do not use this tool to determine the current warehouse; use GetCurrentLogicalWarehouse instead.")]
+                                                   For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
     public Task<string> SearchWarehouses(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_WarehouseSelectionQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -32,11 +46,10 @@ public class WarehouseTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
-    [McpServerTool, Description(@"Get the current logical warehouse. 
-                                  A logical warehouse represents a sub-division of a physical warehouse used for inventory management. 
-                                  A physical warehouse contains one or more logical warehouses. The current physical warehouse can be inferred from the current logical warehouse.
-                                  Get the current logical warehouse for the user/session.
-                                  Use this tool whenever the user asks for the current warehouse, current logical warehouse, active warehouse, selected warehouse, or which warehouse they are in. Do not use warehouse search tools for that purpose.")]
+    [BusinessTool(EntityType = "Warehouse", ActionType = "Get")]
+    [McpServerTool(Name = "GetCurrentWarehouse"), Description(@"Get the current warehouse selection for the user or session.
+                                  Use this when the user asks for the current warehouse, active warehouse, selected warehouse, or which warehouse they are in.
+                                  The response identifies the current logical warehouse and enough detail to infer the physical warehouse.")]
     public Task<string> GetCurrentLogicalWarehouse(CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -49,15 +62,50 @@ public class WarehouseTools : JiwaToolBase
             return v_WarehouseSelectionResponse?.ToJson() ?? "No logical warehouse found.";
         });
 
-    [McpServerTool, Description(@"Change the current logical warehouse. 
-                                  A logical warehouse represents a sub-division of a physical warehouse used for inventory management. 
-                                  A physical warehouse contains one or more logical warehouses. The current physical warehouse can be inferred from the current logical warehouse.
-                                  Change the current logical warehouse for the user/session.
-                                  Use this tool whenever the user asks to change the current warehouse, current logical warehouse, active warehouse, selected warehouse, or which warehouse they are in. Do not use warehouse search tools for that purpose.")]
-    public Task<string> ChangeCurrentLogicalWarehouse(JiwaFinancials.Jiwa.JiwaServiceModel.LogicalWarehousesCurrentPATCHRequest requestDTO, CancellationToken ct = default)
+    [BusinessTool(EntityType = "Warehouse", ActionType = "Set")]
+    [McpServerTool(Name = "SetCurrentWarehouse"), Description(@"Change the current warehouse selection for the user or session.
+                                   Use this when the user asks to change the current warehouse, active warehouse, selected warehouse, or logical warehouse.
+                                   You can specify the warehouse using IN_LogicalID directly, or provide warehouseName in formats like:
+                                   - 'PhysicalName LogicalName' (e.g., 'Victoria Bulk')
+                                   - 'LogicalName PhysicalName' (e.g., 'Bulk Victoria')
+                                   - 'PhysicalName/LogicalName' (e.g., 'Victoria/Bulk')
+                                   - 'LogicalName/PhysicalName' (e.g., 'Bulk/Victoria')
+                                   - Just logical name alone (e.g., 'Bulk')
+                                   If ambiguous, the first matching warehouse will be used.")]
+    public Task<string> ChangeCurrentLogicalWarehouse(SetCurrentWarehouseRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            var logicalWarehouseId = requestDTO.IN_LogicalID;
+
+            // If warehouseName is provided, resolve it to IN_LogicalID
+            if (string.IsNullOrWhiteSpace(logicalWarehouseId) && !string.IsNullOrWhiteSpace(requestDTO.WarehouseName))
+            {
+                logicalWarehouseId = await ResolveWarehouseNameToIdAsync(requestDTO.WarehouseName, ct);
+                if (string.IsNullOrWhiteSpace(logicalWarehouseId))
+                {
+                    return new
+                    {
+                        success = false,
+                        error = $"I couldn't find a warehouse matching '{requestDTO.WarehouseName}'. Please check the warehouse name and try again."
+                    }.ToJson();
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(logicalWarehouseId))
+            {
+                return new
+                {
+                    success = false,
+                    error = "No warehouse ID or name provided."
+                }.ToJson();
+            }
+
+            var patchRequest = new JiwaFinancials.Jiwa.JiwaServiceModel.LogicalWarehousesCurrentPATCHRequest
+            {
+                IN_LogicalID = logicalWarehouseId
+            };
+
+            var result = await JiwaApiClient.PatchAsync(patchRequest, ct);
 
             // Construct response with action directive for the Jiwa client's Manager.CurrentLogicalWarehouse
             var response = new
@@ -69,4 +117,155 @@ public class WarehouseTools : JiwaToolBase
 
             return response.ToJson();
         });
+
+    private async Task<string?> ResolveWarehouseNameToIdAsync(string warehouseName, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(warehouseName))
+            return null;
+
+        var trimmedInput = warehouseName.Trim();
+
+        // Get all warehouses
+        var allWarehouses = await JiwaApiClient.GetAsync(new v_WarehouseSelectionQuery { Skip = 0, Take = 1000 }, ct);
+        if (allWarehouses?.Results == null || allWarehouses.Results.Count == 0)
+            return null;
+
+        // Try exact matching first (case-insensitive)
+        var exactMatches = new List<v_WarehouseSelection>();
+
+        foreach (var warehouse in allWarehouses.Results)
+        {
+            if (warehouse.LogicalDescription != null &&
+                string.Equals(warehouse.LogicalDescription, trimmedInput, StringComparison.OrdinalIgnoreCase))
+                exactMatches.Add(warehouse);
+        }
+
+        if (exactMatches.Count > 0)
+            return exactMatches.First().IN_LogicalID;
+
+        // Parse the input to extract physical and logical warehouse names
+        var candidates = ParseWarehouseNameCandidates(trimmedInput);
+        foreach (var candidate in candidates)
+        {
+            foreach (var warehouse in allWarehouses.Results)
+            {
+                bool logicalMatch = true;
+                bool physicalMatch = true;
+
+                if (candidate.LogicalName != null &&
+                    (warehouse.LogicalDescription == null ||
+                     !ContainsWithStateAliases(warehouse.LogicalDescription, candidate.LogicalName)))
+                    logicalMatch = false;
+
+                if (candidate.PhysicalName != null &&
+                    (warehouse.Description == null ||
+                     !ContainsWithStateAliases(warehouse.Description, candidate.PhysicalName)))
+                    physicalMatch = false;
+
+                if (logicalMatch && physicalMatch)
+                    return warehouse.IN_LogicalID;
+            }
+        }
+
+        // Fallback: try substring matching on logical warehouse name
+        foreach (var warehouse in allWarehouses.Results)
+        {
+            if (warehouse.LogicalDescription != null &&
+                ContainsWithStateAliases(warehouse.LogicalDescription, trimmedInput))
+                return warehouse.IN_LogicalID;
+        }
+
+        // Final fallback: try substring matching on physical warehouse name
+        foreach (var warehouse in allWarehouses.Results)
+        {
+            if (warehouse.Description != null &&
+                ContainsWithStateAliases(warehouse.Description, trimmedInput))
+                return warehouse.IN_LogicalID;
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<(string? PhysicalName, string? LogicalName)> ParseWarehouseNameCandidates(string input)
+    {
+        var candidates = new List<(string? PhysicalName, string? LogicalName)>();
+        if (string.IsNullOrWhiteSpace(input))
+            return candidates;
+
+        // Check for slash separator first
+        if (input.Contains("/"))
+        {
+            var parts = input.Split('/');
+            if (parts.Length == 2)
+            {
+                var part1 = parts[0].Trim();
+                var part2 = parts[1].Trim();
+
+                candidates.Add((part1, part2));
+                candidates.Add((part2, part1));
+                return candidates;
+            }
+        }
+
+        // Check for space-separated words
+        var words = input.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 2)
+        {
+            candidates.Add((words[0], words[1]));
+            candidates.Add((words[1], words[0]));
+            return candidates;
+        }
+        else if (words.Length > 2)
+        {
+            var first = words[0];
+            var rest = string.Join(" ", words.Skip(1));
+            candidates.Add((rest, first));
+
+            var last = words[words.Length - 1];
+            var leading = string.Join(" ", words.Take(words.Length - 1));
+            candidates.Add((leading, last));
+            candidates.Add((last, leading));
+            return candidates;
+        }
+        else if (words.Length == 1)
+        {
+            candidates.Add((null, words[0]));
+            candidates.Add((words[0], null));
+            return candidates;
+        }
+
+        return candidates;
+    }
+
+    private static bool ContainsWithStateAliases(string source, string searchTerm)
+    {
+        if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(searchTerm))
+            return false;
+
+        if (source.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var canonicalSource = CanonicaliseAustralianStateNames(source);
+        var canonicalSearchTerm = CanonicaliseAustralianStateNames(searchTerm);
+        return canonicalSource.Contains(canonicalSearchTerm, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string CanonicaliseAustralianStateNames(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var canonical = Regex.Replace(value.Trim().ToLowerInvariant(), @"[^\p{L}\p{Nd}\s]+", " ");
+        canonical = Regex.Replace(canonical, @"\s+", " ");
+
+        foreach (var aliasEntry in AustralianStateAliases)
+        {
+            foreach (var alias in aliasEntry.Value.OrderByDescending(item => item.Length))
+            {
+                canonical = Regex.Replace(canonical, $@"\b{Regex.Escape(alias)}\b", aliasEntry.Key, RegexOptions.IgnoreCase);
+            }
+        }
+
+        return canonical;
+    }
 }

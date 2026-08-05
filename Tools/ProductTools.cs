@@ -3,6 +3,7 @@ using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
+using JiwaMcpServer.ToolMetadata;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
@@ -13,7 +14,8 @@ namespace JiwaMcpServer.Tools;
 [McpServerToolType]
 public class ProductTools : JiwaToolBase
 {
-    [McpServerTool(ReadOnly = true), Description("Search for products by field. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
+    [BusinessTool(EntityType = "Inventory", ActionType = "Search")]
+    [McpServerTool(Name = "ListProducts", ReadOnly = true), Description("List or search products. Products are also known as inventory items. Use this tool when the user asks to show products, find products, or return a product list. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
     public Task<string> SearchProducts(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Inventory_Item_ListQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -29,7 +31,8 @@ public class ProductTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
-    [McpServerTool, Description("Get full details for a product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Don't get Picture from here. Use GetProductPicture if the user wants a Picture.")]
+    [BusinessTool(EntityType = "Inventory", ActionType = "Get")]
+    [McpServerTool(Name = "GetProductDetails"), Description("Get a specific product with full details. Products are also known as inventory items. Use this after identifying the product you want. Do not use this for images; use GetProductPicture if the user wants the product picture. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> GetProduct(InventoryGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -37,7 +40,8 @@ public class ProductTools : JiwaToolBase
             return result.ToJson<InventoryItem>();
         });
 
-    [McpServerTool, Description("Create a new product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "Inventory", ActionType = "Create")]
+    [McpServerTool(Name = "CreateProduct"), Description("Create a new product record. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> CreateProduct(InventoryPOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -45,7 +49,8 @@ public class ProductTools : JiwaToolBase
             return result.ToJson<InventoryItem>();
         });
 
-    [McpServerTool, Description("Modify a product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "Inventory", ActionType = "Update")]
+    [McpServerTool(Name = "UpdateProduct"), Description("Update an existing product record. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> ModifyProduct(InventoryPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -53,7 +58,8 @@ public class ProductTools : JiwaToolBase
             return result.ToJson<InventoryItem>();
         });
 
-    [McpServerTool, Description("Delete a product. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "Inventory", ActionType = "Delete")]
+    [McpServerTool(Name = "DeleteProduct"), Description("Delete a product record. Products are also known as inventory items. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> DeleteProduct(InventoryDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -61,7 +67,8 @@ public class ProductTools : JiwaToolBase
             return new { Deleted = true, InventoryItemID = requestDTO.InventoryID }.ToJson();
         });
 
-    [McpServerTool(ReadOnly = true), Description("Get stock on hand quantities for a product by field. Products are also known as inventory items. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
+    [BusinessTool(EntityType = "Inventory", ActionType = "List")]
+    [McpServerTool(Name = "ListProductStockOnHand", ReadOnly = true), Description("List product stock on hand quantities. Products are also known as inventory items. Use this when the user asks for stock on hand, inventory quantities, or bin location stock. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
     public Task<string> GetStockOnHand(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_IN_SOHWithBinLocationsQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -77,7 +84,8 @@ public class ProductTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
-    [McpServerTool(ReadOnly = true), Description("Retrieves a list of inventory item classifications. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
+    [BusinessTool(EntityType = "Inventory", ActionType = "List")]
+    [McpServerTool(Name = "ListProductClassifications", ReadOnly = true), Description("List product classifications. Inventory items are also known as products. Use this when the user asks for product classifications or inventory item classifications. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
     public Task<string> SearchProductClassifications(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.IN_ClassificationQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -93,7 +101,8 @@ public class ProductTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
-    [McpServerTool(ReadOnly = true), Description("Retrieves a list of inventory item categories. Inventory items are also known as products. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
+    [BusinessTool(EntityType = "Inventory", ActionType = "List")]
+    [McpServerTool(Name = "ListProductCategories", ReadOnly = true), Description("List product categories. Inventory items are also known as products. Use this when the user asks for product categories or inventory item categories. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
     public Task<string> SearchProductCategories(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.IN_CategoriesQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -109,7 +118,8 @@ public class ProductTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
-    [McpServerTool, Description("Get the picture for a product (inventory item) by InventoryID or PartNo. Returns the picture as image content.")]
+    [BusinessTool(EntityType = "Inventory", ActionType = "Get")]
+    [McpServerTool(Name = "GetProductPicture"), Description("Get the picture for a product by InventoryID or PartNo. Products are also known as inventory items. Returns image content.")]
     public async Task<IEnumerable<ModelContextProtocol.Protocol.ContentBlock>> GetProductPicture(
         [Description("The InventoryID of the product to retrieve the picture for.")] string? inventoryID = null,
         [Description("The PartNo of the product to retrieve the picture for.")] string? partNo = null,

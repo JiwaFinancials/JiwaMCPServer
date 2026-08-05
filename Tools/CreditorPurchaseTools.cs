@@ -330,7 +330,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool(Name = "SearchCreditorPurchaseBatchInformation", ReadOnly = true), Description("Search and return creditor purchase batch information by field. Includes invoice nos of purchases. " +
+    [McpServerTool(Name = "ListSupplierPurchaseHistory", ReadOnly = true), Description("List or search supplier purchase history by supplier, invoice, product, or other fields. Includes invoice numbers for purchases. Use this when the user asks for supplier purchase history or what was purchased from a supplier. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
         "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
@@ -351,7 +351,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
-    [McpServerTool(Name = "SearchCreditorPurchaseBatches", ReadOnly = true), Description("Search and return creditor purchase batches by field. " +
+    [McpServerTool(Name = "ListSupplierPurchases", ReadOnly = true), Description("List or search supplier purchases by supplier, batch, invoice, or other fields. Suppliers are also known as creditors. Use this when the user asks to show supplier purchases. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
         "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +

@@ -2,16 +2,19 @@ using JiwaFinancials.Jiwa.JiwaServiceModel;
 using JiwaFinancials.Jiwa.JiwaServiceModel.SalesOrders;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
+using JiwaMcpServer.ToolMetadata;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
+using System.Linq;
 
 namespace JiwaMcpServer.Tools;
 
 [McpServerToolType]
 public class SalesOrderTools : JiwaToolBase
 {
-    [McpServerTool, Description("Get full details for a sales order. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "SalesOrder", ActionType = "Get")]
+    [McpServerTool(Name = "GetSalesOrderDetails"), Description("Get a specific sales order with full details. Sales orders are also known as sales invoices. Use this after identifying the sales order you want. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> GetSalesOrder(SalesOrderGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -19,7 +22,8 @@ public class SalesOrderTools : JiwaToolBase
             return result.ToJson<SalesOrder>();
         });
 
-    [McpServerTool, Description("Create a new sales order for a customer. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "SalesOrder", ActionType = "Create")]
+    [McpServerTool(Name = "CreateSalesOrder"), Description("Create a new sales order for a customer. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> CreateSalesOrder(SalesOrderPOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -27,7 +31,8 @@ public class SalesOrderTools : JiwaToolBase
             return result.ToJson<SalesOrder>();
         });
 
-    [McpServerTool, Description("Modify a sales order. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "SalesOrder", ActionType = "Update")]
+    [McpServerTool(Name = "UpdateSalesOrder"), Description("Update an existing sales order. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> ModifySalesOrder(SalesOrderPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -35,20 +40,55 @@ public class SalesOrderTools : JiwaToolBase
             return result.ToJson<SalesOrder>();
         });
 
-    [McpServerTool, Description("Add a product to an existing sales order. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [BusinessTool(EntityType = "SalesOrder", ActionType = "Add")]
+    [McpServerTool(Name = "AddItemToSalesOrder"), Description("Add a product or line item to an existing sales order. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. If InvoiceHistoryID is omitted, the current history (highest HistoryNo for that InvoiceID) is used.")]
     public Task<string> AddAProductToASalesOrder(SalesOrderLinePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
+            if (string.IsNullOrWhiteSpace(requestDTO.InvoiceHistoryID))
+            {
+                if (string.IsNullOrWhiteSpace(requestDTO.InvoiceID))
+                {
+                    return new
+                    {
+                        success = false,
+                        error = "InvoiceID is required when InvoiceHistoryID is not provided."
+                    }.ToJson();
+                }
+
+                var currentHistory = await ResolveCurrentHistoryAsync(requestDTO.InvoiceID, ct);
+                if (string.IsNullOrWhiteSpace(currentHistory?.InvoiceHistoryID))
+                {
+                    return new
+                    {
+                        success = false,
+                        error = $"I couldn't determine the current history for sales order '{requestDTO.InvoiceID}'."
+                    }.ToJson();
+                }
+
+                requestDTO.InvoiceHistoryID = currentHistory.InvoiceHistoryID;
+            }
+
             var result = await JiwaApiClient.PostAsync(requestDTO, ct);
             return result.ToJson<SalesOrderLine>();
         });
 
-    [McpServerTool(Name = "SearchSalesInformation", ReadOnly = true), Description("Search and return sales information by field. Includes part nos that were sold. Sales orders are also known as sales invoices. Lots of current and historical sales data. " +
+    private async Task<SalesOrderHistory?> ResolveCurrentHistoryAsync(string invoiceId, CancellationToken ct)
+    {
+        var salesOrder = await JiwaApiClient.GetAsync(new SalesOrderGETRequest { InvoiceID = invoiceId }, ct);
+        return salesOrder?.Histories?
+            .Where(history => history != null && !string.IsNullOrWhiteSpace(history.InvoiceHistoryID))
+            .OrderByDescending(history => history.HistoryNo ?? int.MinValue)
+            .FirstOrDefault();
+    }
+
+    [BusinessTool(EntityType = "SalesOrder", ActionType = "Search")]
+    [McpServerTool(Name = "ListSalesHistory", ReadOnly = true), Description("List or search sales history by customer, product, invoice, or other fields. Includes part numbers that were sold. Sales orders are also known as sales invoices. Use this when the user asks for sales history or what was sold. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
         "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
         "Then call again with confirmLargeResultSet=true and that token. " +
-        "You can use the GetSalesOrder tool to retrieve full details for a specific sales order if required.")]
+        "You can use the GetSalesOrderDetails tool to retrieve full details for a specific sales order if required.")]
     public Task<string> SearchSalesInformation(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_SalesInformationQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -64,12 +104,13 @@ public class SalesOrderTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
-    [McpServerTool(Name = "SearchSalesOrders", ReadOnly = true), Description("Search and return sales orders by field. Sales orders are also known as sales invoices. Lots of current and historical header level sales data. " +
+    [BusinessTool(EntityType = "SalesOrder", ActionType = "Search")]
+    [McpServerTool(Name = "ListSalesOrders", ReadOnly = true), Description("List or search sales orders by customer, order number, invoice, or other fields. Sales orders are also known as sales invoices. Use this when the user asks to show sales orders or sales invoices. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
         "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
         "Then call again with confirmLargeResultSet=true and that token. " +
-        "You can use the GetSalesOrder tool to retrieve full details for a specific sales order if required.")]
+        "You can use the GetSalesOrderDetails tool to retrieve full details for a specific sales order if required.")]
     public Task<string> SearchSalesOrders(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_SalesOrdersQuery requestDTO,
         bool confirmLargeResultSet = false,

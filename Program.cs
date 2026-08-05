@@ -1,8 +1,10 @@
 using JiwaMcpServer.Services;
 using JiwaMcpServer.Services.DocumentIntelligence;
+using JiwaMcpServer.ToolMetadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using System.Reflection;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
@@ -43,6 +45,8 @@ var startupLogger = LoggerFactory
 var pluginAssemblies = PluginAssemblyLoader.LoadPluginAssemblies(configuration, builder.Environment.ContentRootPath, startupLogger);
 
 // Register MCP server with HTTP streaming transport and auto-discover tools
+var toolAssemblies = new List<Assembly> { typeof(Program).Assembly };
+
 var mcpBuilder = builder.Services
     .AddMcpServer()
     .WithHttpTransport()
@@ -50,8 +54,11 @@ var mcpBuilder = builder.Services
 
 foreach (var pluginAssembly in pluginAssemblies)
 {
+    toolAssemblies.Add(pluginAssembly);
     mcpBuilder.WithToolsFromAssembly(pluginAssembly, null);
 }
+
+mcpBuilder.WithBusinessToolMetadata(toolAssemblies.ToArray());
 
 builder.Services.AddCors(options =>
 {

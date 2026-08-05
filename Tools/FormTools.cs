@@ -18,7 +18,7 @@ public class FormTools : JiwaToolBase
         Plugin = 2
     }
 
-    [McpServerTool(ReadOnly = true), Description("Search for forms by field. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. A single call may return only a partial result set. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. Then call again with confirmLargeResultSet=true and that token.")]
+    [McpServerTool(Name = "ListForms", ReadOnly = true), Description("List or search forms and plugins by description, class name, or other fields. Use this when the user asks to show forms or find a form. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
     public Task<string> SearchForms(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.SY_FormsQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -46,10 +46,10 @@ public class FormTools : JiwaToolBase
         });
 
 
-    [McpServerTool, Description(@"Open a form in the Jiwa client.
-                                  If a DrillDownID value is supplied then the form will be opened with that specific record loaded.
-                                  If DrillDownID is omitted, the form will be opened without a specific record loaded.
-                                  If a requestedRecordReference is provided without a DrillDownID, the tool returns guidance that specific-record loading is not yet available for that module.")]
+    [McpServerTool(Name = "OpenForm"), Description(@"Open a form or plugin in the Jiwa client.
+                                  Provide DrillDownID to open a specific record inside the form.
+                                  If DrillDownID is omitted, the form opens without a record loaded.
+                                  If requestedRecordReference is provided without a DrillDownID, the tool explains whether record-specific loading is available for that module.")]
     public Task<string> OpenAForm(
         string ClassName,
         string? DrillDownID = null,
