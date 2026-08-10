@@ -152,7 +152,7 @@ public class CreditorPurchaseTools : JiwaToolBase
         => InvokeToolAsync(async () =>
         {
             await JiwaApiClient.DeleteAsync(requestDTO, ct);
-            return new { Deleted = true, CreditorPurchaseID = requestDTO.CreditorPurchaseID }.ToJson();
+            return new { Deleted = true, BatchID = requestDTO.BatchID }.ToJson();
         });
 
     [McpServerTool, Description("Retrieves a list of creditor purchase custom fields. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
@@ -243,7 +243,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return new
             {
                 Deleted = true,
-                CreditorPurchaseID = requestDTO.CreditorPurchaseID,
+                BatchID = requestDTO.BatchID,
                 LineID = requestDTO.LineID
             }.ToJson();
         });
@@ -272,7 +272,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return new
             {
                 Deleted = true,
-                CreditorPurchaseID = requestDTO.CreditorPurchaseID,
+                BatchID = requestDTO.BatchID,
                 DocumentID = requestDTO.DocumentID
             }.ToJson();
         });
@@ -301,7 +301,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return new
             {
                 Deleted = true,
-                CreditorPurchaseID = requestDTO.CreditorPurchaseID,
+                BatchID = requestDTO.BatchID,
                 NoteID = requestDTO.NoteID
             }.ToJson();
         });

@@ -75,15 +75,15 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
     #endregion
 
     #region "Creditor Purchases"
-    [Route("/CreditorPurchases/Activate/{CreditorPurchaseID}", "POST")]
+    [Route("/CreditorPurchases/Activate/{BatchID}", "POST")]
     [ApiResponse(Description = "Activated OK", StatusCode = 201)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseACTIVATERequest
          : IReturn<CreditorBatchTrans>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
     [Route("/CreditorPurchases/CustomFields", "GET")]
@@ -95,23 +95,23 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
     {
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/CustomFieldValues/{SettingID}", "GET")]
+    [Route("/CreditorPurchases/{BatchID}/CustomFieldValues/{SettingID}", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase custom field value with the CreditorPurchaseID or SettingID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase custom field value with the BatchID or SettingID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseCustomFieldValueGETRequest
         : IReturn<CustomFieldValue>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? SettingID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/CustomFieldValues/{SettingID}", "PATCH")]
+    [Route("/CreditorPurchases/{BatchID}/CustomFieldValues/{SettingID}", "PATCH")]
     [ApiResponse(Description = "Updated OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase custom field value with the CreditorPurchaseID or SettingID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase custom field value with the BatchID or SettingID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseCustomFieldValuePATCHRequest
         : CustomFieldValue, IReturn<CustomFieldValue>
     {
@@ -124,61 +124,61 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
         [IgnoreDataMember]
         public override string? PluginName { get; set; }
 
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public override string? SettingID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/CustomFieldValues", "GET")]
+    [Route("/CreditorPurchases/{BatchID}/CustomFieldValues", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase item with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase item with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseCustomFieldValuesGETManyRequest
         : IReturn<List<CustomFieldValue>>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}", "DELETE")]
+    [Route("/CreditorPurchases/{BatchID}", "DELETE")]
     [ApiResponse(Description = "Deleted OK", StatusCode = 204)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseDELETERequest
         : IReturnVoid
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Documents/{DocumentID}", "DELETE")]
+    [Route("/CreditorPurchases/{BatchID}/Documents/{DocumentID}", "DELETE")]
     [ApiResponse(Description = "Deleted OK", StatusCode = 204)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseDocumentDELETERequest
         : IReturnVoid
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? DocumentID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Documents/{DocumentID}", "GET")]
+    [Route("/CreditorPurchases/{BatchID}/Documents/{DocumentID}", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase document with the CreditorPurchaseID or DocumentID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase document with the BatchID or DocumentID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseDocumentGETRequest
         : IReturn<JiwaFinancials.Jiwa.JiwaServiceModel.Documents.Document>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? DocumentID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Documents/{DocumentID}", "PATCH")]
+    [Route("/CreditorPurchases/{BatchID}/Documents/{DocumentID}", "PATCH")]
     [ApiResponse(Description = "Updated OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseDocumentPATCHRequest
         : JiwaFinancials.Jiwa.JiwaServiceModel.Documents.Document, IReturn<JiwaFinancials.Jiwa.JiwaServiceModel.Documents.Document>
     {
@@ -206,15 +206,15 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
         [IgnoreDataMember]
         public override string? LastModifiedByStaffSurname { get; set; }
 
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public override string? DocumentID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Documents", "POST")]
+    [Route("/CreditorPurchases/{BatchID}/Documents", "POST")]
     [ApiResponse(Description = "Created OK", StatusCode = 201)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseDocumentPOSTRequest
         : JiwaFinancials.Jiwa.JiwaServiceModel.Documents.Document, IReturn<JiwaFinancials.Jiwa.JiwaServiceModel.Documents.Document>
     {
@@ -245,18 +245,18 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
         [IgnoreDataMember]
         public override string? LastModifiedByStaffSurname { get; set; }
 
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Documents", "GET")]
+    [Route("/CreditorPurchases/{BatchID}/Documents", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseDocumentsGETManyRequest
         : IReturn<List<JiwaFinancials.Jiwa.JiwaServiceModel.Documents.Document>>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
     [Route("/CreditorPurchases/DocumentTypes/{DocumentTypeID}", "DELETE")]
@@ -334,15 +334,15 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
     {
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}", "GET")]
+    [Route("/CreditorPurchases/{BatchID}", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseGETRequest
         : IReturn<CreditorBatchTrans>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
     [Route("/CreditorPurchases/Lines/CustomFields", "GET")]
@@ -354,24 +354,24 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
     {
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Lines/{CreditorPurchaseLineID}/CustomFieldValues/{SettingID}", "GET")]
+    [Route("/CreditorPurchases/{BatchID}/Lines/{CreditorPurchaseLineID}/CustomFieldValues/{SettingID}", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase line custom field value with the CreditorPurchaseID, CreditorPurchaseLineID or SettingID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase line custom field value with the BatchID, CreditorPurchaseLineID or SettingID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseLineCustomFieldValueGETRequest
         : IReturn<CustomFieldValue>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? CreditorPurchaseLineID { get; set; }
         public virtual string? SettingID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Lines/{CreditorPurchaseLineID}/CustomFieldValues/{SettingID}", "PATCH")]
+    [Route("/CreditorPurchases/{BatchID}/Lines/{CreditorPurchaseLineID}/CustomFieldValues/{SettingID}", "PATCH")]
     [ApiResponse(Description = "Updated OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase line custom field value with the CreditorPurchaseID, CreditorPurchaseLineID or SettingID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase line custom field value with the BatchID, CreditorPurchaseLineID or SettingID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseLineCustomFieldValuePATCHRequest
         : CustomFieldValue, IReturn<CustomFieldValue>
     {
@@ -384,52 +384,52 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
         [IgnoreDataMember]
         public override string? PluginName { get; set; }
 
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? CreditorPurchaseLineID { get; set; }
         public override string? SettingID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Lines/{CreditorPurchaseLineID}/CustomFieldValues", "GET")]
+    [Route("/CreditorPurchases/{BatchID}/Lines/{CreditorPurchaseLineID}/CustomFieldValues", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase line with the CreditorPurchaseID or CreditorPurchaseLineID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase line with the BatchID or CreditorPurchaseLineID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseLineCustomFieldValuesGETManyRequest
         : IReturn<List<CustomFieldValue>>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? CreditorPurchaseLineID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Lines/{LineID}", "DELETE")]
+    [Route("/CreditorPurchases/{BatchID}/Lines/{LineID}", "DELETE")]
     [ApiResponse(Description = "Deleted OK", StatusCode = 204)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No line with the CreditorPurchaseID or LineID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No line with the BatchID or LineID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseLineDELETERequest
         : IReturnVoid
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? LineID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Lines/{LineID}", "GET")]
+    [Route("/CreditorPurchases/{BatchID}/Lines/{LineID}", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No line with the CreditorPurchaseID or LineID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No line with the BatchID or LineID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseLineGETRequest
         : IReturn<CRBatchTranLine>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? LineID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Lines/{LineID}", "PATCH")]
+    [Route("/CreditorPurchases/{BatchID}/Lines/{LineID}", "PATCH")]
     [ApiResponse(Description = "Updated OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No line with the CreditorPurchaseID or LineID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No line with the BatchID or LineID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseLinePATCHRequest
         : CRBatchTranLine, IReturn<CRBatchTranLine>
     {
@@ -445,15 +445,15 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
         [IgnoreDataMember]
         public override decimal? SumOfDispersals { get; set; }
 
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? LineID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Lines", "POST")]
+    [Route("/CreditorPurchases/{BatchID}/Lines", "POST")]
     [ApiResponse(Description = "Created OK", StatusCode = 201)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseLinePOSTRequest
         : CRBatchTranLine, IReturn<CRBatchTranLine>
     {
@@ -472,49 +472,49 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
         [IgnoreDataMember]
         public override decimal? SumOfDispersals { get; set; }
 
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Lines", "GET")]
+    [Route("/CreditorPurchases/{BatchID}/Lines", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No line with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No line with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseLinesGETManyRequest
         : IReturn<List<CRBatchTranLine>>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Notes/{NoteID}", "DELETE")]
+    [Route("/CreditorPurchases/{BatchID}/Notes/{NoteID}", "DELETE")]
     [ApiResponse(Description = "Deleted OK", StatusCode = 204)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID or NoteID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID or NoteID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseNoteDELETERequest
         : IReturnVoid
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? NoteID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Notes/{NoteID}", "GET")]
+    [Route("/CreditorPurchases/{BatchID}/Notes/{NoteID}", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase note with the CreditorPurchaseID or NoteID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase note with the BatchID or NoteID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseNoteGETRequest
         : IReturn<Note>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public virtual string? NoteID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Notes/{NoteID}", "PATCH")]
+    [Route("/CreditorPurchases/{BatchID}/Notes/{NoteID}", "PATCH")]
     [ApiResponse(Description = "Updated OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseNotePATCHRequest
         : Note, IReturn<Note>
     {
@@ -536,15 +536,15 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
         [IgnoreDataMember]
         public override string? LastModifiedByStaffSurname { get; set; }
 
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
         public override string? NoteID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Notes", "POST")]
+    [Route("/CreditorPurchases/{BatchID}/Notes", "POST")]
     [ApiResponse(Description = "Created OK", StatusCode = 201)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseNotePOSTRequest
         : Note, IReturn<Note>
     {
@@ -569,18 +569,18 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
         [IgnoreDataMember]
         public override string? LastModifiedByStaffSurname { get; set; }
 
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}/Notes", "GET")]
+    [Route("/CreditorPurchases/{BatchID}/Notes", "GET")]
     [ApiResponse(Description = "Read OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchaseNotesGETManyRequest
         : IReturn<List<Note>>
     {
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
     [Route("/CreditorPurchases/NoteTypes/{NoteTypeID}", "DELETE")]
@@ -658,11 +658,11 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
     {
     }
 
-    [Route("/CreditorPurchases/{CreditorPurchaseID}", "PATCH")]
+    [Route("/CreditorPurchases/{BatchID}", "PATCH")]
     [ApiResponse(Description = "Updated OK", StatusCode = 200)]
     [ApiResponse(Description = "Not authenticated", StatusCode = 401)]
     [ApiResponse(Description = "Not authorised", StatusCode = 403)]
-    [ApiResponse(Description = "No creditor purchase with the CreditorPurchaseID provided was found", StatusCode = 404)]
+    [ApiResponse(Description = "No creditor purchase with the BatchID provided was found", StatusCode = 404)]
     public partial class CreditorPurchasePATCHRequest
         : CreditorBatchTrans, IReturn<CreditorBatchTrans>
     {
@@ -681,7 +681,7 @@ namespace JiwaFinancials.Jiwa.JiwaServiceModel
         [IgnoreDataMember]
         public override BatchStatusType? BatchStatus { get; set; }
 
-        public virtual string? CreditorPurchaseID { get; set; }
+        public virtual string? BatchID { get; set; }
     }
 
     [Route("/CreditorPurchases", "POST")]
