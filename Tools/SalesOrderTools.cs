@@ -14,7 +14,7 @@ namespace JiwaMcpServer.Tools;
 public class SalesOrderTools : JiwaToolBase
 {
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Get")]
-    [McpServerTool(Name = "GetSalesOrderDetails"), Description("Get a specific sales order with full details. Sales orders are also known as sales invoices. Use this after identifying the sales order you want. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "GetSalesOrderDetails"), Description("Get a specific sales order (SO) with full details. Sales orders are also known as sales invoices. Use this after identifying the sales order you want. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> GetSalesOrder(SalesOrderGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -23,7 +23,7 @@ public class SalesOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Create")]
-    [McpServerTool(Name = "CreateSalesOrder"), Description("Create a new sales order for a customer. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "CreateSalesOrder"), Description("Create a new sales order (SO) for a customer. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> CreateSalesOrder(SalesOrderPOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -31,8 +31,13 @@ public class SalesOrderTools : JiwaToolBase
             return result.ToJson<SalesOrder>();
         });
 
+    [BusinessTool(EntityType = "SalesOrder", ActionType = "Create", Aliases = ["create so", "new so"])]
+    [McpServerTool(Name = "CreateSO"), Description("Alias for CreateSalesOrder. Create a new sales order (SO) for a customer.")]
+    public Task<string> CreateSO(SalesOrderPOSTRequest requestDTO, CancellationToken ct = default)
+        => CreateSalesOrder(requestDTO, ct);
+
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Update")]
-    [McpServerTool(Name = "UpdateSalesOrder"), Description("Update an existing sales order. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "UpdateSalesOrder"), Description("Update an existing sales order (SO). Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> ModifySalesOrder(SalesOrderPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -41,7 +46,7 @@ public class SalesOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Add")]
-    [McpServerTool(Name = "AddItemToSalesOrder"), Description("Add a product or line item to an existing sales order. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. If InvoiceHistoryID is omitted, the current history (highest HistoryNo for that InvoiceID) is used.")]
+    [McpServerTool(Name = "AddItemToSalesOrder"), Description("Add a product or line item to an existing sales order (SO). Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. If InvoiceHistoryID is omitted, the current history (highest HistoryNo for that InvoiceID) is used.")]
     public Task<string> AddAProductToASalesOrder(SalesOrderLinePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -72,6 +77,11 @@ public class SalesOrderTools : JiwaToolBase
             var result = await JiwaApiClient.PostAsync(requestDTO, ct);
             return result.ToJson<SalesOrderLine>();
         });
+
+    [BusinessTool(EntityType = "SalesOrder", ActionType = "Add", Aliases = ["add so line", "add item to so"])]
+    [McpServerTool(Name = "AddItemToSO"), Description("Alias for AddItemToSalesOrder. Add a product or line item to an existing sales order (SO).")]
+    public Task<string> AddItemToSO(SalesOrderLinePOSTRequest requestDTO, CancellationToken ct = default)
+        => AddAProductToASalesOrder(requestDTO, ct);
 
     private async Task<SalesOrderHistory?> ResolveCurrentHistoryAsync(string invoiceId, CancellationToken ct)
     {
@@ -105,7 +115,7 @@ public class SalesOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Search")]
-    [McpServerTool(Name = "ListSalesOrders", ReadOnly = true), Description("List or search sales orders by customer, order number, invoice, or other fields. Sales orders are also known as sales invoices. Use this when the user asks to show sales orders or sales invoices. " +
+    [McpServerTool(Name = "ListSalesOrders", ReadOnly = true), Description("List or search sales orders (SOs) by customer, order number, invoice, or other fields. Sales orders are also known as sales invoices. Use this when the user asks to show sales orders or sales invoices. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
         "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +

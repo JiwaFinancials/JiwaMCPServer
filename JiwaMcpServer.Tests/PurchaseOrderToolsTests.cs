@@ -47,6 +47,24 @@ public class PurchaseOrderToolsTests
     }
 
     [Fact]
+    public async System.Threading.Tasks.Task CreatePO_ReturnsStringResult()
+    {
+        // Arrange
+        var requestDto = new JiwaFinancials.Jiwa.JiwaServiceModel.PurchaseOrderPOSTRequest();
+
+        if (string.IsNullOrEmpty(Config.JiwaAPIURL))
+        {
+            Config.JiwaAPIURL = "https://localhost:5001";
+        }
+
+        // Act
+        var result = await _purchaseOrderTools.CreatePO(requestDto);
+
+        // Assert
+        Assert.IsType<string>(result);
+    }
+
+    [Fact]
     public async System.Threading.Tasks.Task ModifyPurchaseOrder_ReturnsStringResult()
     {
         // Arrange
@@ -77,6 +95,24 @@ public class PurchaseOrderToolsTests
 
         // Act
         var result = await _purchaseOrderTools.AddAProductToAPurchaseOrder(requestDto);
+
+        // Assert
+        Assert.IsType<string>(result);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task AddItemToPO_ReturnsStringResult()
+    {
+        // Arrange
+        var requestDto = new JiwaFinancials.Jiwa.JiwaServiceModel.PurchaseOrderLinePOSTRequest();
+
+        if (string.IsNullOrEmpty(Config.JiwaAPIURL))
+        {
+            Config.JiwaAPIURL = "https://localhost:5001";
+        }
+
+        // Act
+        var result = await _purchaseOrderTools.AddItemToPO(requestDto);
 
         // Assert
         Assert.IsType<string>(result);
