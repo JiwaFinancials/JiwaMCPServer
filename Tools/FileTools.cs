@@ -59,7 +59,7 @@ public class FileTools : JiwaToolBase
     /// <param name="contentBase64">The file content encoded as base64</param>
     /// <param name="clientSessionId">Optional session ID for grouping files. If provided, subsequent read/query calls with the same ID will be able to access files uploaded in this call</param>
     /// <returns>JSON response with fileId or error message</returns>
-    [McpServerTool(ReadOnly = false), Description("Upload a file with base64-encoded content and get a fileId. IMPORTANT workflow for PDF/DOCX/XLSX/image analysis: after upload_file, immediately call document_ingest with sourceFileId=<fileId> to build searchable chunks and structured metadata. read_uploaded_file is only a text preview tool, not the full document intelligence path. Supports files up to 50 MB. Allowed MIME types: text/*, application/json, application/xml, application/sql, application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.openxmlformats-officedocument.wordprocessingml.document, image/png, image/jpeg, image/gif, image/webp, and application/octet-stream for .sql/.pdf/.docx/.xlsx/.png/.jpg/.jpeg/.gif/.webp files")]
+    [McpServerTool(ReadOnly = false), Description("Upload a file into session storage and get a fileId. This does not save to the local disk. IMPORTANT workflow for PDF/DOCX/XLSX/image analysis: after upload_file, immediately call document_ingest with sourceFileId=<fileId> to build searchable chunks and structured metadata. read_uploaded_file is only a text preview tool, not the full document intelligence path. Supports files up to 50 MB. Allowed MIME types: text/*, application/json, application/xml, application/sql, application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.openxmlformats-officedocument.wordprocessingml.document, image/png, image/jpeg, image/gif, image/webp, and application/octet-stream for .sql/.pdf/.docx/.xlsx/.png/.jpg/.jpeg/.gif/.webp files")]
     public Task<string> UploadFile(
         string fileName,
         string mimeType,
@@ -644,6 +644,83 @@ public class FileTools : JiwaToolBase
             return new
             {
                 error = result.Error
+            }.ToJson();
+        });
+    }
+
+    [McpServerTool(Name = "SaveLocalFile", ReadOnly = false), Description("Save or create a local text file under LocalFileSystem:AllowedRoots. Use this to write, export, or save generated content such as CSV, TXT, JSON, or XML to disk, for example saving a customer CSV to Downloads. Set overwrite=true to replace an existing file")]
+    public Task<string> SaveLocalFile(
+        string path,
+        string content,
+        bool overwrite = false,
+        bool createDirectories = true)
+    {
+        return InvokeToolAsync(async () =>
+        {
+            if (!TryResolveAllowedPath(path, out var fullPath, out var error))
+            {
+                return new { error }.ToJson();
+            }
+
+            if (string.IsNullOrWhiteSpace(Path.GetFileName(fullPath)))
+            {
+                return new { error = "path must include a file name" }.ToJson();
+            }
+
+            var configuredMaxWriteBytes = Config.LocalFileSystemMaxWriteBytes > 0 ? Config.LocalFileSystemMaxWriteBytes : 256 * 1024;
+            var contentByteCount = Encoding.UTF8.GetByteCount(content);
+            if (contentByteCount > configuredMaxWriteBytes)
+            {
+                return new
+                {
+                    error = $"Content size {contentByteCount} bytes exceeds LocalFileSystem:MaxWriteBytes limit of {configuredMaxWriteBytes} bytes"
+                }.ToJson();
+            }
+
+            var directoryPath = Path.GetDirectoryName(fullPath);
+            if (string.IsNullOrWhiteSpace(directoryPath))
+            {
+                return new { error = "Unable to resolve parent directory from path" }.ToJson();
+            }
+
+            if (!Directory.Exists(directoryPath))
+            {
+                if (!createDirectories)
+                {
+                    return new { error = $"Directory '{directoryPath}' does not exist" }.ToJson();
+                }
+
+                Directory.CreateDirectory(directoryPath);
+            }
+
+            var fileAlreadyExists = File.Exists(fullPath);
+            if (fileAlreadyExists && !overwrite)
+            {
+                return new { error = $"File '{fullPath}' already exists. Set overwrite=true to replace it" }.ToJson();
+            }
+
+            try
+            {
+                var mode = overwrite ? FileMode.Create : FileMode.CreateNew;
+                await using var stream = new FileStream(fullPath, mode, FileAccess.Write, FileShare.None);
+                await using var writer = new StreamWriter(stream, new UTF8Encoding(false));
+                await writer.WriteAsync(content);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return new { error = $"Access denied writing '{fullPath}': {ex.Message}" }.ToJson();
+            }
+            catch (IOException ex)
+            {
+                return new { error = $"Failed to write '{fullPath}': {ex.Message}" }.ToJson();
+            }
+
+            return new
+            {
+                path = fullPath,
+                sizeBytes = contentByteCount,
+                created = !fileAlreadyExists,
+                overwritten = fileAlreadyExists
             }.ToJson();
         });
     }

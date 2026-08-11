@@ -1090,6 +1090,143 @@ public class FileToolsTests
     }
 
     [Fact]
+    public async Task SaveLocalFile_AllowedRoot_CreatesFile()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var originalMaxWriteBytes = Config.LocalFileSystemMaxWriteBytes;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+
+        try
+        {
+            var filePath = Path.Combine(tempRoot, "exports", "customers.csv");
+            var csvContent = "Name,City\nAlice,Melbourne\nBob,Sydney";
+
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+            Config.LocalFileSystemMaxWriteBytes = 1024;
+
+            var result = await _fileTools.SaveLocalFile(filePath, csvContent);
+
+            Assert.DoesNotContain("error", result.ToLowerInvariant());
+            Assert.Contains("\"created\":true", result.ToLowerInvariant());
+            Assert.True(File.Exists(filePath));
+            Assert.Equal(csvContent, await File.ReadAllTextAsync(filePath));
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            Config.LocalFileSystemMaxWriteBytes = originalMaxWriteBytes;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task SaveLocalFile_ExistingFileWithoutOverwrite_ReturnsError()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var originalMaxWriteBytes = Config.LocalFileSystemMaxWriteBytes;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            var filePath = Path.Combine(tempRoot, "customers.csv");
+            await File.WriteAllTextAsync(filePath, "original");
+
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+            Config.LocalFileSystemMaxWriteBytes = 1024;
+
+            var result = await _fileTools.SaveLocalFile(filePath, "replacement");
+
+            Assert.Contains("error", result.ToLowerInvariant());
+            Assert.Contains("already exists", result.ToLowerInvariant());
+            Assert.Equal("original", await File.ReadAllTextAsync(filePath));
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            Config.LocalFileSystemMaxWriteBytes = originalMaxWriteBytes;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task SaveLocalFile_PathOutsideAllowlist_ReturnsError()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var originalMaxWriteBytes = Config.LocalFileSystemMaxWriteBytes;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+        var outsideRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerOutside-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            Directory.CreateDirectory(outsideRoot);
+            var outsideFilePath = Path.Combine(outsideRoot, "customers.csv");
+
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+            Config.LocalFileSystemMaxWriteBytes = 1024;
+
+            var result = await _fileTools.SaveLocalFile(outsideFilePath, "Name,City\nAlice,Melbourne");
+
+            Assert.Contains("error", result.ToLowerInvariant());
+            Assert.Contains("outside allowed roots", result.ToLowerInvariant());
+            Assert.False(File.Exists(outsideFilePath));
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            Config.LocalFileSystemMaxWriteBytes = originalMaxWriteBytes;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+
+            if (Directory.Exists(outsideRoot))
+            {
+                Directory.Delete(outsideRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task SaveLocalFile_ContentExceedsConfiguredLimit_ReturnsError()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var originalMaxWriteBytes = Config.LocalFileSystemMaxWriteBytes;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            var filePath = Path.Combine(tempRoot, "large.csv");
+
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+            Config.LocalFileSystemMaxWriteBytes = 8;
+
+            var result = await _fileTools.SaveLocalFile(filePath, "123456789");
+
+            Assert.Contains("error", result.ToLowerInvariant());
+            Assert.Contains("maxwritebytes", result.ToLowerInvariant());
+            Assert.False(File.Exists(filePath));
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            Config.LocalFileSystemMaxWriteBytes = originalMaxWriteBytes;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task ListLocalDirectory_AllowedRoot_ReturnsEntries()
     {
         var originalRoots = Config.LocalFileSystemAllowedRoots;

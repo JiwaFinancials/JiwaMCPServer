@@ -33,6 +33,11 @@ Config.LocalFileSystemMaxReadBytes = int.TryParse(maxReadBytesConfig, out var ma
     ? maxReadBytes
     : 256 * 1024;
 
+var maxWriteBytesConfig = configuration.GetSection("LocalFileSystem:MaxWriteBytes").Value;
+Config.LocalFileSystemMaxWriteBytes = int.TryParse(maxWriteBytesConfig, out var maxWriteBytes) && maxWriteBytes > 0
+    ? maxWriteBytes
+    : 256 * 1024;
+
 if (string.IsNullOrWhiteSpace(Config.JiwaAPIURL))
 {
     throw new InvalidOperationException("JiwaAPIURL is blank - check appsettings.json");

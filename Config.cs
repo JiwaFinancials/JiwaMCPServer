@@ -15,4 +15,7 @@
 
     // LocalFileSystemMaxReadBytes is the maximum number of bytes that can be returned from a single local file read.
     public static int LocalFileSystemMaxReadBytes { get; set; } = 256 * 1024;
+
+    // LocalFileSystemMaxWriteBytes is the maximum number of UTF-8 bytes that can be written by a single local file save.
+    public static int LocalFileSystemMaxWriteBytes { get; set; } = 256 * 1024;
 }
