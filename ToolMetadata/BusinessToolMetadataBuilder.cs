@@ -32,6 +32,7 @@ public sealed partial class BusinessToolMetadataBuilder
         var entity = ResolveEntity(toolName, description, businessTool?.EntityType);
         var aliases = MergeTerms(entity?.Aliases, businessTool?.Aliases);
         var tags = MergeTerms(entity?.Tags, businessTool?.Tags);
+        var intentPhrases = BuildIntentPhrases(actionType, entity?.Name, aliases);
 
         var metadata = new BusinessToolMetadata
         {
@@ -39,7 +40,8 @@ public sealed partial class BusinessToolMetadataBuilder
             ActionType = actionType,
             Aliases = aliases,
             Tags = tags,
-            SearchText = BuildSearchText(toolName, description, actionType, entity?.Name, aliases, tags)
+            IntentPhrases = intentPhrases,
+            SearchText = BuildSearchText(toolName, description, actionType, entity?.Name, aliases, tags, intentPhrases)
         };
 
         return metadata;
@@ -51,7 +53,8 @@ public sealed partial class BusinessToolMetadataBuilder
         string? actionType,
         string? entityType,
         IReadOnlyList<string> aliases,
-        IReadOnlyList<string> tags)
+        IReadOnlyList<string> tags,
+        IReadOnlyList<string>? intentPhrases = null)
     {
         var terms = new List<string>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -69,6 +72,14 @@ public sealed partial class BusinessToolMetadataBuilder
         foreach (var tag in tags)
         {
             AddTerm(tag, terms, seen);
+        }
+
+        if (intentPhrases is not null)
+        {
+            foreach (var phrase in intentPhrases)
+            {
+                AddTerm(phrase, terms, seen);
+            }
         }
 
         return string.Join(' ', terms);
@@ -171,6 +182,61 @@ public sealed partial class BusinessToolMetadataBuilder
                 terms.Add(token);
             }
         }
+    }
+
+    private static IReadOnlyList<string> BuildIntentPhrases(
+        string? actionType,
+        string? entityType,
+        IReadOnlyList<string> aliases)
+    {
+        var phrases = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var normalizedAction = NormalizeActionPhrase(actionType);
+        var normalizedEntity = NormalizeEntityPhrase(entityType);
+
+        AddPhrasePair(normalizedAction, normalizedEntity);
+
+        foreach (var alias in aliases)
+        {
+            var normalizedAlias = NormalizeEntityPhrase(alias);
+            AddPhrasePair(normalizedAction, normalizedAlias);
+        }
+
+        return phrases;
+
+        void AddPhrasePair(string? action, string? target)
+        {
+            if (string.IsNullOrWhiteSpace(action) || string.IsNullOrWhiteSpace(target))
+                return;
+
+            var phrase = $"{action} {target}";
+            if (seen.Add(phrase))
+                phrases.Add(phrase);
+
+            if (string.Equals(action, "create", StringComparison.OrdinalIgnoreCase))
+            {
+                var newPhrase = $"new {target}";
+                if (seen.Add(newPhrase))
+                    phrases.Add(newPhrase);
+            }
+        }
+    }
+
+    private static string? NormalizeActionPhrase(string? actionType)
+    {
+        if (string.IsNullOrWhiteSpace(actionType))
+            return null;
+
+        return string.Join(' ', Tokenize(actionType));
+    }
+
+    private static string? NormalizeEntityPhrase(string? entity)
+    {
+        if (string.IsNullOrWhiteSpace(entity))
+            return null;
+
+        return string.Join(' ', Tokenize(entity));
     }
 
     private static bool ContainsTerm(HashSet<string> tokens, string value)

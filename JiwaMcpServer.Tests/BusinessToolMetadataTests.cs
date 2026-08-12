@@ -1,4 +1,5 @@
 using JiwaMcpServer.ToolMetadata;
+using JiwaMcpServer.Tools;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using System.ComponentModel;
@@ -56,6 +57,8 @@ public class BusinessToolMetadataTests
         Assert.Contains("vendor", metadata.SearchText);
         Assert.Contains("accounts payable", metadata.SearchText);
         Assert.Contains("account", metadata.SearchText);
+        Assert.Contains("create supplier", metadata.IntentPhrases);
+        Assert.Contains("new supplier", metadata.IntentPhrases);
     }
 
     [Fact]
@@ -105,6 +108,21 @@ public class BusinessToolMetadataTests
     }
 
     [Fact]
+    public void PurchaseOrderWorkflowTool_HasStrongCreateIntentMetadata()
+    {
+        var extractor = new ToolMetadataExtractor(new BusinessToolMetadataBuilder(new BusinessEntityRegistry()));
+        var descriptors = extractor.ExtractFromAssemblies([typeof(PurchaseOrderTools).Assembly]);
+
+        var descriptor = descriptors.Single(x => x.ToolName == "CreatePurchaseOrderWithLines");
+
+        Assert.Equal("PurchaseOrder", descriptor.Metadata.EntityType);
+        Assert.Equal("Create", descriptor.Metadata.ActionType);
+        Assert.Contains("create po for creditor with parts", descriptor.Metadata.Aliases);
+        Assert.Contains("create purchase order", descriptor.Metadata.SearchText);
+        Assert.Contains("create purchase order", descriptor.Metadata.IntentPhrases);
+    }
+
+    [Fact]
     public void DiscoveryMetadata_IsAddedToToolMeta()
     {
         var extractor = new ToolMetadataExtractor(new BusinessToolMetadataBuilder(new BusinessEntityRegistry()));
@@ -130,6 +148,10 @@ public class BusinessToolMetadataTests
         Assert.Equal("Supplier", toolMeta!["entityType"]!.GetValue<string>());
         Assert.Equal("Create", toolMeta["actionType"]!.GetValue<string>());
         Assert.Contains("supplier", toolMeta["searchText"]!.GetValue<string>());
+
+        var intentPhrases = toolMeta["intentPhrases"]!.Deserialize<string[]>();
+        Assert.NotNull(intentPhrases);
+        Assert.Contains("create supplier", intentPhrases!);
     }
 
     [McpServerToolType]

@@ -239,7 +239,7 @@ User           Chat UI       MCP Bridge     MCP Server (DocumentTools)     LLM
 | Tool | Description |
 |---|---|
 | `SearchCustomers` | Search for customers (debtors/accounts) by field. |
-| `GetCustomer` | Get full details for a customer. |
+| `GetCustomer` | Get full details for a customer by internal `DebtorID`, or pass a visible customer/account code or name and the tool will auto-resolve it. |
 | `GetCustomerTransactions` | Retrieve outstanding customer transactions. |
 | `SearchCustomerClassifications` | Retrieve available customer/debtor classifications. |
 | `SearchCustomerCategories` | Retrieve available customer/debtor categories. |
@@ -263,24 +263,30 @@ User           Chat UI       MCP Bridge     MCP Server (DocumentTools)     LLM
 ### SalesOrderTools
 | Tool | Description |
 |---|---|
-| `GetSalesOrder` | Get full details for a sales order (sales invoice). |
+| `GetSalesOrder` | Get full details for a sales order (sales invoice) by internal `InvoiceID`, or pass a visible sales order/invoice number and the tool will auto-resolve it. |
 | `CreateSalesOrder` | Create a sales order. |
 | `ModifySalesOrder` | Modify an existing sales order. |
 | `AddAProductToASalesOrder` | Add a product line to an existing sales order. |
 | `SearchSalesInformation` | Search detailed sales information (including sold part numbers). |
-| `SearchSalesOrders` | Search sales order headers. |
+| `SearchSalesOrders` | Search sales order headers; use this first to resolve visible sales order/invoice numbers to internal `InvoiceID` before calling `GetSalesOrder`. |
 
 ### PurchaseOrderTools
 | Tool | Description |
 |---|---|
-| `GetPurchaseOrder` | Get full details for a purchase order. |
-| `CreatePurchaseOrder` | Create a purchase order. |
-| `ModifyPurchaseOrder` | Modify an existing purchase order. |
-| `AddAProductToAPurchaseOrder` | Add a product line to an existing purchase order. |
-| `SearchPurchaseInformation` | Search current and historical purchase detail, including purchased part numbers; use `GetPurchaseOrder` to retrieve full details for a specific purchase order. |
-| `SearchPurchaseOrders` | Search current and historical purchase order header data. |
+| `GetPurchaseOrderDetails` | Get full details for a purchase order using internal `PurchaseOrderID` (`OrderID`), or pass a visible PO/document number and the tool will auto-resolve it. |
+| `GetPurchaseOrder` | Alias for `GetPurchaseOrderDetails`. |
+| `GetPO` | Alias for `GetPurchaseOrderDetails`. |
+| `CreatePurchaseOrder` | Create a purchase order header. |
+| `CreatePO` | Alias for `CreatePurchaseOrder`. |
+| `CreatePurchaseOrderWithLines` | Create a purchase order header and add multiple part lines in one call; when configured, missing parts are skipped and the PO is still created. |
+| `UpdatePurchaseOrder` | Modify an existing purchase order. |
+| `AddItemToPurchaseOrder` | Add a product line to an existing purchase order. |
+| `AddItemToPO` | Alias for `AddItemToPurchaseOrder`. |
+| `ListPurchaseHistory` | Search current and historical purchase detail, including purchased part numbers; use `GetPurchaseOrderDetails` to retrieve full details for a specific purchase order. |
+| `ListPurchaseOrders` | Search current and historical purchase order header data. Use this first when the user provides a PO/document number (for example, `PO 100191`) so you can resolve `OrderNo` to `OrderID` before calling `GetPurchaseOrderDetails`. |
+| `DeletePurchaseOrder` | Delete a purchase order. |
 
-`SearchPurchaseInformation` and `SearchPurchaseOrders` both support pagination via `skip` and `take`, and may require large-result confirmation before returning the full result set.
+`ListPurchaseHistory` and `ListPurchaseOrders` both support pagination via `skip` and `take`, and may require large-result confirmation before returning the full result set.
 
 ### CreditorPurchaseTools
 Creditor purchase tools cover creditor purchase headers, lines, documents, notes, custom fields, type records, and batch searches.
@@ -289,7 +295,7 @@ Creditor purchase tools cover creditor purchase headers, lines, documents, notes
 |---|---|
 | `ActivateCreditorPurchase` | Activate a creditor purchase. |
 | `CreateCreditorPurchase` | Create a creditor purchase. |
-| `GetCreditorPurchase` | Retrieve a creditor purchase. |
+| `GetCreditorPurchase` | Retrieve a creditor purchase by internal `BatchID`, or pass visible supplier purchase batch/document/invoice numbers and the tool will auto-resolve where possible. |
 | `UpdateCreditorPurchase` | Update a creditor purchase. |
 | `DeleteCreditorPurchase` | Delete a creditor purchase. |
 | `GetCreditorPurchaseLines` | Retrieve creditor purchase lines. |
@@ -325,13 +331,13 @@ Creditor purchase tools cover creditor purchase headers, lines, documents, notes
 | `UpdateCreditorPurchaseNoteType` | Update a creditor purchase note type. |
 | `DeleteCreditorPurchaseNoteType` | Delete a creditor purchase note type. |
 | `SearchCreditorPurchaseBatchInformation` | Search creditor purchase batch information, including invoice numbers. |
-| `SearchCreditorPurchaseBatches` | Search creditor purchase batches. |
+| `SearchCreditorPurchaseBatches` | Search creditor purchase batches; use this first to resolve visible supplier purchase batch/document/invoice numbers to internal `BatchID` before calling `GetCreditorPurchase`. |
 
 ### SupplierTools
 | Tool | Description |
 |---|---|
 | `SearchSuppliers` | Search suppliers (creditors) by field. |
-| `GetSupplier` | Get full details for a supplier. |
+| `GetSupplier` | Get full details for a supplier by internal `CreditorID`, or pass a visible supplier/creditor code or name and the tool will auto-resolve it. |
 | `CreateSupplier` | Create a supplier. |
 | `ModifySupplier` | Modify a supplier. |
 | `DeleteSupplier` | Delete a supplier. |

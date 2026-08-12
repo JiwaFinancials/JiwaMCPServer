@@ -29,6 +29,42 @@ public class PurchaseOrderToolsTests
     }
 
     [Fact]
+    public async System.Threading.Tasks.Task GetPurchaseOrderAlias_ReturnsStringResult()
+    {
+        // Arrange
+        var requestDto = new JiwaFinancials.Jiwa.JiwaServiceModel.PurchaseOrderGETRequest();
+
+        if (string.IsNullOrEmpty(Config.JiwaAPIURL))
+        {
+            Config.JiwaAPIURL = "https://localhost:5001";
+        }
+
+        // Act
+        var result = await _purchaseOrderTools.GetPurchaseOrderAlias(requestDto);
+
+        // Assert
+        Assert.IsType<string>(result);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task GetPO_ReturnsStringResult()
+    {
+        // Arrange
+        var requestDto = new JiwaFinancials.Jiwa.JiwaServiceModel.PurchaseOrderGETRequest();
+
+        if (string.IsNullOrEmpty(Config.JiwaAPIURL))
+        {
+            Config.JiwaAPIURL = "https://localhost:5001";
+        }
+
+        // Act
+        var result = await _purchaseOrderTools.GetPO(requestDto);
+
+        // Assert
+        Assert.IsType<string>(result);
+    }
+
+    [Fact]
     public async System.Threading.Tasks.Task CreatePurchaseOrder_ReturnsStringResult()
     {
         // Arrange

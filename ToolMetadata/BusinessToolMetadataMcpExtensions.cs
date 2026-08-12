@@ -55,6 +55,7 @@ public static class BusinessToolMetadataMcpExtensions
             tool.Meta["actionType"] = descriptor.Metadata.ActionType;
             tool.Meta["aliases"] = JsonSerializer.SerializeToNode(descriptor.Metadata.Aliases, MetadataJsonOptions);
             tool.Meta["tags"] = JsonSerializer.SerializeToNode(descriptor.Metadata.Tags, MetadataJsonOptions);
+            tool.Meta["intentPhrases"] = JsonSerializer.SerializeToNode(descriptor.Metadata.IntentPhrases, MetadataJsonOptions);
             tool.Meta["searchText"] = descriptor.Metadata.SearchText;
         }
 

@@ -7,6 +7,7 @@ using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace JiwaMcpServer.Tools;
 
@@ -14,12 +15,26 @@ namespace JiwaMcpServer.Tools;
 public class SalesOrderTools : JiwaToolBase
 {
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Get")]
-    [McpServerTool(Name = "GetSalesOrderDetails"), Description("Get a specific sales order (SO) with full details. Sales orders are also known as sales invoices. Use this after identifying the sales order you want. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "GetSalesOrderDetails"), Description("Get a specific sales order (SO) with full details. Accepts internal InvoiceID or visible invoice/order number and auto-resolves it. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> GetSalesOrder(SalesOrderGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
-            return result.ToJson<SalesOrder>();
+            var invoiceId = requestDTO.InvoiceID?.Trim();
+
+            try
+            {
+                var result = await JiwaApiClient.GetAsync(new SalesOrderGETRequest { InvoiceID = invoiceId }, ct);
+                return result.ToJson<SalesOrder>();
+            }
+            catch (WebServiceException ex) when (ex.StatusCode == 404 && !string.IsNullOrWhiteSpace(invoiceId))
+            {
+                var resolvedInvoiceId = await TryResolveSalesOrderIdFromDocumentNumberAsync(invoiceId, ct);
+                if (string.IsNullOrWhiteSpace(resolvedInvoiceId))
+                    throw;
+
+                var resolved = await JiwaApiClient.GetAsync(new SalesOrderGETRequest { InvoiceID = resolvedInvoiceId }, ct);
+                return resolved.ToJson<SalesOrder>();
+            }
         });
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Create")]
@@ -116,6 +131,7 @@ public class SalesOrderTools : JiwaToolBase
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Search")]
     [McpServerTool(Name = "ListSalesOrders", ReadOnly = true), Description("List or search sales orders (SOs) by customer, order number, invoice, or other fields. Sales orders are also known as sales invoices. Use this when the user asks to show sales orders or sales invoices. " +
+        "Treat visible sales order/invoice numbers as the default user input and resolve them here first, then call GetSalesOrderDetails with the returned internal InvoiceID. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
         "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
@@ -136,4 +152,67 @@ public class SalesOrderTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
+    private static async Task<string?> TryResolveSalesOrderIdFromDocumentNumberAsync(string documentNumber, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(documentNumber))
+            return null;
+
+        var matches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in BuildSalesDocumentNumberCandidates(documentNumber))
+        {
+            await AddSalesOrderMatchesAsync(new v_Jiwa_SalesOrdersQuery
+            {
+                InvoiceNo = candidate,
+                Take = 2,
+                Skip = 0
+            }, matches, ct);
+
+            await AddSalesOrderMatchesAsync(new v_Jiwa_SalesOrdersQuery
+            {
+                OrderNo = candidate,
+                Take = 2,
+                Skip = 0
+            }, matches, ct);
+
+            if (matches.Count > 1)
+                return null;
+        }
+
+        return matches.Count == 1 ? matches.First() : null;
+    }
+
+    private static async Task AddSalesOrderMatchesAsync(v_Jiwa_SalesOrdersQuery query, ISet<string> matches, CancellationToken ct)
+    {
+        var response = await JiwaApiClient.GetAsync(query, ct);
+        foreach (var row in response.Results ?? [])
+        {
+            var invoiceId = row.InvoiceID?.Trim();
+            if (!string.IsNullOrWhiteSpace(invoiceId))
+                matches.Add(invoiceId);
+        }
+    }
+
+    private static IReadOnlyList<string> BuildSalesDocumentNumberCandidates(string rawValue)
+    {
+        var candidates = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var trimmed = rawValue.Trim();
+        AddCandidate(trimmed);
+
+        var withoutPrefix = Regex.Replace(trimmed, "^(SO|INV|INVOICE)[\\s-]*", string.Empty, RegexOptions.IgnoreCase).Trim();
+        AddCandidate(withoutPrefix);
+
+        return candidates;
+
+        void AddCandidate(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return;
+
+            if (seen.Add(value))
+                candidates.Add(value);
+        }
+    }
 }
+

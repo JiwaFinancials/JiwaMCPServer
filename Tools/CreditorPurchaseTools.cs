@@ -5,6 +5,8 @@ using JiwaMcpServer.Services;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
+using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace JiwaMcpServer.Tools;
 
@@ -131,12 +133,26 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a creditor purchase. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Retrieves a creditor purchase. Accepts internal BatchID or visible supplier purchase batch/document/invoice numbers and auto-resolves them where possible. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> GetCreditorPurchase(CreditorPurchaseGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
-            return result.ToJson();
+            var batchId = requestDTO.BatchID?.Trim();
+
+            try
+            {
+                var result = await JiwaApiClient.GetAsync(new CreditorPurchaseGETRequest { BatchID = batchId }, ct);
+                return result.ToJson();
+            }
+            catch (WebServiceException ex) when (ex.StatusCode == 404 && !string.IsNullOrWhiteSpace(batchId))
+            {
+                var resolvedBatchId = await TryResolveCreditorPurchaseBatchIdAsync(batchId, ct);
+                if (string.IsNullOrWhiteSpace(resolvedBatchId))
+                    throw;
+
+                var resolved = await JiwaApiClient.GetAsync(new CreditorPurchaseGETRequest { BatchID = resolvedBatchId }, ct);
+                return resolved.ToJson();
+            }
         });
 
     [McpServerTool, Description("Updates a creditor purchase. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
@@ -195,7 +211,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Creates a creditor purchase. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Creates a creditor purchase batch transaction. This is not purchase order (PO) header creation; for PO creation use CreatePurchaseOrder or CreatePurchaseOrderWithLines in PurchaseOrderTools. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
     public Task<string> CreateCreditorPurchase(CreditorPurchasePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -330,7 +346,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool(Name = "ListSupplierPurchaseHistory", ReadOnly = true), Description("List or search supplier purchase history by supplier, invoice, product, or other fields. Includes invoice numbers for purchases. Use this when the user asks for supplier purchase history or what was purchased from a supplier. " +
+    [McpServerTool(Name = "ListSupplierPurchaseHistory", ReadOnly = true), Description("List or search supplier purchase history by supplier, invoice, product, or other fields. Includes invoice numbers for purchases. Use this when the user asks for supplier purchase history or what was purchased from a supplier. This is reporting/history, not purchase order header creation. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
         "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
@@ -351,7 +367,8 @@ public class CreditorPurchaseTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
-    [McpServerTool(Name = "ListSupplierPurchases", ReadOnly = true), Description("List or search supplier purchases by supplier, batch, invoice, or other fields. Suppliers are also known as creditors. Use this when the user asks to show supplier purchases. " +
+    [McpServerTool(Name = "ListSupplierPurchases", ReadOnly = true), Description("List or search supplier purchases by supplier, batch, invoice, or other fields. Suppliers are also known as creditors. Use this when the user asks to show supplier purchases. This tool is for creditor purchase batches, not purchase order (PO) header creation. " +
+        "Treat visible supplier purchase batch/document/invoice numbers as the default user input and resolve them here first, then call GetCreditorPurchase with the internal BatchID. " +
         "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
         "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
         "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
@@ -370,4 +387,67 @@ public class CreditorPurchaseTools : JiwaToolBase
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
+
+    private static async Task<string?> TryResolveCreditorPurchaseBatchIdAsync(string documentNumber, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(documentNumber))
+            return null;
+
+        var matches = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var candidate in BuildCreditorPurchaseCandidates(documentNumber))
+        {
+            await AddCreditorPurchaseMatchesAsync(new v_Jiwa_CreditorPurchasesQuery
+            {
+                ReceiptID = candidate,
+                Take = 2,
+                Skip = 0
+            }, matches, ct);
+
+            await AddCreditorPurchaseMatchesAsync(new v_Jiwa_CreditorPurchasesQuery
+            {
+                BatchNum = candidate,
+                Take = 2,
+                Skip = 0
+            }, matches, ct);
+
+            if (matches.Count > 1)
+                return null;
+        }
+
+        return matches.Count == 1 ? matches.First() : null;
+    }
+
+    private static async Task AddCreditorPurchaseMatchesAsync(v_Jiwa_CreditorPurchasesQuery query, ISet<string> matches, CancellationToken ct)
+    {
+        var response = await JiwaApiClient.GetAsync(query, ct);
+        foreach (var row in response.Results ?? [])
+        {
+            var receiptId = row.ReceiptID?.Trim();
+            if (!string.IsNullOrWhiteSpace(receiptId))
+                matches.Add(receiptId);
+        }
+    }
+
+    private static IReadOnlyList<string> BuildCreditorPurchaseCandidates(string rawValue)
+    {
+        var candidates = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var trimmed = rawValue.Trim();
+        AddCandidate(trimmed);
+
+        var withoutPrefix = Regex.Replace(trimmed, "^(BATCH|RECEIPT|CP)[\\s-]*", string.Empty, RegexOptions.IgnoreCase).Trim();
+        AddCandidate(withoutPrefix);
+
+        return candidates;
+
+        void AddCandidate(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return;
+
+            if (seen.Add(value))
+                candidates.Add(value);
+        }
+    }
 }

@@ -10,5 +10,7 @@ public sealed class BusinessToolMetadata
 
     public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
 
+    public IReadOnlyList<string> IntentPhrases { get; init; } = Array.Empty<string>();
+
     public string SearchText { get; init; } = string.Empty;
 }
