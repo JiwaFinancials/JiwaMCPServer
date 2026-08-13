@@ -38,6 +38,7 @@ public class CreditorPurchaseToolsTests
         yield return Case(nameof(CreditorPurchaseTools.GetCreditorPurchaseNoteTypes), new CreditorPurchaseNoteTypesGETManyRequest());
         yield return Case(nameof(CreditorPurchaseTools.CreateCreditorPurchaseNoteType), new CreditorPurchaseNoteTypePOSTRequest());
         yield return Case(nameof(CreditorPurchaseTools.CreateCreditorPurchase), new CreditorPurchasePOSTRequest());
+        yield return Case(nameof(CreditorPurchaseTools.ImportCreditorPurchaseFromLocalCsv), "C:\\Users\\scott\\Documents\\AIChat", null, null, null, CancellationToken.None);
         yield return Case(nameof(CreditorPurchaseTools.GetCreditorPurchaseCustomFieldValue), new CreditorPurchaseCustomFieldValueGETRequest());
         yield return Case(nameof(CreditorPurchaseTools.UpdateCreditorPurchaseCustomFieldValue), new CreditorPurchaseCustomFieldValuePATCHRequest());
         yield return Case(nameof(CreditorPurchaseTools.GetCreditorPurchaseLine), new CreditorPurchaseLineGETRequest());

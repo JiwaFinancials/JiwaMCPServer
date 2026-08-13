@@ -1,5 +1,6 @@
 using JiwaMcpServer.Services;
 using JiwaMcpServer.Services.DocumentIntelligence;
+using JiwaMcpServer.ToolMetadata;
 using Microsoft.AspNetCore.Http;
 using ModelContextProtocol.Server;
 using ServiceStack;
@@ -8,6 +9,7 @@ using System.ComponentModel;
 namespace JiwaMcpServer.Tools;
 
 [McpServerToolType]
+[BusinessTool(EntityType = "Document", Tags = ["document analysis", "ocr", "invoice extraction", "semantic search"]) ]
 public sealed class DocumentTools(
     IDocumentPipeline pipeline,
     FileStorageService fileStorage,

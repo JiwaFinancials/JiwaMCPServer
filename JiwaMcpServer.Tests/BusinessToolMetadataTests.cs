@@ -37,6 +37,7 @@ public class BusinessToolMetadataTests
         Assert.Contains("supplier", metadata.Aliases);
         Assert.Contains("creditor", metadata.Aliases);
         Assert.Contains("vendor", metadata.Aliases);
+        Assert.Contains("payee", metadata.Aliases);
         Assert.Contains("accounts payable", metadata.Tags);
         Assert.Contains("ap", metadata.Tags);
     }
@@ -141,7 +142,12 @@ public class BusinessToolMetadataTests
             ]
         };
 
-        result.ApplyBusinessToolMetadata(catalog);
+        var descriptionComposer = new ToolDescriptionComposer(new BusinessTerminologyRegistry());
+        result.ApplyBusinessToolMetadata(catalog, descriptionComposer);
+
+        var enrichedDescription = (result.Tools.Single().Description ?? string.Empty).ToLowerInvariant();
+        Assert.Contains("business synonyms", enrichedDescription);
+        Assert.Contains("user intent examples", enrichedDescription);
 
         var toolMeta = result.Tools.Single().Meta;
         Assert.NotNull(toolMeta);
@@ -152,6 +158,19 @@ public class BusinessToolMetadataTests
         var intentPhrases = toolMeta["intentPhrases"]!.Deserialize<string[]>();
         Assert.NotNull(intentPhrases);
         Assert.Contains("create supplier", intentPhrases!);
+    }
+
+    [Fact]
+    public void ClassLevelBusinessTool_IsUsedWhenMethodAttributeMissing()
+    {
+        var extractor = new ToolMetadataExtractor(new BusinessToolMetadataBuilder(new BusinessEntityRegistry()));
+
+        var descriptors = extractor.ExtractFromAssemblies([typeof(TestMcpTools).Assembly]);
+        var descriptor = descriptors.Single(x => x.ToolName == "ClassLevelListSuppliers");
+
+        Assert.Equal("Supplier", descriptor.Metadata.EntityType);
+        Assert.Equal("List", descriptor.Metadata.ActionType);
+        Assert.Contains("supplier", descriptor.Metadata.Aliases);
     }
 
     [McpServerToolType]
@@ -165,5 +184,14 @@ public class BusinessToolMetadataTests
         [McpServerTool(Name = "PlainTool")]
         [Description("Creates creditor records")]
         public string PlainTool() => "ok";
+    }
+
+    [McpServerToolType]
+    [BusinessTool(EntityType = "Supplier", ActionType = "List", Tags = ["ap", "creditors"])]
+    private class ClassLevelBusinessToolTestTools
+    {
+        [McpServerTool(Name = "ClassLevelListSuppliers")]
+        [Description("List suppliers for matching.")]
+        public string ListSuppliers() => "ok";
     }
 }

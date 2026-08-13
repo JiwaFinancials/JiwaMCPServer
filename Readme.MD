@@ -86,8 +86,9 @@ JiwaMcpServer/
 | `read_excel_rows` | Read Excel rows deterministically for import workflows by `fileId` or local path. Returns `headers`, `rows`, `totalRows`, `returnedRows`, and `hasMore`, with optional `sheetName`, `range`, `skip`, and `take` paging controls. |
 | `query_xml` | Execute natural language queries on XML files (e.g., "How many elements?", "Find the config element"). If no `fileId` is provided, queries the most recently uploaded XML file in this session. Supports element search, structure summarization, and top 10 result limiting. |
 | `query_json` | Execute natural language queries on JSON files (e.g., "How many keys?", "Show me the settings property"). If no `fileId` is provided, queries the most recently uploaded JSON file in this session. Supports key search, value extraction, array/object navigation, and top 10 result limiting. |
-| `list_local_directory` | List files/folders from an allowed local or UNC path. Access is restricted to configured `LocalFileSystem:AllowedRoots`. |
-| `read_local_file` | Read text content from an allowed local or UNC file path. Output is limited by `LocalFileSystem:MaxReadBytes` and may be truncated. |
+| `SaveLocalFile` | Save or create a local text file (`.csv`, `.txt`, `.json`, `.xml`) under an allowed root. Use this for export/save-to-disk requests. |
+| `list_local_directory` | List files/folders from an allowed local or UNC **directory** path. Access is restricted to configured `LocalFileSystem:AllowedRoots`. |
+| `read_local_file` | Read text content from an allowed local or UNC **file** path. If the path is a folder, use `list_local_directory` instead. Output is limited by `LocalFileSystem:MaxReadBytes` and may be truncated. |
 | `query_local_structured_file` | Query a local structured file directly by path with natural language. Supports `.csv`, `.xml`, `.json`, and `.xlsx` under `LocalFileSystem:AllowedRoots`. |
 
 **Latest File Convenience:** You don't need to copy/paste `fileId` values! All file query tools (`query_csv`, `query_excel`, `query_xml`, `query_json`) and `read_uploaded_file` will automatically use the most recently uploaded file in your session if you omit or leave empty the `fileId` parameter. This enables natural workflows like:
@@ -294,7 +295,8 @@ Creditor purchase tools cover creditor purchase headers, lines, documents, notes
 | Tool | Description |
 |---|---|
 | `ActivateCreditorPurchase` | Activate a creditor purchase. |
-| `CreateCreditorPurchase` | Create a creditor purchase. |
+| `CreateCreditorPurchase` | Create a creditor purchase. For local-file imports, first use FileTools (`list_local_directory`, `read_local_file`, or `query_local_structured_file`) to read/parse the allowed local path, then map fields into the create request. |
+| `ImportCreditorPurchaseFromLocalCsv` | Create a new creditor purchase directly from a local CSV path under `LocalFileSystem:AllowedRoots` (file path or folder with a single CSV). Creates the purchase and adds one line per row. |
 | `GetCreditorPurchase` | Retrieve a creditor purchase by internal `BatchID`, or pass visible supplier purchase batch/document/invoice numbers and the tool will auto-resolve where possible. |
 | `UpdateCreditorPurchase` | Update a creditor purchase. |
 | `DeleteCreditorPurchase` | Delete a creditor purchase. |

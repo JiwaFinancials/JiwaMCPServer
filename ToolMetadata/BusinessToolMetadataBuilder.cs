@@ -14,7 +14,16 @@ public sealed partial class BusinessToolMetadataBuilder
         "search",
         "add",
         "set",
-        "open"
+        "open",
+        "activate",
+        "import",
+        "read",
+        "query",
+        "save",
+        "describe",
+        "ingest",
+        "extract",
+        "reindex"
     ];
 
     private readonly BusinessEntityRegistry _entityRegistry;
@@ -117,16 +126,16 @@ public sealed partial class BusinessToolMetadataBuilder
             return explicitActionType.Trim();
         }
 
-        var words = Tokenize(toolName);
-        var first = words.FirstOrDefault();
-        if (first is null)
+        var words = TokenizeOrdered(toolName);
+        foreach (var word in words)
         {
-            return null;
+            if (KnownActionPrefixes.Contains(word, StringComparer.OrdinalIgnoreCase))
+            {
+                return char.ToUpperInvariant(word[0]) + word[1..];
+            }
         }
 
-        return KnownActionPrefixes.Contains(first, StringComparer.OrdinalIgnoreCase)
-            ? char.ToUpperInvariant(first[0]) + first[1..]
-            : null;
+        return null;
     }
 
     private static IReadOnlyList<string> MergeTerms(IReadOnlyList<string>? inheritedTerms, IReadOnlyList<string>? localTerms)
@@ -258,19 +267,30 @@ public sealed partial class BusinessToolMetadataBuilder
 
         foreach (var value in values)
         {
-            if (string.IsNullOrWhiteSpace(value))
+            foreach (var token in TokenizeOrdered(value))
             {
-                continue;
+                tokens.Add(token);
             }
+        }
 
-            var camelSplit = SplitCamelCaseRegex.Replace(value, "$1 $2");
-            foreach (Match match in TokenRegex.Matches(camelSplit))
+        return tokens;
+    }
+
+    private static IReadOnlyList<string> TokenizeOrdered(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        var tokens = new List<string>();
+        var camelSplit = SplitCamelCaseRegex.Replace(value, "$1 $2");
+        foreach (Match match in TokenRegex.Matches(camelSplit))
+        {
+            var token = match.Value.Trim().ToLowerInvariant();
+            if (!string.IsNullOrWhiteSpace(token))
             {
-                var token = match.Value.Trim().ToLowerInvariant();
-                if (!string.IsNullOrWhiteSpace(token))
-                {
-                    tokens.Add(token);
-                }
+                tokens.Add(token);
             }
         }
 

@@ -1,5 +1,6 @@
 using JiwaMcpServer.Services;
 using JiwaMcpServer.Services.DocumentIntelligence;
+using JiwaMcpServer.ToolMetadata;
 using Microsoft.AspNetCore.Http;
 using ModelContextProtocol.Server;
 using ServiceStack;
@@ -13,6 +14,7 @@ namespace JiwaMcpServer.Tools;
 /// Supports the Jiwa Chat client's file handling workflow.
 /// </summary>
 [McpServerToolType]
+[BusinessTool(EntityType = "File", Tags = ["upload", "query", "read", "local filesystem"]) ]
 public class FileTools : JiwaToolBase
 {
     private readonly FileStorageService _fileStorage;
@@ -648,7 +650,7 @@ public class FileTools : JiwaToolBase
         });
     }
 
-    [McpServerTool(Name = "SaveLocalFile", ReadOnly = false), Description("Save or create a local text file under LocalFileSystem:AllowedRoots. Use this to write, export, or save generated content such as CSV, TXT, JSON, or XML to disk, for example saving a customer CSV to Downloads. Set overwrite=true to replace an existing file")]
+    [McpServerTool(Name = "SaveLocalFile", ReadOnly = false), Description("Save or create a local text file under LocalFileSystem:AllowedRoots. Use this whenever the user asks to save, write, or export text content (CSV/TXT/JSON/XML) to a local path such as C:\\Users\\... . Set overwrite=true to replace an existing file")]
     public Task<string> SaveLocalFile(
         string path,
         string content,
@@ -725,7 +727,7 @@ public class FileTools : JiwaToolBase
         });
     }
 
-    [McpServerTool(ReadOnly = true), Description("List files and folders under an allowed local or UNC directory path. Access is restricted to LocalFileSystem:AllowedRoots in appsettings.json")]
+    [McpServerTool(ReadOnly = true), Description("List files and folders under an allowed local or UNC directory path. Use this when the user provides a folder path or asks what files are in a local directory. Access is restricted to LocalFileSystem:AllowedRoots in appsettings.json")]
     public Task<string> ListLocalDirectory(
         string path,
         bool includeFiles = true,
@@ -797,7 +799,7 @@ public class FileTools : JiwaToolBase
         });
     }
 
-    [McpServerTool(ReadOnly = true), Description("Read a text file from an allowed local or UNC path. Access is restricted to LocalFileSystem:AllowedRoots in appsettings.json")]
+    [McpServerTool(ReadOnly = true), Description("Read text content from an allowed local or UNC file path. Use this when the user asks to open, read, or show the contents of a local file path such as C:\\Users\\...\\file.csv. Access is restricted to LocalFileSystem:AllowedRoots in appsettings.json")]
     public Task<string> ReadLocalFile(
         string path,
         int? maxBytes = null)
@@ -807,6 +809,11 @@ public class FileTools : JiwaToolBase
             if (!TryResolveAllowedPath(path, out var fullPath, out var error))
             {
                 return new { error }.ToJson();
+            }
+
+            if (Directory.Exists(fullPath))
+            {
+                return new { error = $"Path '{fullPath}' is a directory. Use list_local_directory for folders" }.ToJson();
             }
 
             if (!File.Exists(fullPath))
@@ -855,7 +862,7 @@ public class FileTools : JiwaToolBase
         });
     }
 
-    [McpServerTool(ReadOnly = true), Description("Query a local structured file by path using natural language. Supports .csv, .xml, .json, and .xlsx under LocalFileSystem:AllowedRoots")]
+    [McpServerTool(ReadOnly = true), Description("Query a local structured file by path using natural language. Supports .csv, .xml, .json, and .xlsx under LocalFileSystem:AllowedRoots. Use this for requests like 'import/read/analyse file at C:\\...\\file.csv'. If the user gives only a folder path, call list_local_directory first to identify the file, then call this tool with the full filename")]
     public Task<string> QueryLocalStructuredFile(
         string path,
         string question,
@@ -989,74 +996,6 @@ public class FileTools : JiwaToolBase
 
     private static bool TryResolveAllowedPath(string requestedPath, out string fullPath, out string error)
     {
-        fullPath = string.Empty;
-        error = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(requestedPath))
-        {
-            error = "path is required";
-            return false;
-        }
-
-        string[] allowedRoots = Config.LocalFileSystemAllowedRoots
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Select(path => path.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-
-        if (allowedRoots.Length == 0)
-        {
-            error = "Local file access is disabled. Configure LocalFileSystem:AllowedRoots in appsettings.json";
-            return false;
-        }
-
-        try
-        {
-            fullPath = Path.GetFullPath(requestedPath);
-        }
-        catch (Exception ex)
-        {
-            error = $"Invalid path '{requestedPath}': {ex.Message}";
-            return false;
-        }
-
-        var resolvedPath = fullPath;
-        var isAllowed = allowedRoots
-            .Select(TryNormalizeRoot)
-            .Where(normalizedRoot => !string.IsNullOrEmpty(normalizedRoot))
-            .Any(normalizedRoot => IsPathWithinRoot(resolvedPath, normalizedRoot!));
-
-        if (!isAllowed)
-        {
-            error = $"Path '{fullPath}' is outside allowed roots";
-            return false;
-        }
-
-        return true;
-    }
-
-    private static string? TryNormalizeRoot(string root)
-    {
-        try
-        {
-            return Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static bool IsPathWithinRoot(string fullPath, string normalizedRoot)
-    {
-        var normalizedPath = fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        if (string.Equals(normalizedPath, normalizedRoot, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        var rootPrefix = normalizedRoot + Path.DirectorySeparatorChar;
-        return normalizedPath.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase);
+        return LocalFilePathResolver.TryResolveAllowedPath(requestedPath, out fullPath, out error);
     }
 }

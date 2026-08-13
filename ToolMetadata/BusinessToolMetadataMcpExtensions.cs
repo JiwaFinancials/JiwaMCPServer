@@ -29,8 +29,9 @@ public static class BusinessToolMetadataMcpExtensions
             filters.AddListToolsFilter(next => async (request, cancellationToken) =>
             {
                 var result = await next(request, cancellationToken);
-                var catalog = request.Services.GetRequiredService<BusinessToolMetadataCatalog>();
-                result.ApplyBusinessToolMetadata(catalog);
+                var catalog = request.Services!.GetRequiredService<BusinessToolMetadataCatalog>();
+                var descriptionComposer = request.Services!.GetRequiredService<ToolDescriptionComposer>();
+                result.ApplyBusinessToolMetadata(catalog, descriptionComposer);
                 return result;
             });
         });
@@ -38,10 +39,14 @@ public static class BusinessToolMetadataMcpExtensions
         return builder;
     }
 
-    public static ListToolsResult ApplyBusinessToolMetadata(this ListToolsResult result, BusinessToolMetadataCatalog catalog)
+    public static ListToolsResult ApplyBusinessToolMetadata(
+        this ListToolsResult result,
+        BusinessToolMetadataCatalog catalog,
+        ToolDescriptionComposer descriptionComposer)
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(descriptionComposer);
 
         foreach (var tool in result.Tools)
         {
@@ -49,6 +54,8 @@ public static class BusinessToolMetadataMcpExtensions
             {
                 continue;
             }
+
+            tool.Description = descriptionComposer.Compose(descriptor);
 
             tool.Meta ??= new JsonObject();
             tool.Meta["entityType"] = descriptor.Metadata.EntityType;

@@ -50,6 +50,8 @@ public sealed class ToolMetadataExtractor
 
             var description = method.GetCustomAttribute<DescriptionAttribute>(inherit: true)?.Description ?? string.Empty;
             var businessTool = method.GetCustomAttribute<BusinessToolAttribute>(inherit: true);
+            var classBusinessTool = toolType.GetCustomAttribute<BusinessToolAttribute>(inherit: true);
+            var mergedBusinessTool = MergeBusinessToolAttributes(classBusinessTool, businessTool);
 
             yield return new BusinessToolDescriptor
             {
@@ -57,9 +59,26 @@ public sealed class ToolMetadataExtractor
                 Description = description,
                 ToolType = toolType,
                 Method = method,
-                Metadata = _metadataBuilder.Build(toolName, description, businessTool)
+                Metadata = _metadataBuilder.Build(toolName, description, mergedBusinessTool)
             };
         }
+    }
+
+    private static BusinessToolAttribute? MergeBusinessToolAttributes(BusinessToolAttribute? classLevel, BusinessToolAttribute? methodLevel)
+    {
+        if (classLevel is null)
+            return methodLevel;
+
+        if (methodLevel is null)
+            return classLevel;
+
+        return new BusinessToolAttribute
+        {
+            EntityType = string.IsNullOrWhiteSpace(methodLevel.EntityType) ? classLevel.EntityType : methodLevel.EntityType,
+            ActionType = string.IsNullOrWhiteSpace(methodLevel.ActionType) ? classLevel.ActionType : methodLevel.ActionType,
+            Aliases = [.. classLevel.Aliases, .. methodLevel.Aliases],
+            Tags = [.. classLevel.Tags, .. methodLevel.Tags]
+        };
     }
 
     private static IEnumerable<Type> GetToolTypes(Assembly assembly)

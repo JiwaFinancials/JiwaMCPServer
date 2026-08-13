@@ -16,7 +16,9 @@ public static class BusinessToolMetadataServiceCollectionExtensions
             .ToArray();
 
         services.TryAddSingleton<BusinessEntityRegistry>();
+        services.TryAddSingleton<BusinessTerminologyRegistry>();
         services.TryAddSingleton<BusinessToolMetadataBuilder>();
+        services.TryAddSingleton<ToolDescriptionComposer>();
         services.TryAddSingleton<ToolMetadataExtractor>();
         services.TryAddSingleton<BusinessToolMetadataCatalog>(sp =>
         {

@@ -1,6 +1,6 @@
 namespace JiwaMcpServer.ToolMetadata;
 
-[AttributeUsage(AttributeTargets.Method, Inherited = true, AllowMultiple = false)]
+[AttributeUsage(AttributeTargets.Method | AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
 public sealed class BusinessToolAttribute : Attribute
 {
     public string EntityType { get; init; } = string.Empty;

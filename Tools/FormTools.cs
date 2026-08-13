@@ -2,6 +2,7 @@ using JiwaFinancials.Jiwa.JiwaServiceModel;
 using JiwaFinancials.Jiwa.JiwaServiceModel.PurchaseOrders;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
+using JiwaMcpServer.ToolMetadata;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
@@ -10,6 +11,7 @@ using System.Diagnostics;
 namespace JiwaMcpServer.Tools;
 
 [McpServerToolType]
+[BusinessTool(EntityType = "Form", Tags = ["navigation", "open form", "module"]) ]
 public class FormTools : JiwaToolBase
 {
     private enum FormTypes
