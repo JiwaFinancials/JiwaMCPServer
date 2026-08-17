@@ -36,43 +36,29 @@ public class ProductTools : JiwaToolBase
     public Task<string> GetProduct(InventoryGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var inputIdentifier = requestDTO.InventoryID;
+            ArgumentNullException.ThrowIfNull(requestDTO);
 
-            try
-            {
-                var result = await JiwaApiClient.GetAsync(requestDTO, ct);
-                return result.ToJson<InventoryItem>();
-            }
-            catch (WebServiceException ex) when (ShouldRetryAsPartNumber(ex) && !string.IsNullOrWhiteSpace(inputIdentifier))
-            {
-                var resolvedInventoryId = await ResolveInventoryIdFromIdentifierAsync(inputIdentifier, ct);
-                if (string.IsNullOrWhiteSpace(resolvedInventoryId) ||
-                    string.Equals(resolvedInventoryId, inputIdentifier, StringComparison.OrdinalIgnoreCase))
+            var result = await ExecuteWithResolvedInventoryIdAsync(
+                requestDTO.InventoryID,
+                ct,
+                async (inventoryId, innerCt) =>
                 {
-                    throw;
-                }
+                    requestDTO.InventoryID = inventoryId;
+                    return await JiwaApiClient.GetAsync(requestDTO, innerCt);
+                });
 
-                var retryRequest = new InventoryGETRequest
-                {
-                    InventoryID = resolvedInventoryId
-                };
-
-                var retryResult = await JiwaApiClient.GetAsync(retryRequest, ct);
-                return retryResult.ToJson<InventoryItem>();
-            }
+            return result.ToJson<InventoryItem>();
         });
 
-    private static bool ShouldRetryAsPartNumber(WebServiceException ex)
-    {
-        var statusCode = ex.StatusCode;
-        if (statusCode == 404)
-            return true;
-
-        var message = ex.Message ?? string.Empty;
-        return message.Contains("not found", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("couldn't find", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("cannot find", StringComparison.OrdinalIgnoreCase);
-    }
+    private Task<T> ExecuteWithResolvedInventoryIdAsync<T>(
+        string? inventoryId,
+        CancellationToken ct,
+        Func<string, CancellationToken, Task<T>> executeAsync)
+        => ExecuteWithResolvedIdentifierAsync(
+            inventoryId,
+            ct,
+            executeAsync,
+            ResolveInventoryIdFromIdentifierAsync);
 
     private async Task<string?> ResolveInventoryIdFromIdentifierAsync(string identifier, CancellationToken ct)
     {
@@ -152,7 +138,17 @@ public class ProductTools : JiwaToolBase
     public Task<string> ModifyProduct(InventoryPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var result = await ExecuteWithResolvedInventoryIdAsync(
+                requestDTO.InventoryID,
+                ct,
+                async (inventoryId, innerCt) =>
+                {
+                    requestDTO.InventoryID = inventoryId;
+                    return await JiwaApiClient.PatchAsync(requestDTO, innerCt);
+                });
+
             return result.ToJson<InventoryItem>();
         });
 
@@ -161,8 +157,19 @@ public class ProductTools : JiwaToolBase
     public Task<string> DeleteProduct(InventoryDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            await JiwaApiClient.DeleteAsync(requestDTO, ct);
-            return new { Deleted = true, InventoryItemID = requestDTO.InventoryID }.ToJson();
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var deletedInventoryId = await ExecuteWithResolvedInventoryIdAsync(
+                requestDTO.InventoryID,
+                ct,
+                async (inventoryId, innerCt) =>
+                {
+                    requestDTO.InventoryID = inventoryId;
+                    await JiwaApiClient.DeleteAsync(requestDTO, innerCt);
+                    return inventoryId;
+                });
+
+            return new { Deleted = true, InventoryItemID = deletedInventoryId }.ToJson();
         });
 
     [BusinessTool(EntityType = "Inventory", ActionType = "List")]

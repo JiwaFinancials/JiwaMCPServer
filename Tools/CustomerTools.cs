@@ -37,37 +37,27 @@ public class CustomerTools : JiwaToolBase
     public Task<string> GetCustomer(DebtorGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var debtorId = requestDTO.DebtorID?.Trim();
+            ArgumentNullException.ThrowIfNull(requestDTO);
 
-            try
-            {
-                var result = await JiwaApiClient.GetAsync(new DebtorGETRequest { DebtorID = debtorId }, ct);
-                return result.ToJson<Debtor>();
-            }
-            catch (WebServiceException ex) when (ShouldRetryIdentifierResolution(ex) && !string.IsNullOrWhiteSpace(debtorId))
-            {
-                var resolvedDebtorId = await TryResolveDebtorIdAsync(debtorId, ct);
-                if (string.IsNullOrWhiteSpace(resolvedDebtorId) ||
-                    string.Equals(resolvedDebtorId, debtorId, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw;
-                }
+            var result = await ExecuteWithResolvedDebtorIdAsync(
+                requestDTO.DebtorID,
+                ct,
+                async (debtorId, innerCt) => await JiwaApiClient.GetAsync(
+                    new DebtorGETRequest { DebtorID = debtorId },
+                    innerCt));
 
-                var resolved = await JiwaApiClient.GetAsync(new DebtorGETRequest { DebtorID = resolvedDebtorId }, ct);
-                return resolved.ToJson<Debtor>();
-            }
+            return result.ToJson<Debtor>();
         });
 
-    private static bool ShouldRetryIdentifierResolution(WebServiceException ex)
-    {
-        if (ex.StatusCode == 404)
-            return true;
-
-        var message = ex.Message ?? string.Empty;
-        return message.Contains("not found", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("couldn't find", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("cannot find", StringComparison.OrdinalIgnoreCase);
-    }
+    private static Task<T> ExecuteWithResolvedDebtorIdAsync<T>(
+        string? debtorId,
+        CancellationToken ct,
+        Func<string, CancellationToken, Task<T>> executeAsync)
+        => ExecuteWithResolvedIdentifierAsync(
+            debtorId,
+            ct,
+            executeAsync,
+            TryResolveDebtorIdAsync);
 
     [BusinessTool(EntityType = "Customer", ActionType = "Create")]
     [McpServerTool(Name = "CreateCustomer"), Description("Create a customer.")]
@@ -83,7 +73,17 @@ public class CustomerTools : JiwaToolBase
     public Task<string> ModifyCustomer(DebtorPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var result = await ExecuteWithResolvedDebtorIdAsync(
+                requestDTO.DebtorID,
+                ct,
+                async (debtorId, innerCt) =>
+                {
+                    requestDTO.DebtorID = debtorId;
+                    return await JiwaApiClient.PatchAsync(requestDTO, innerCt);
+                });
+
             return result.ToJson<Debtor>();
         });
 
@@ -92,8 +92,19 @@ public class CustomerTools : JiwaToolBase
     public Task<string> DeleteCustomer(DebtorDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            await JiwaApiClient.DeleteAsync(requestDTO, ct);
-            return new { Deleted = true, DebtorID = requestDTO.DebtorID }.ToJson();
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var deletedDebtorId = await ExecuteWithResolvedDebtorIdAsync(
+                requestDTO.DebtorID,
+                ct,
+                async (debtorId, innerCt) =>
+                {
+                    requestDTO.DebtorID = debtorId;
+                    await JiwaApiClient.DeleteAsync(requestDTO, innerCt);
+                    return debtorId;
+                });
+
+            return new { Deleted = true, DebtorID = deletedDebtorId }.ToJson();
         });
 
     [BusinessTool(EntityType = "Customer", ActionType = "List")]

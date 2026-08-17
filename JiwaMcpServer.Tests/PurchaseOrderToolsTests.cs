@@ -1,5 +1,6 @@
 using Xunit;
 using JiwaMcpServer.Tools;
+using JiwaMcpServer.ToolRouting;
 
 namespace JiwaMcpServer.Tests;
 
@@ -116,6 +117,33 @@ public class PurchaseOrderToolsTests
 
         // Assert
         Assert.IsType<string>(result);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task ModifyPurchaseOrder_WithPromptPoNumber_DoesNotFailOnNullIdentifier()
+    {
+        // Arrange
+        var contextAccessor = new ToolRoutingContextAccessor
+        {
+            Current = new ToolRoutingExecutionContext("purchase-order-test")
+            {
+                Prompt = "update the quantity of all lines on po 100210 to 1"
+            }
+        };
+        var tools = new PurchaseOrderTools(contextAccessor);
+        var requestDto = new JiwaFinancials.Jiwa.JiwaServiceModel.PurchaseOrderPATCHRequest();
+
+        if (string.IsNullOrEmpty(Config.JiwaAPIURL))
+        {
+            Config.JiwaAPIURL = "https://localhost:5001";
+        }
+
+        // Act
+        var result = await tools.ModifyPurchaseOrder(requestDto);
+
+        // Assert
+        Assert.IsType<string>(result);
+        Assert.DoesNotContain("Parameter 'identifier'", result, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

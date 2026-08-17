@@ -564,7 +564,7 @@ public sealed class RetrievalAugmentedToolRouter(
             activity?.SetTag("tool.action.count", actionPrompts.Count);
 
             var aggregatedCandidates = new Dictionary<string, ToolCandidate>(StringComparer.OrdinalIgnoreCase);
-            var segmentCandidates = new List<(string Prompt, IReadOnlyList<ToolCandidate> Candidates)>(actionPrompts.Count);
+            var segmentCandidates = new List<(string Prompt, IReadOnlyList<ToolCandidate> RetrievedCandidates)>(actionPrompts.Count);
             var retrievalStopwatch = Stopwatch.StartNew();
             foreach (var actionPrompt in actionPrompts)
             {
@@ -574,9 +574,12 @@ public sealed class RetrievalAugmentedToolRouter(
             }
             retrievalStopwatch.Stop();
 
-            var candidates = aggregatedCandidates.Values
+            var rankedAggregatedCandidates = aggregatedCandidates.Values
                 .OrderByDescending(candidate => candidate.Similarity)
                 .ThenBy(candidate => candidate.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            var candidates = rankedAggregatedCandidates
                 .Take(Math.Max(_options.RetrievalTopK, actionPrompts.Count))
                 .ToArray();
             routingContext.RetrievedTools = candidates;
@@ -591,7 +594,13 @@ public sealed class RetrievalAugmentedToolRouter(
             var rerankingStopwatch = Stopwatch.StartNew();
             foreach (var (actionPrompt, retrievedCandidates) in segmentCandidates)
             {
-                var rerankedTools = await reranker.RerankAsync(actionPrompt, retrievedCandidates, _options.MaxSelectedTools, cancellationToken);
+                var rerankerCandidates = EnsureRerankerCandidateFloor(
+                    retrievedCandidates,
+                    rankedAggregatedCandidates,
+                    catalog,
+                    _options.RetrievalTopK);
+
+                var rerankedTools = await reranker.RerankAsync(actionPrompt, rerankerCandidates, _options.MaxSelectedTools, cancellationToken);
                 MergeSelectedTools(aggregatedSelected, rerankedTools, actionPrompt, actionPrompts.Count);
             }
             rerankingStopwatch.Stop();
@@ -888,6 +897,70 @@ public sealed class RetrievalAugmentedToolRouter(
                 aggregate[selectedTool.Name] = annotatedTool;
             }
         }
+    }
+
+    private static IReadOnlyList<ToolCandidate> EnsureRerankerCandidateFloor(
+        IReadOnlyList<ToolCandidate> retrievedCandidates,
+        IReadOnlyList<ToolCandidate> rankedAggregatedCandidates,
+        IReadOnlyList<ToolCatalogEntry> catalog,
+        int retrievalTopK)
+    {
+        if (retrievedCandidates.Count == 0)
+        {
+            return retrievedCandidates;
+        }
+
+        var targetCount = Math.Max(retrievalTopK, 1);
+        if (retrievedCandidates.Count >= targetCount)
+        {
+            return retrievedCandidates
+                .Take(targetCount)
+                .ToArray();
+        }
+
+        var output = new List<ToolCandidate>(targetCount);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidate in retrievedCandidates)
+        {
+            if (seen.Add(candidate.Name))
+            {
+                output.Add(candidate);
+            }
+        }
+
+        foreach (var candidate in rankedAggregatedCandidates)
+        {
+            if (output.Count >= targetCount)
+            {
+                break;
+            }
+
+            if (seen.Add(candidate.Name))
+            {
+                output.Add(candidate);
+            }
+        }
+
+        if (output.Count < targetCount)
+        {
+            foreach (var tool in catalog.OrderBy(tool => tool.Name, StringComparer.OrdinalIgnoreCase))
+            {
+                if (output.Count >= targetCount)
+                {
+                    break;
+                }
+
+                if (string.IsNullOrWhiteSpace(tool.Name) || !seen.Add(tool.Name))
+                {
+                    continue;
+                }
+
+                output.Add(new ToolCandidate(tool.Name, 0, tool));
+            }
+        }
+
+        return output;
     }
 
     private static string AppendActionPromptReason(string reason, string actionPrompt)

@@ -3,6 +3,8 @@ using JiwaFinancials.Jiwa.JiwaServiceModel.PurchaseOrders;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Services;
 using JiwaMcpServer.ToolMetadata;
+using JiwaMcpServer.ToolRouting;
+using Microsoft.AspNetCore.Http;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
@@ -12,48 +14,42 @@ using System.Text.RegularExpressions;
 namespace JiwaMcpServer.Tools;
 
 [McpServerToolType]
-public class PurchaseOrderTools : JiwaToolBase
+public class PurchaseOrderTools(
+    IToolRoutingContextAccessor? routingContextAccessor = null,
+    IHttpContextAccessor? httpContextAccessor = null) : JiwaToolBase
 {
+    private static readonly Regex PurchaseOrderPromptIdentifierRegex = new(
+        "\\b(?:po|purchase\\s+order)(?:\\s+number)?\\s*(?<id>[\\p{L}\\p{Nd}][\\p{L}\\p{Nd}\\-/]*)\\b",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+        TimeSpan.FromSeconds(1));
+
+    private readonly IToolRoutingContextAccessor? _routingContextAccessor = routingContextAccessor;
+    private readonly IHttpContextAccessor? _httpContextAccessor = httpContextAccessor;
+
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Get", Aliases = ["get po details", "get purchase order details", "purchase order id", "po details by id", "show po", "view po"])]
     [McpServerTool(Name = "GetPurchaseOrderDetails"), Description("Get purchase order details by PurchaseOrderID or PO number.")]
     public Task<string> GetPurchaseOrder(PurchaseOrderGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var purchaseOrderId = requestDTO.PurchaseOrderID?.Trim();
-            if (string.IsNullOrWhiteSpace(purchaseOrderId))
-            {
-                throw new ArgumentException("PurchaseOrderID is required.", nameof(requestDTO));
-            }
+            var result = await ExecuteWithResolvedPurchaseOrderIdAsync(
+                requestDTO.PurchaseOrderID,
+                ct,
+                async (purchaseOrderId, innerCt) => await JiwaApiClient.GetAsync(
+                    new PurchaseOrderGETRequest { PurchaseOrderID = purchaseOrderId },
+                    innerCt));
 
-            try
-            {
-                var result = await JiwaApiClient.GetAsync(new PurchaseOrderGETRequest { PurchaseOrderID = purchaseOrderId }, ct);
-                return result.ToJson<PurchaseOrder>();
-            }
-            catch (WebServiceException ex) when (ShouldRetryIdentifierResolution(ex))
-            {
-                var resolvedOrderId = await TryResolvePurchaseOrderIdFromDocumentNumberAsync(purchaseOrderId, ct);
-                if (string.IsNullOrWhiteSpace(resolvedOrderId) ||
-                    string.Equals(resolvedOrderId, purchaseOrderId, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw;
-                }
-
-                var resolved = await JiwaApiClient.GetAsync(new PurchaseOrderGETRequest { PurchaseOrderID = resolvedOrderId }, ct);
-                return resolved.ToJson<PurchaseOrder>();
-            }
+            return result.ToJson<PurchaseOrder>();
         });
 
-    private static bool ShouldRetryIdentifierResolution(WebServiceException ex)
-    {
-        if (ex.StatusCode == 404)
-            return true;
-
-        var message = ex.Message ?? string.Empty;
-        return message.Contains("not found", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("couldn't find", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("cannot find", StringComparison.OrdinalIgnoreCase);
-    }
+    private static Task<T> ExecuteWithResolvedPurchaseOrderIdAsync<T>(
+        string? purchaseOrderId,
+        CancellationToken ct,
+        Func<string, CancellationToken, Task<T>> executeAsync)
+        => ExecuteWithResolvedIdentifierAsync(
+            purchaseOrderId,
+            ct,
+            executeAsync,
+            TryResolvePurchaseOrderIdFromDocumentNumberAsync);
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Get", Aliases = ["get purchase order", "get po by id", "retrieve purchase order"])]
     [McpServerTool(Name = "GetPurchaseOrder"), Description("Alias for GetPurchaseOrderDetails.")]
@@ -181,12 +177,34 @@ public class PurchaseOrderTools : JiwaToolBase
             }.ToJson();
         });
 
-    [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Update")]
-    [McpServerTool(Name = "UpdatePurchaseOrder"), Description("Update a purchase order.")]
+    [BusinessTool(
+        EntityType = "PurchaseOrder",
+        ActionType = "Update",
+        Aliases = ["update po", "update purchase order", "update po quantity", "change po line quantity", "set quantity on po lines", "update all lines on po", "po number to update", "patch purchase order"],
+        Tags = ["po", "purchase order", "update", "line", "lines", "quantity", "qty", "order number"],
+        RelatedEntities = "PurchaseOrderLine",
+        RequiredCompanionTools = "ResolvePurchaseOrderId")]
+    [McpServerTool(Name = "UpdatePurchaseOrder"), Description("Update a purchase order and its line quantities by PO number or PurchaseOrderID.")]
     public Task<string> ModifyPurchaseOrder(PurchaseOrderPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var purchaseOrderIdentifier = ResolvePurchaseOrderIdentifier(requestDTO);
+            if (string.IsNullOrWhiteSpace(purchaseOrderIdentifier))
+            {
+                throw new InvalidOperationException("A PurchaseOrderID or OrderNo is required to update a purchase order.");
+            }
+
+            var result = await ExecuteWithResolvedPurchaseOrderIdAsync(
+                purchaseOrderIdentifier,
+                ct,
+                async (purchaseOrderId, innerCt) =>
+                {
+                    requestDTO.PurchaseOrderID = purchaseOrderId;
+                    return await JiwaApiClient.PatchAsync(requestDTO, innerCt);
+                });
+
             return result.ToJson<PurchaseOrder>();
         });
 
@@ -195,8 +213,19 @@ public class PurchaseOrderTools : JiwaToolBase
     public Task<string> DeletePurchaseOrder(PurchaseOrderDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            await JiwaApiClient.DeleteAsync(requestDTO, ct);
-            return new { Deleted = true, PurchaseOrderID = requestDTO.PurchaseOrderID }.ToJson();
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var deletedPurchaseOrderId = await ExecuteWithResolvedPurchaseOrderIdAsync(
+                requestDTO.PurchaseOrderID,
+                ct,
+                async (purchaseOrderId, innerCt) =>
+                {
+                    requestDTO.PurchaseOrderID = purchaseOrderId;
+                    await JiwaApiClient.DeleteAsync(requestDTO, innerCt);
+                    return purchaseOrderId;
+                });
+
+            return new { Deleted = true, PurchaseOrderID = deletedPurchaseOrderId }.ToJson();
         });
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Add")]
@@ -204,7 +233,17 @@ public class PurchaseOrderTools : JiwaToolBase
     public Task<string> AddAProductToAPurchaseOrder(PurchaseOrderLinePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PostAsync(requestDTO, ct);
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var result = await ExecuteWithResolvedPurchaseOrderIdAsync(
+                requestDTO.PurchaseOrderID,
+                ct,
+                async (purchaseOrderId, innerCt) =>
+                {
+                    requestDTO.PurchaseOrderID = purchaseOrderId;
+                    return await JiwaApiClient.PostAsync(requestDTO, innerCt);
+                });
+
             return result.ToJson<PurchaseOrderLine>();
         });
 
@@ -376,6 +415,53 @@ public class PurchaseOrderTools : JiwaToolBase
             && (combined.Contains("not found", StringComparison.OrdinalIgnoreCase)
                 || combined.Contains("does not exist", StringComparison.OrdinalIgnoreCase)
                 || combined.Contains("invalid", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string? ResolvePurchaseOrderIdentifier(PurchaseOrderPATCHRequest requestDTO)
+    {
+        if (!string.IsNullOrWhiteSpace(requestDTO.PurchaseOrderID))
+        {
+            return requestDTO.PurchaseOrderID.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(requestDTO.OrderNo))
+        {
+            return requestDTO.OrderNo.Trim();
+        }
+
+        var prompt = GetCurrentUserPrompt();
+        if (string.IsNullOrWhiteSpace(prompt))
+        {
+            return null;
+        }
+
+        var match = PurchaseOrderPromptIdentifierRegex.Match(prompt);
+        if (!match.Success)
+        {
+            return null;
+        }
+
+        var extractedIdentifier = match.Groups["id"].Value.Trim();
+        return string.IsNullOrWhiteSpace(extractedIdentifier)
+            ? null
+            : extractedIdentifier;
+    }
+
+    private string? GetCurrentUserPrompt()
+    {
+        var routingPrompt = _routingContextAccessor?.Current?.Prompt;
+        if (!string.IsNullOrWhiteSpace(routingPrompt))
+        {
+            return routingPrompt;
+        }
+
+        var headers = _httpContextAccessor?.HttpContext?.Request?.Headers;
+        var headerPrompt = headers?["X-User-Prompt"].FirstOrDefault()
+            ?? headers?["X-Tool-Query"].FirstOrDefault();
+
+        return string.IsNullOrWhiteSpace(headerPrompt)
+            ? null
+            : headerPrompt;
     }
 
     private static IReadOnlyList<string> BuildDocumentNumberCandidates(string rawValue)

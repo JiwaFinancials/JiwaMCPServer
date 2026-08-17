@@ -190,6 +190,44 @@ public abstract class JiwaToolBase
             : $"{include},Total";
     }
 
+    protected static bool ShouldRetryIdentifierResolution(WebServiceException ex)
+    {
+        if (ex.StatusCode == 404)
+            return true;
+
+        var message = ex.Message ?? string.Empty;
+        return message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("couldn't find", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("cannot find", StringComparison.OrdinalIgnoreCase);
+    }
+
+    protected static async Task<T> ExecuteWithResolvedIdentifierAsync<T>(
+        string? identifier,
+        CancellationToken ct,
+        Func<string, CancellationToken, Task<T>> executeAsync,
+        Func<string, CancellationToken, Task<string?>> resolveAsync)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(identifier);
+
+        var trimmedIdentifier = identifier.Trim();
+
+        try
+        {
+            return await executeAsync(trimmedIdentifier, ct);
+        }
+        catch (WebServiceException ex) when (ShouldRetryIdentifierResolution(ex))
+        {
+            var resolvedIdentifier = await resolveAsync(trimmedIdentifier, ct);
+            if (string.IsNullOrWhiteSpace(resolvedIdentifier) ||
+                string.Equals(resolvedIdentifier, trimmedIdentifier, StringComparison.OrdinalIgnoreCase))
+            {
+                throw;
+            }
+
+            return await executeAsync(resolvedIdentifier, ct);
+        }
+    }
+
     private static void RemoveExpiredConfirmationTokens(DateTimeOffset now)
     {
         foreach (var pending in PendingLargeResultSetConfirmations)

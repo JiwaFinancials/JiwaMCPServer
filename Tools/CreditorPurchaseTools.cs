@@ -31,7 +31,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchaseCustomFieldValues(CreditorPurchaseCustomFieldValuesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.GetAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -39,7 +48,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchaseLines(CreditorPurchaseLinesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.GetAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -47,7 +65,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> AddCreditorPurchaseLine(CreditorPurchaseLinePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PostAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.PostAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -87,7 +114,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchaseDocuments(CreditorPurchaseDocumentsGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.GetAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -95,7 +131,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> AddCreditorPurchaseDocument(CreditorPurchaseDocumentPOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PostAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.PostAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -127,7 +172,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchaseNotes(CreditorPurchaseNotesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.GetAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -135,7 +189,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> AddCreditorPurchaseNote(CreditorPurchaseNotePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PostAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.PostAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -144,23 +207,42 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchase(CreditorPurchaseGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var batchId = requestDTO.BatchID?.Trim();
+            ArgumentNullException.ThrowIfNull(requestDTO);
 
-            try
-            {
-                var result = await JiwaApiClient.GetAsync(new CreditorPurchaseGETRequest { BatchID = batchId }, ct);
-                return result.ToJson();
-            }
-            catch (WebServiceException ex) when (ex.StatusCode == 404 && !string.IsNullOrWhiteSpace(batchId))
-            {
-                var resolvedBatchId = await TryResolveCreditorPurchaseBatchIdAsync(batchId, ct);
-                if (string.IsNullOrWhiteSpace(resolvedBatchId))
-                    throw;
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchIdAsync(
+                requestDTO.BatchID,
+                ct,
+                async (batchId, innerCt) => await JiwaApiClient.GetAsync(
+                    new CreditorPurchaseGETRequest { BatchID = batchId },
+                    innerCt));
 
-                var resolved = await JiwaApiClient.GetAsync(new CreditorPurchaseGETRequest { BatchID = resolvedBatchId }, ct);
-                return resolved.ToJson();
-            }
+            return result.ToJson();
         });
+
+    private static Task<T> ExecuteWithResolvedCreditorPurchaseBatchIdAsync<T>(
+        string? batchId,
+        CancellationToken ct,
+        Func<string, CancellationToken, Task<T>> executeAsync)
+        => ExecuteWithResolvedIdentifierAsync(
+            batchId,
+            ct,
+            executeAsync,
+            TryResolveCreditorPurchaseBatchIdAsync);
+
+    private static Task<TResponse> ExecuteWithResolvedCreditorPurchaseBatchRequestAsync<TRequest, TResponse>(
+        TRequest requestDTO,
+        string? batchId,
+        CancellationToken ct,
+        Func<TRequest, string, CancellationToken, Task<TResponse>> executeAsync)
+        where TRequest : class
+    {
+        ArgumentNullException.ThrowIfNull(requestDTO);
+
+        return ExecuteWithResolvedCreditorPurchaseBatchIdAsync(
+            batchId,
+            ct,
+            async (resolvedBatchId, innerCt) => await executeAsync(requestDTO, resolvedBatchId, innerCt));
+    }
 
     [BusinessTool(EntityType = "CreditorPurchase", ActionType = "Resolve", Aliases = ["resolve supplier invoice number", "resolve creditor invoice number", "invoice no to batch id", "document number to batch id", "resolve batch number"])]
     [McpServerTool(Name = "ResolveCreditorPurchaseBatchId", ReadOnly = true), Description("Resolve a supplier invoice document number to BatchID.")]
@@ -194,7 +276,17 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> UpdateCreditorPurchase(CreditorPurchasePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchIdAsync(
+                requestDTO.BatchID,
+                ct,
+                async (batchId, innerCt) =>
+                {
+                    requestDTO.BatchID = batchId;
+                    return await JiwaApiClient.PatchAsync(requestDTO, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -203,8 +295,19 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> DeleteCreditorPurchase(CreditorPurchaseDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            await JiwaApiClient.DeleteAsync(requestDTO, ct);
-            return new { Deleted = true, BatchID = requestDTO.BatchID }.ToJson();
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var deletedBatchId = await ExecuteWithResolvedCreditorPurchaseBatchIdAsync(
+                requestDTO.BatchID,
+                ct,
+                async (batchId, innerCt) =>
+                {
+                    requestDTO.BatchID = batchId;
+                    await JiwaApiClient.DeleteAsync(requestDTO, innerCt);
+                    return batchId;
+                });
+
+            return new { Deleted = true, BatchID = deletedBatchId }.ToJson();
         });
 
     [McpServerTool, Description("Get supplier invoice custom fields.")]
@@ -444,7 +547,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchaseCustomFieldValue(CreditorPurchaseCustomFieldValueGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.GetAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -452,7 +564,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> UpdateCreditorPurchaseCustomFieldValue(CreditorPurchaseCustomFieldValuePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.PatchAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -460,7 +581,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchaseLine(CreditorPurchaseLineGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.GetAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -468,7 +598,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> UpdateCreditorPurchaseLine(CreditorPurchaseLinePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.PatchAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -476,11 +615,21 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> DeleteCreditorPurchaseLine(CreditorPurchaseLineDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            await JiwaApiClient.DeleteAsync(requestDTO, ct);
+            var deletedBatchId = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    await JiwaApiClient.DeleteAsync(request, innerCt);
+                    return batchId;
+                });
+
             return new
             {
                 Deleted = true,
-                BatchID = requestDTO.BatchID,
+                BatchID = deletedBatchId,
                 LineID = requestDTO.LineID
             }.ToJson();
         });
@@ -489,7 +638,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchaseDocument(CreditorPurchaseDocumentGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.GetAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -497,7 +655,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> UpdateCreditorPurchaseDocument(CreditorPurchaseDocumentPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.PatchAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -505,11 +672,21 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> DeleteCreditorPurchaseDocument(CreditorPurchaseDocumentDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            await JiwaApiClient.DeleteAsync(requestDTO, ct);
+            var deletedBatchId = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    await JiwaApiClient.DeleteAsync(request, innerCt);
+                    return batchId;
+                });
+
             return new
             {
                 Deleted = true,
-                BatchID = requestDTO.BatchID,
+                BatchID = deletedBatchId,
                 DocumentID = requestDTO.DocumentID
             }.ToJson();
         });
@@ -518,7 +695,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchaseNote(CreditorPurchaseNoteGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.GetAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -526,7 +712,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> UpdateCreditorPurchaseNote(CreditorPurchaseNotePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.PatchAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -534,11 +729,21 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> DeleteCreditorPurchaseNote(CreditorPurchaseNoteDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            await JiwaApiClient.DeleteAsync(requestDTO, ct);
+            var deletedBatchId = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    await JiwaApiClient.DeleteAsync(request, innerCt);
+                    return batchId;
+                });
+
             return new
             {
                 Deleted = true,
-                BatchID = requestDTO.BatchID,
+                BatchID = deletedBatchId,
                 NoteID = requestDTO.NoteID
             }.ToJson();
         });
@@ -547,7 +752,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchaseLineCustomFieldValues(CreditorPurchaseLineCustomFieldValuesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.GetAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -555,7 +769,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> GetCreditorPurchaseLineCustomFieldValue(CreditorPurchaseLineCustomFieldValueGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.GetAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 
@@ -563,7 +786,16 @@ public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : Jiw
     public Task<string> UpdateCreditorPurchaseLineCustomFieldValue(CreditorPurchaseLineCustomFieldValuePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            var result = await ExecuteWithResolvedCreditorPurchaseBatchRequestAsync(
+                requestDTO,
+                requestDTO.BatchID,
+                ct,
+                async (request, batchId, innerCt) =>
+                {
+                    request.BatchID = batchId;
+                    return await JiwaApiClient.PatchAsync(request, innerCt);
+                });
+
             return result.ToJson();
         });
 

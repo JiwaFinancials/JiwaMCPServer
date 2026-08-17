@@ -37,37 +37,27 @@ public class SupplierTools : JiwaToolBase
     public Task<string> GetSupplier(CreditorGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var creditorId = requestDTO.CreditorID?.Trim();
+            ArgumentNullException.ThrowIfNull(requestDTO);
 
-            try
-            {
-                var result = await JiwaApiClient.GetAsync(new CreditorGETRequest { CreditorID = creditorId }, ct);
-                return result.ToJson<Creditor>();
-            }
-            catch (WebServiceException ex) when (ShouldRetryIdentifierResolution(ex) && !string.IsNullOrWhiteSpace(creditorId))
-            {
-                var resolvedCreditorId = await TryResolveCreditorIdAsync(creditorId, ct);
-                if (string.IsNullOrWhiteSpace(resolvedCreditorId) ||
-                    string.Equals(resolvedCreditorId, creditorId, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw;
-                }
+            var result = await ExecuteWithResolvedCreditorIdAsync(
+                requestDTO.CreditorID,
+                ct,
+                async (creditorId, innerCt) => await JiwaApiClient.GetAsync(
+                    new CreditorGETRequest { CreditorID = creditorId },
+                    innerCt));
 
-                var resolved = await JiwaApiClient.GetAsync(new CreditorGETRequest { CreditorID = resolvedCreditorId }, ct);
-                return resolved.ToJson<Creditor>();
-            }
+            return result.ToJson<Creditor>();
         });
 
-    private static bool ShouldRetryIdentifierResolution(WebServiceException ex)
-    {
-        if (ex.StatusCode == 404)
-            return true;
-
-        var message = ex.Message ?? string.Empty;
-        return message.Contains("not found", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("couldn't find", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("cannot find", StringComparison.OrdinalIgnoreCase);
-    }
+    private static Task<T> ExecuteWithResolvedCreditorIdAsync<T>(
+        string? creditorId,
+        CancellationToken ct,
+        Func<string, CancellationToken, Task<T>> executeAsync)
+        => ExecuteWithResolvedIdentifierAsync(
+            creditorId,
+            ct,
+            executeAsync,
+            TryResolveCreditorIdAsync);
 
     [BusinessTool(EntityType = "Supplier", ActionType = "Create")]
     [McpServerTool(Name = "CreateSupplier"), Description("Create a supplier.")]
@@ -83,7 +73,17 @@ public class SupplierTools : JiwaToolBase
     public Task<string> ModifySupplier(CreditorPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var result = await ExecuteWithResolvedCreditorIdAsync(
+                requestDTO.CreditorID,
+                ct,
+                async (creditorId, innerCt) =>
+                {
+                    requestDTO.CreditorID = creditorId;
+                    return await JiwaApiClient.PatchAsync(requestDTO, innerCt);
+                });
+
             return result.ToJson<Creditor>();
         });
 
@@ -92,8 +92,19 @@ public class SupplierTools : JiwaToolBase
     public Task<string> DeleteSupplier(CreditorDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            await JiwaApiClient.DeleteAsync(requestDTO, ct);
-            return new { Deleted = true, CreditorID = requestDTO.CreditorID }.ToJson();
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var deletedCreditorId = await ExecuteWithResolvedCreditorIdAsync(
+                requestDTO.CreditorID,
+                ct,
+                async (creditorId, innerCt) =>
+                {
+                    requestDTO.CreditorID = creditorId;
+                    await JiwaApiClient.DeleteAsync(requestDTO, innerCt);
+                    return creditorId;
+                });
+
+            return new { Deleted = true, CreditorID = deletedCreditorId }.ToJson();
         });
 
     [BusinessTool(EntityType = "Supplier", ActionType = "List")]

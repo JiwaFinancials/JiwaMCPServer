@@ -318,6 +318,58 @@ public class ToolRoutingIntegrationTests
     }
 
     [Fact]
+    public async Task EndToEnd_TopsUpRerankerCandidatesToRetrievalTopK()
+    {
+        var options = Options.Create(new ToolRoutingOptions
+        {
+            EnableDomainClassification = false,
+            RetrievalTopK = 4,
+            MaxSelectedTools = 2,
+            SimilarityThreshold = 0.9,
+            EmbeddingDimensions = 256
+        });
+        var diagnostics = Options.Create(new ToolRoutingDiagnosticsOptions());
+        var contextAccessor = new ToolRoutingContextAccessor
+        {
+            Current = new ToolRoutingExecutionContext("integration-reranker-floor")
+        };
+
+        IReadOnlyList<ToolCatalogEntry> toolEntries =
+        [
+            new ToolCatalogEntry("SearchInvoices", "Search invoices", "Finance", "Invoices", "Search invoices", ["invoice"], ["finance"]),
+            new ToolCatalogEntry("ListPurchaseOrders", "List purchase orders", "Procurement", "PurchaseOrders", "List purchase orders", ["purchase", "order"], ["procurement"]),
+            new ToolCatalogEntry("GetCustomer", "Get customer details", "CRM", "Customer", "Get customer", ["customer"], ["crm"]),
+            new ToolCatalogEntry("GetSupplier", "Get supplier details", "Procurement", "Supplier", "Get supplier", ["supplier"], ["procurement"]),
+            new ToolCatalogEntry("GetCalendarEvent", "Read calendar events", "Calendar", "Event", "Get events", ["calendar", "event"], ["calendar"])
+        ];
+
+        var catalog = new InMemoryToolCatalog(new StaticMetadataProvider(toolEntries));
+        IToolRetriever retriever = new FixedRetriever([
+            new ToolCandidate("SearchInvoices", 0.95, toolEntries[0])
+        ]);
+        var reranker = new RecordingReranker();
+        var terminology = new BusinessTerminologyRegistry();
+        var metadataCatalog = new BusinessToolMetadataCatalog([]);
+        var routingPolicy = new BusinessToolRoutingPolicy(terminology, metadataCatalog);
+        var router = new RetrievalAugmentedToolRouter(
+            options,
+            new EmptyDomainClassifier(),
+            retriever,
+            reranker,
+            catalog,
+            routingPolicy,
+            contextAccessor,
+            new InMemoryToolRoutingDiagnosticsStore(),
+            diagnostics,
+            NullLogger<RetrievalAugmentedToolRouter>.Instance);
+
+        await router.RouteAsync("search invoices");
+
+        Assert.Single(reranker.CandidateCounts);
+        Assert.Equal(options.Value.RetrievalTopK, reranker.CandidateCounts[0]);
+    }
+
+    [Fact]
     public async Task EndToEnd_HandlesNoMatches()
     {
         var options = Options.Create(new ToolRoutingOptions
@@ -375,6 +427,37 @@ public class ToolRoutingIntegrationTests
             .ToArray();
 
         return new BusinessToolMetadataCatalog(descriptors);
+    }
+
+    private sealed class EmptyDomainClassifier : IDomainClassifier
+    {
+        public Task<DomainClassificationResult> ClassifyAsync(string userPrompt, CancellationToken cancellationToken = default)
+            => Task.FromResult(DomainClassificationResult.Empty);
+    }
+
+    private sealed class FixedRetriever(IReadOnlyList<ToolCandidate> candidates) : IToolRetriever
+    {
+        public Task<IReadOnlyList<ToolCandidate>> RetrieveAsync(string userPrompt, IReadOnlyList<DomainScore> domains, CancellationToken cancellationToken = default)
+            => Task.FromResult(candidates);
+    }
+
+    private sealed class RecordingReranker : IToolReranker
+    {
+        public List<int> CandidateCounts { get; } = [];
+
+        public Task<IReadOnlyList<RerankedTool>> RerankAsync(
+            string userPrompt,
+            IReadOnlyList<ToolCandidate> candidates,
+            int maxSelectedTools,
+            CancellationToken cancellationToken = default)
+        {
+            CandidateCounts.Add(candidates.Count);
+            var selected = candidates
+                .Take(Math.Min(maxSelectedTools, candidates.Count))
+                .Select(candidate => new RerankedTool(candidate.Name, candidate.Similarity, "test", candidate.Tool))
+                .ToArray();
+            return Task.FromResult<IReadOnlyList<RerankedTool>>(selected);
+        }
     }
 
     private sealed class StaticMetadataProvider(IReadOnlyList<ToolCatalogEntry> tools) : IToolMetadataProvider

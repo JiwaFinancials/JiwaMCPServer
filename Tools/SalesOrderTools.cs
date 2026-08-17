@@ -19,37 +19,27 @@ public class SalesOrderTools : JiwaToolBase
     public Task<string> GetSalesOrder(SalesOrderGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var invoiceId = requestDTO.InvoiceID?.Trim();
+            ArgumentNullException.ThrowIfNull(requestDTO);
 
-            try
-            {
-                var result = await JiwaApiClient.GetAsync(new SalesOrderGETRequest { InvoiceID = invoiceId }, ct);
-                return result.ToJson<SalesOrder>();
-            }
-            catch (WebServiceException ex) when (ShouldRetryIdentifierResolution(ex) && !string.IsNullOrWhiteSpace(invoiceId))
-            {
-                var resolvedInvoiceId = await TryResolveSalesOrderIdFromDocumentNumberAsync(invoiceId, ct);
-                if (string.IsNullOrWhiteSpace(resolvedInvoiceId) ||
-                    string.Equals(resolvedInvoiceId, invoiceId, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw;
-                }
+            var result = await ExecuteWithResolvedSalesOrderIdAsync(
+                requestDTO.InvoiceID,
+                ct,
+                async (invoiceId, innerCt) => await JiwaApiClient.GetAsync(
+                    new SalesOrderGETRequest { InvoiceID = invoiceId },
+                    innerCt));
 
-                var resolved = await JiwaApiClient.GetAsync(new SalesOrderGETRequest { InvoiceID = resolvedInvoiceId }, ct);
-                return resolved.ToJson<SalesOrder>();
-            }
+            return result.ToJson<SalesOrder>();
         });
 
-    private static bool ShouldRetryIdentifierResolution(WebServiceException ex)
-    {
-        if (ex.StatusCode == 404)
-            return true;
-
-        var message = ex.Message ?? string.Empty;
-        return message.Contains("not found", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("couldn't find", StringComparison.OrdinalIgnoreCase)
-               || message.Contains("cannot find", StringComparison.OrdinalIgnoreCase);
-    }
+    private static Task<T> ExecuteWithResolvedSalesOrderIdAsync<T>(
+        string? invoiceId,
+        CancellationToken ct,
+        Func<string, CancellationToken, Task<T>> executeAsync)
+        => ExecuteWithResolvedIdentifierAsync(
+            invoiceId,
+            ct,
+            executeAsync,
+            TryResolveSalesOrderIdFromDocumentNumberAsync);
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Create")]
     [McpServerTool(Name = "CreateSalesOrder"), Description("Create a sales order.")]
@@ -70,7 +60,17 @@ public class SalesOrderTools : JiwaToolBase
     public Task<string> ModifySalesOrder(SalesOrderPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
+            ArgumentNullException.ThrowIfNull(requestDTO);
+
+            var result = await ExecuteWithResolvedSalesOrderIdAsync(
+                requestDTO.InvoiceID,
+                ct,
+                async (invoiceId, innerCt) =>
+                {
+                    requestDTO.InvoiceID = invoiceId;
+                    return await JiwaApiClient.PatchAsync(requestDTO, innerCt);
+                });
+
             return result.ToJson<SalesOrder>();
         });
 
