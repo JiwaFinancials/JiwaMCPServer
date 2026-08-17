@@ -48,24 +48,48 @@ public static class BusinessToolMetadataMcpExtensions
         ArgumentNullException.ThrowIfNull(catalog);
         ArgumentNullException.ThrowIfNull(descriptionComposer);
 
+        // Create a new list to avoid concurrent modification of shared collection
+        var filteredTools = new List<Tool>(result.Tools.Count);
+
         foreach (var tool in result.Tools)
         {
-            if (!catalog.TryGetByToolName(tool.Name, out var descriptor) || descriptor is null)
+            // Skip alias tools
+            if (ToolAliasRegistry.IsAlias(tool.Name))
             {
                 continue;
             }
 
-            tool.Description = descriptionComposer.Compose(descriptor);
+            if (!catalog.TryGetByToolName(tool.Name, out var descriptor) || descriptor is null)
+            {
+                filteredTools.Add(tool);
+                continue;
+            }
 
-            tool.Meta ??= new JsonObject();
-            tool.Meta["entityType"] = descriptor.Metadata.EntityType;
-            tool.Meta["actionType"] = descriptor.Metadata.ActionType;
-            tool.Meta["aliases"] = JsonSerializer.SerializeToNode(descriptor.Metadata.Aliases, MetadataJsonOptions);
-            tool.Meta["tags"] = JsonSerializer.SerializeToNode(descriptor.Metadata.Tags, MetadataJsonOptions);
-            tool.Meta["intentPhrases"] = JsonSerializer.SerializeToNode(descriptor.Metadata.IntentPhrases, MetadataJsonOptions);
-            tool.Meta["searchText"] = descriptor.Metadata.SearchText;
+            // Create new metadata to avoid concurrent modification of shared JsonObject
+            var meta = new JsonObject
+            {
+                ["entityType"] = JsonValue.Create(descriptor.Metadata.EntityType),
+                ["actionType"] = JsonValue.Create(descriptor.Metadata.ActionType),
+                ["aliases"] = new JsonArray(descriptor.Metadata.Aliases.Select(a => JsonValue.Create(a)).ToArray()),
+                ["tags"] = new JsonArray(descriptor.Metadata.Tags.Select(t => JsonValue.Create(t)).ToArray()),
+                ["intentPhrases"] = new JsonArray(descriptor.Metadata.IntentPhrases.Select(p => JsonValue.Create(p)).ToArray()),
+                ["searchText"] = JsonValue.Create(descriptor.Metadata.SearchText)
+            };
+
+            // Create a new Tool instance with updated description and metadata
+            // to avoid mutating the shared Tool instance across concurrent requests
+            var updatedTool = new Tool
+            {
+                Name = tool.Name,
+                Description = descriptionComposer.Compose(descriptor),
+                InputSchema = tool.InputSchema,
+                Meta = meta
+            };
+
+            filteredTools.Add(updatedTool);
         }
 
+        result.Tools = filteredTools;
         return result;
     }
 }

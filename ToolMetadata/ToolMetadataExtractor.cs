@@ -76,9 +76,39 @@ public sealed class ToolMetadataExtractor
         {
             EntityType = string.IsNullOrWhiteSpace(methodLevel.EntityType) ? classLevel.EntityType : methodLevel.EntityType,
             ActionType = string.IsNullOrWhiteSpace(methodLevel.ActionType) ? classLevel.ActionType : methodLevel.ActionType,
-            Aliases = [.. classLevel.Aliases, .. methodLevel.Aliases],
-            Tags = [.. classLevel.Tags, .. methodLevel.Tags]
+            Aliases = [.. (classLevel.Aliases ?? []), .. (methodLevel.Aliases ?? [])],
+            Tags = [.. (classLevel.Tags ?? []), .. (methodLevel.Tags ?? [])],
+            RelatedEntities = MergeDelimitedValues(classLevel.RelatedEntities, methodLevel.RelatedEntities),
+            RequiredCompanionTools = MergeDelimitedValues(classLevel.RequiredCompanionTools, methodLevel.RequiredCompanionTools),
+            ExcludedTools = MergeDelimitedValues(classLevel.ExcludedTools, methodLevel.ExcludedTools)
         };
+    }
+
+    private static string? MergeDelimitedValues(string? classLevelValue, string? methodLevelValue)
+    {
+        var values = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        AddValues(classLevelValue);
+        AddValues(methodLevelValue);
+
+        return values.Count == 0 ? null : string.Join(',', values);
+
+        void AddValues(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return;
+            }
+
+            foreach (var value in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (seen.Add(value))
+                {
+                    values.Add(value);
+                }
+            }
+        }
     }
 
     private static IEnumerable<Type> GetToolTypes(Assembly assembly)

@@ -28,16 +28,7 @@ public sealed class DocumentTools(
         return contextId ?? FileStorageService.GetCurrentSessionId();
     }
 
-    [McpServerTool(ReadOnly = false), Description(
-        "document.ingest — ALWAYS call this as the FIRST STEP whenever a PDF, Word document, spreadsheet, or image " +
-        "has been uploaded and the user wants to analyse, extract, or query its content. " +
-        "Supply sourceFileId with the fileId returned by upload_file. " +
-        "If upload_file used clientSessionId, pass the same clientSessionId here to guarantee lookup in that session. " +
-        "The pipeline extracts text (including from FlateDecode-compressed PDFs), runs OCR if the text layer is empty, " +
-        "detects document type (Invoice/Statement/Contract/Report), extracts invoice fields " +
-        "(invoiceNumber/vendor/totalAmount/taxAmount/currency), chunks the text, generates embeddings, and indexes everything. " +
-        "Returns documentId which is required for document_search, document_extract_invoice, document_extract_tables, and document_get_summary. " +
-        "tenantId is optional — omit it and the session ID will be used automatically.")]
+    [McpServerTool(ReadOnly = false), Description("Ingest an uploaded document for search and extraction.")]
     public Task<string> DocumentIngest(
         string sourceFileId = "",
         string clientSessionId = "",
@@ -97,11 +88,7 @@ public sealed class DocumentTools(
         });
     }
 
-    [McpServerTool(ReadOnly = true), Description(
-        "document.search — Semantic search over an ingested document. " +
-        "Requires documentId from document_ingest. " +
-        "Returns ranked text chunks with page numbers and a suggested answer. " +
-        "tenantId is optional; omit to use the session default.")]
+    [McpServerTool(ReadOnly = true), Description("Search an ingested document.")]
     public Task<string> DocumentSearch(
         string documentId,
         string query,
@@ -125,9 +112,7 @@ public sealed class DocumentTools(
         });
     }
 
-    [McpServerTool(ReadOnly = true), Description(
-        "document.getSummary — Return title, document type, page count, key dates, key entities, invoice metadata, and a condensed text summary. " +
-        "Requires documentId from document_ingest. tenantId is optional.")]
+    [McpServerTool(ReadOnly = true), Description("Get an ingested document summary.")]
     public Task<string> DocumentGetSummary(string documentId, string tenantId = "")
     {
         return InvokeToolAsync(async () =>
@@ -138,9 +123,7 @@ public sealed class DocumentTools(
         });
     }
 
-    [McpServerTool(ReadOnly = true), Description(
-        "document.extractInvoice — Extract structured invoice fields: invoiceNumber, vendor, invoiceDate, totalAmount, taxAmount, currency. " +
-        "Requires documentId from document_ingest. tenantId is optional.")]
+    [McpServerTool(ReadOnly = true), Description("Extract invoice fields from an ingested document.")]
     public Task<string> DocumentExtractInvoice(string documentId, string tenantId = "")
     {
         return InvokeToolAsync(async () =>
@@ -151,9 +134,7 @@ public sealed class DocumentTools(
         });
     }
 
-    [McpServerTool(ReadOnly = true), Description(
-        "document.extractTables — Extract all structured tables (with headers, rows, and page references) from an ingested document. " +
-        "Requires documentId from document_ingest. tenantId is optional.")]
+    [McpServerTool(ReadOnly = true), Description("Extract tables from an ingested document.")]
     public Task<string> DocumentExtractTables(string documentId, string tenantId = "", int pageNumber = 0)
     {
         return InvokeToolAsync(async () =>
@@ -164,9 +145,7 @@ public sealed class DocumentTools(
         });
     }
 
-    [McpServerTool(ReadOnly = false), Description(
-        "document.delete — Delete an ingested document and all its chunks, embeddings, and metadata. " +
-        "Requires documentId from document_ingest. tenantId is optional.")]
+    [McpServerTool(ReadOnly = false), Description("Delete an ingested document.")]
     public Task<string> DocumentDelete(string documentId, string tenantId = "")
     {
         return InvokeToolAsync(async () =>
@@ -177,10 +156,7 @@ public sealed class DocumentTools(
         });
     }
 
-    [McpServerTool(ReadOnly = false), Description(
-        "document.reindex — Re-run the full extraction/OCR/chunking/embeddings/indexing pipeline for an existing document. " +
-        "Use forceOcr=true to run OCR even if a text layer was already found. " +
-        "Requires documentId from document_ingest. tenantId is optional.")]
+    [McpServerTool(ReadOnly = false), Description("Reindex an ingested document.")]
     public Task<string> DocumentReindex(string documentId, string tenantId = "", bool forceOcr = false)
     {
         return InvokeToolAsync(async () =>
@@ -191,7 +167,7 @@ public sealed class DocumentTools(
         });
     }
 
-    [McpServerTool(ReadOnly = true), Description("Return request/response schema contracts for document.ingest, document.search, document.getSummary, document.extractInvoice, and document.extractTables")]
+    [McpServerTool(ReadOnly = true), Description("Get document tool schema contracts.")]
     public Task<string> DocumentContracts()
     {
         return InvokeToolAsync(async () =>

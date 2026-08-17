@@ -27,10 +27,7 @@ public class WarehouseTools : JiwaToolBase
     };
 
     [BusinessTool(EntityType = "Warehouse", ActionType = "Search")]
-    [McpServerTool(Name = "ListWarehouses", ReadOnly = true), Description(@"List or search warehouses. A logical warehouse is a sub-division of a physical warehouse used for inventory management, and a physical warehouse contains one or more logical warehouses.
-                                                   Use this when the user asks to show warehouses or find a warehouse. Do not use it to determine the current warehouse; use GetCurrentWarehouse instead.
-                                                   Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters.
-                                                   For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
+    [McpServerTool(Name = "ListWarehouses", ReadOnly = true), Description("List or search warehouses.")]
     public Task<string> SearchWarehouses(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_WarehouseSelectionQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -47,9 +44,7 @@ public class WarehouseTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Warehouse", ActionType = "Get")]
-    [McpServerTool(Name = "GetCurrentWarehouse"), Description(@"Get the current warehouse selection for the user or session.
-                                  Use this when the user asks for the current warehouse, active warehouse, selected warehouse, or which warehouse they are in.
-                                  The response identifies the current logical warehouse and enough detail to infer the physical warehouse.")]
+    [McpServerTool(Name = "GetCurrentWarehouse"), Description("Get the current warehouse.")]
     public Task<string> GetCurrentLogicalWarehouse(CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -63,15 +58,7 @@ public class WarehouseTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Warehouse", ActionType = "Set")]
-    [McpServerTool(Name = "SetCurrentWarehouse"), Description(@"Change the current warehouse selection for the user or session.
-                                   Use this when the user asks to change the current warehouse, active warehouse, selected warehouse, or logical warehouse.
-                                   You can specify the warehouse using IN_LogicalID directly, or provide warehouseName in formats like:
-                                   - 'PhysicalName LogicalName' (e.g., 'Victoria Bulk')
-                                   - 'LogicalName PhysicalName' (e.g., 'Bulk Victoria')
-                                   - 'PhysicalName/LogicalName' (e.g., 'Victoria/Bulk')
-                                   - 'LogicalName/PhysicalName' (e.g., 'Bulk/Victoria')
-                                   - Just logical name alone (e.g., 'Bulk')
-                                   If ambiguous, the first matching warehouse will be used.")]
+    [McpServerTool(Name = "SetCurrentWarehouse"), Description("Set the current warehouse.")]
     public Task<string> ChangeCurrentLogicalWarehouse(SetCurrentWarehouseRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {

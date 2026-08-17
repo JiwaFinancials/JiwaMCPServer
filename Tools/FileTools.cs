@@ -110,7 +110,7 @@ public class FileTools : JiwaToolBase
     [McpServerTool(ReadOnly = true), Description(
         "Read an uploaded file by its fileId and return a text preview. " +
         "For PDFs this is a lightweight extraction preview only. " +
-        "When the user asks questions about a document, extract invoice fields, extract tables, or run semantic retrieval, ALWAYS use document_ingest first and then use document_search/document_extract_invoice/document_extract_tables. " +
+        "When the user asks questions about a document, extract invoice fields, extract tables, or run semantic retrieval, ALWAYS use document_ingest first and then use document_search/document_extract_invoice/document_extract_tables. " + 
         "If fileId is omitted or empty, reads the most recently uploaded file from this session.")]
     public Task<string> ReadUploadedFile(
         string fileId = "",
@@ -281,52 +281,14 @@ public class FileTools : JiwaToolBase
                 // else: let AsyncLocal value persist (set by middleware or test setup)
             }
 
-            string? fileIdForQuery = null;
-
-            if (!string.IsNullOrWhiteSpace(pathOrFileId))
+            var resolvedExcelFile = ResolveExcelPathOrFileId(pathOrFileId, "query_excel");
+            if (!resolvedExcelFile.IsSuccess)
             {
-                var looksLikePath = Path.IsPathRooted(pathOrFileId) ||
-                                    pathOrFileId.Contains(Path.DirectorySeparatorChar) ||
-                                    pathOrFileId.Contains(Path.AltDirectorySeparatorChar);
-
-                if (looksLikePath)
-                {
-                    if (!TryResolveAllowedPath(pathOrFileId, out var fullPath, out var pathError))
-                    {
-                        return new { error = pathError }.ToJson();
-                    }
-
-                    if (!File.Exists(fullPath))
-                    {
-                        return new { error = $"File '{fullPath}' was not found" }.ToJson();
-                    }
-
-                    if (!fullPath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return new { error = "Only .xlsx files are supported for query_excel path input" }.ToJson();
-                    }
-
-                    var fileBytes = await File.ReadAllBytesAsync(fullPath);
-                    var uploadResult = _fileStorage.UploadFile(
-                        Path.GetFileName(fullPath),
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        Convert.ToBase64String(fileBytes));
-
-                    if (!uploadResult.IsSuccess || string.IsNullOrWhiteSpace(uploadResult.FileId))
-                    {
-                        return new { error = uploadResult.Error ?? "Failed to stage local Excel file for querying" }.ToJson();
-                    }
-
-                    fileIdForQuery = uploadResult.FileId;
-                }
-                else
-                {
-                    fileIdForQuery = pathOrFileId;
-                }
+                return new { error = resolvedExcelFile.Error }.ToJson();
             }
 
             var result = _fileStorage.QueryExcelOrLatest(
-                fileIdForQuery,
+                resolvedExcelFile.FileId,
                 question,
                 string.IsNullOrWhiteSpace(sheetName) ? null : sheetName,
                 string.IsNullOrWhiteSpace(range) ? null : range);
@@ -379,52 +341,14 @@ public class FileTools : JiwaToolBase
                 // else: let AsyncLocal value persist (set by middleware or test setup)
             }
 
-            string? fileIdForDescribe = null;
-
-            if (!string.IsNullOrWhiteSpace(pathOrFileId))
+            var resolvedExcelFile = ResolveExcelPathOrFileId(pathOrFileId, "describe_excel");
+            if (!resolvedExcelFile.IsSuccess)
             {
-                var looksLikePath = Path.IsPathRooted(pathOrFileId) ||
-                                    pathOrFileId.Contains(Path.DirectorySeparatorChar) ||
-                                    pathOrFileId.Contains(Path.AltDirectorySeparatorChar);
-
-                if (looksLikePath)
-                {
-                    if (!TryResolveAllowedPath(pathOrFileId, out var fullPath, out var pathError))
-                    {
-                        return new { error = pathError }.ToJson();
-                    }
-
-                    if (!File.Exists(fullPath))
-                    {
-                        return new { error = $"File '{fullPath}' was not found" }.ToJson();
-                    }
-
-                    if (!fullPath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return new { error = "Only .xlsx files are supported for describe_excel path input" }.ToJson();
-                    }
-
-                    var fileBytes = await File.ReadAllBytesAsync(fullPath);
-                    var uploadResult = _fileStorage.UploadFile(
-                        Path.GetFileName(fullPath),
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        Convert.ToBase64String(fileBytes));
-
-                    if (!uploadResult.IsSuccess || string.IsNullOrWhiteSpace(uploadResult.FileId))
-                    {
-                        return new { error = uploadResult.Error ?? "Failed to stage local Excel file for description" }.ToJson();
-                    }
-
-                    fileIdForDescribe = uploadResult.FileId;
-                }
-                else
-                {
-                    fileIdForDescribe = pathOrFileId;
-                }
+                return new { error = resolvedExcelFile.Error }.ToJson();
             }
 
             var result = _fileStorage.DescribeExcelOrLatest(
-                fileIdForDescribe,
+                resolvedExcelFile.FileId,
                 string.IsNullOrWhiteSpace(sheetName) ? null : sheetName,
                 string.IsNullOrWhiteSpace(range) ? null : range);
 
@@ -480,52 +404,14 @@ public class FileTools : JiwaToolBase
                 // else: let AsyncLocal value persist (set by middleware or test setup)
             }
 
-            string? fileIdForRead = null;
-
-            if (!string.IsNullOrWhiteSpace(pathOrFileId))
+            var resolvedExcelFile = ResolveExcelPathOrFileId(pathOrFileId, "read_excel_rows");
+            if (!resolvedExcelFile.IsSuccess)
             {
-                var looksLikePath = Path.IsPathRooted(pathOrFileId) ||
-                                    pathOrFileId.Contains(Path.DirectorySeparatorChar) ||
-                                    pathOrFileId.Contains(Path.AltDirectorySeparatorChar);
-
-                if (looksLikePath)
-                {
-                    if (!TryResolveAllowedPath(pathOrFileId, out var fullPath, out var pathError))
-                    {
-                        return new { error = pathError }.ToJson();
-                    }
-
-                    if (!File.Exists(fullPath))
-                    {
-                        return new { error = $"File '{fullPath}' was not found" }.ToJson();
-                    }
-
-                    if (!fullPath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return new { error = "Only .xlsx files are supported for read_excel_rows path input" }.ToJson();
-                    }
-
-                    var fileBytes = await File.ReadAllBytesAsync(fullPath);
-                    var uploadResult = _fileStorage.UploadFile(
-                        Path.GetFileName(fullPath),
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        Convert.ToBase64String(fileBytes));
-
-                    if (!uploadResult.IsSuccess || string.IsNullOrWhiteSpace(uploadResult.FileId))
-                    {
-                        return new { error = uploadResult.Error ?? "Failed to stage local Excel file for row reading" }.ToJson();
-                    }
-
-                    fileIdForRead = uploadResult.FileId;
-                }
-                else
-                {
-                    fileIdForRead = pathOrFileId;
-                }
+                return new { error = resolvedExcelFile.Error }.ToJson();
             }
 
             var result = _fileStorage.ReadExcelRowsOrLatest(
-                fileIdForRead,
+                resolvedExcelFile.FileId,
                 string.IsNullOrWhiteSpace(sheetName) ? null : sheetName,
                 string.IsNullOrWhiteSpace(range) ? null : range,
                 skip,
@@ -806,6 +692,36 @@ public class FileTools : JiwaToolBase
     {
         return InvokeToolAsync(async () =>
         {
+            var configuredMaxBytes = Config.LocalFileSystemMaxReadBytes > 0 ? Config.LocalFileSystemMaxReadBytes : 256 * 1024;
+            var effectiveMaxBytes = Math.Min(maxBytes ?? configuredMaxBytes, configuredMaxBytes);
+            if (effectiveMaxBytes <= 0)
+            {
+                return new { error = "maxBytes must be greater than 0" }.ToJson();
+            }
+
+            if (_fileStorage.TryResolveUploadedFileReference(path, out var uploadedFileId))
+            {
+                var uploaded = _fileStorage.ReadFileBinary(uploadedFileId);
+                if (!uploaded.IsSuccess || uploaded.ContentBytes is null)
+                {
+                    return new { error = uploaded.Error }.ToJson();
+                }
+
+                var bytesToRead = (int)Math.Min(uploaded.SizeBytes, effectiveMaxBytes);
+                var uploadedText = Encoding.UTF8.GetString(uploaded.ContentBytes, 0, bytesToRead);
+
+                return new
+                {
+                    path,
+                    fileName = uploaded.FileName,
+                    sizeBytes = uploaded.SizeBytes,
+                    readBytes = bytesToRead,
+                    truncated = uploaded.SizeBytes > bytesToRead,
+                    maxBytes = effectiveMaxBytes,
+                    content = uploadedText
+                }.ToJson();
+            }
+
             if (!TryResolveAllowedPath(path, out var fullPath, out var error))
             {
                 return new { error }.ToJson();
@@ -821,23 +737,16 @@ public class FileTools : JiwaToolBase
                 return new { error = $"File '{fullPath}' was not found" }.ToJson();
             }
 
-            var configuredMaxBytes = Config.LocalFileSystemMaxReadBytes > 0 ? Config.LocalFileSystemMaxReadBytes : 256 * 1024;
-            var effectiveMaxBytes = Math.Min(maxBytes ?? configuredMaxBytes, configuredMaxBytes);
-            if (effectiveMaxBytes <= 0)
-            {
-                return new { error = "maxBytes must be greater than 0" }.ToJson();
-            }
-
             var fileInfo = new FileInfo(fullPath);
-            var bytesToRead = (int)Math.Min(fileInfo.Length, effectiveMaxBytes);
-            var buffer = new byte[bytesToRead];
+            var localBytesToRead = (int)Math.Min(fileInfo.Length, effectiveMaxBytes);
+            var buffer = new byte[localBytesToRead];
             var totalRead = 0;
 
             using (var stream = new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
             {
-                while (totalRead < bytesToRead)
+                while (totalRead < localBytesToRead)
                 {
-                    var read = await stream.ReadAsync(buffer.AsMemory(totalRead, bytesToRead - totalRead));
+                    var read = await stream.ReadAsync(buffer.AsMemory(totalRead, localBytesToRead - totalRead));
                     if (read == 0)
                     {
                         break;
@@ -890,6 +799,22 @@ public class FileTools : JiwaToolBase
                 // else: let AsyncLocal value persist (set by middleware or test setup)
             }
 
+            if (_fileStorage.TryResolveUploadedFileReference(path, out var uploadedFileId))
+            {
+                var uploaded = _fileStorage.ReadFileBinary(uploadedFileId);
+                if (!uploaded.IsSuccess || uploaded.ContentBytes is null)
+                {
+                    return new { error = uploaded.Error }.ToJson();
+                }
+
+                if (!TryGetStructuredFileQueryInfo(uploaded.FileName ?? path, out var uploadedQueryType, out _, out var uploadedError))
+                {
+                    return new { error = uploadedError }.ToJson();
+                }
+
+                return ExecuteStructuredFileQuery(uploadedFileId, uploadedQueryType, question);
+            }
+
             if (!TryResolveAllowedPath(path, out var fullPath, out var error))
             {
                 return new { error }.ToJson();
@@ -916,42 +841,98 @@ public class FileTools : JiwaToolBase
                 return new { error = uploadResult.Error ?? "Failed to stage local file for querying" }.ToJson();
             }
 
-            var fileId = uploadResult.FileId;
-
-            if (string.Equals(queryType, "csv", StringComparison.OrdinalIgnoreCase))
-            {
-                var result = _fileStorage.QueryCsv(fileId, question);
-                return result.IsSuccess
-                    ? new { results = result.Results ?? new List<string>() }.ToJson()
-                    : new { error = result.Error }.ToJson();
-            }
-
-            if (string.Equals(queryType, "xml", StringComparison.OrdinalIgnoreCase))
-            {
-                var result = _fileStorage.QueryXml(fileId, question);
-                return result.IsSuccess
-                    ? new { results = result.Results ?? new List<string>() }.ToJson()
-                    : new { error = result.Error }.ToJson();
-            }
-
-            if (string.Equals(queryType, "json", StringComparison.OrdinalIgnoreCase))
-            {
-                var result = _fileStorage.QueryJson(fileId, question);
-                return result.IsSuccess
-                    ? new { results = result.Results ?? new List<string>() }.ToJson()
-                    : new { error = result.Error }.ToJson();
-            }
-
-            if (string.Equals(queryType, "excel", StringComparison.OrdinalIgnoreCase))
-            {
-                var result = _fileStorage.QueryExcel(fileId, question);
-                return result.IsSuccess
-                    ? new { results = result.Results ?? new List<string>() }.ToJson()
-                    : new { error = result.Error }.ToJson();
-            }
-
-            return new { error = "Unsupported file type for local structured query" }.ToJson();
+            return ExecuteStructuredFileQuery(uploadResult.FileId, queryType, question);
         });
+    }
+
+    private (bool IsSuccess, string? FileId, string? Error) ResolveExcelPathOrFileId(string pathOrFileId, string operationName)
+    {
+        if (string.IsNullOrWhiteSpace(pathOrFileId))
+        {
+            return (true, null, null);
+        }
+
+        if (_fileStorage.TryResolveUploadedFileReference(pathOrFileId, out var uploadedFileId))
+        {
+            return (true, uploadedFileId, null);
+        }
+
+        if (!LooksLikePath(pathOrFileId))
+        {
+            return (true, pathOrFileId, null);
+        }
+
+        if (!TryResolveAllowedPath(pathOrFileId, out var fullPath, out var pathError))
+        {
+            return (false, null, pathError);
+        }
+
+        if (!File.Exists(fullPath))
+        {
+            return (false, null, $"File '{fullPath}' was not found");
+        }
+
+        if (!fullPath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+        {
+            return (false, null, $"Only .xlsx files are supported for {operationName} path input");
+        }
+
+        var fileBytes = File.ReadAllBytes(fullPath);
+        var uploadResult = _fileStorage.UploadFile(
+            Path.GetFileName(fullPath),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            Convert.ToBase64String(fileBytes));
+
+        if (!uploadResult.IsSuccess || string.IsNullOrWhiteSpace(uploadResult.FileId))
+        {
+            return (false, null, uploadResult.Error ?? $"Failed to stage local Excel file for {operationName}");
+        }
+
+        return (true, uploadResult.FileId, null);
+    }
+
+    private string ExecuteStructuredFileQuery(string fileId, string queryType, string question)
+    {
+        if (string.Equals(queryType, "csv", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = _fileStorage.QueryCsv(fileId, question);
+            return result.IsSuccess
+                ? new { results = result.Results ?? new List<string>() }.ToJson()
+                : new { error = result.Error }.ToJson();
+        }
+
+        if (string.Equals(queryType, "xml", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = _fileStorage.QueryXml(fileId, question);
+            return result.IsSuccess
+                ? new { results = result.Results ?? new List<string>() }.ToJson()
+                : new { error = result.Error }.ToJson();
+        }
+
+        if (string.Equals(queryType, "json", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = _fileStorage.QueryJson(fileId, question);
+            return result.IsSuccess
+                ? new { results = result.Results ?? new List<string>() }.ToJson()
+                : new { error = result.Error }.ToJson();
+        }
+
+        if (string.Equals(queryType, "excel", StringComparison.OrdinalIgnoreCase))
+        {
+            var result = _fileStorage.QueryExcel(fileId, question);
+            return result.IsSuccess
+                ? new { results = result.Results ?? new List<string>() }.ToJson()
+                : new { error = result.Error }.ToJson();
+        }
+
+        return new { error = "Unsupported file type for local structured query" }.ToJson();
+    }
+
+    private static bool LooksLikePath(string value)
+    {
+        return Path.IsPathRooted(value) ||
+               value.Contains(Path.DirectorySeparatorChar) ||
+               value.Contains(Path.AltDirectorySeparatorChar);
     }
 
     private static bool TryGetStructuredFileQueryInfo(string fullPath, out string queryType, out string mimeType, out string error)

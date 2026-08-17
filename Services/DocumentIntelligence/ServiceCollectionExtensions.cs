@@ -35,6 +35,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IOcrService, CompositeOcrService>();
 
         services.TryAddSingleton<SemanticChunker>();
+        services.TryAddSingleton<SemanticDocumentClassifier>();
         services.TryAddSingleton<IDocumentProcessingQueue, DocumentProcessingQueue>();
         services.TryAddSingleton<IDocumentPipeline, DocumentPipeline>();
 

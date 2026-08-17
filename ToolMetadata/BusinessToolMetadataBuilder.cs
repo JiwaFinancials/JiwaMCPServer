@@ -42,6 +42,9 @@ public sealed partial class BusinessToolMetadataBuilder
         var aliases = MergeTerms(entity?.Aliases, businessTool?.Aliases);
         var tags = MergeTerms(entity?.Tags, businessTool?.Tags);
         var intentPhrases = BuildIntentPhrases(actionType, entity?.Name, aliases);
+        var relatedEntities = ParseCommaDelimitedList(businessTool?.RelatedEntities);
+        var requiredCompanions = ParseCommaDelimitedList(businessTool?.RequiredCompanionTools);
+        var excludedTools = ParseCommaDelimitedList(businessTool?.ExcludedTools);
 
         var metadata = new BusinessToolMetadata
         {
@@ -50,7 +53,10 @@ public sealed partial class BusinessToolMetadataBuilder
             Aliases = aliases,
             Tags = tags,
             IntentPhrases = intentPhrases,
-            SearchText = BuildSearchText(toolName, description, actionType, entity?.Name, aliases, tags, intentPhrases)
+            SearchText = BuildSearchText(toolName, description, actionType, entity?.Name, aliases, tags, intentPhrases),
+            RelatedEntities = relatedEntities,
+            RequiredCompanionTools = requiredCompanions,
+            ExcludedTools = excludedTools
         };
 
         return metadata;
@@ -319,5 +325,19 @@ public sealed partial class BusinessToolMetadataBuilder
         }
 
         return value.Trim();
+    }
+
+    private static IReadOnlyList<string> ParseCommaDelimitedList(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        return value
+            .Split(',')
+            .Select(item => item.Trim())
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .ToList();
     }
 }

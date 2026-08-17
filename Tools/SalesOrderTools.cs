@@ -15,7 +15,7 @@ namespace JiwaMcpServer.Tools;
 public class SalesOrderTools : JiwaToolBase
 {
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Get")]
-    [McpServerTool(Name = "GetSalesOrderDetails"), Description("Get a specific sales order (SO) with full details. Accepts internal InvoiceID or visible invoice/order number and auto-resolves it. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "GetSalesOrderDetails"), Description("Get sales order details by InvoiceID or order number.")]
     public Task<string> GetSalesOrder(SalesOrderGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -26,19 +26,33 @@ public class SalesOrderTools : JiwaToolBase
                 var result = await JiwaApiClient.GetAsync(new SalesOrderGETRequest { InvoiceID = invoiceId }, ct);
                 return result.ToJson<SalesOrder>();
             }
-            catch (WebServiceException ex) when (ex.StatusCode == 404 && !string.IsNullOrWhiteSpace(invoiceId))
+            catch (WebServiceException ex) when (ShouldRetryIdentifierResolution(ex) && !string.IsNullOrWhiteSpace(invoiceId))
             {
                 var resolvedInvoiceId = await TryResolveSalesOrderIdFromDocumentNumberAsync(invoiceId, ct);
-                if (string.IsNullOrWhiteSpace(resolvedInvoiceId))
+                if (string.IsNullOrWhiteSpace(resolvedInvoiceId) ||
+                    string.Equals(resolvedInvoiceId, invoiceId, StringComparison.OrdinalIgnoreCase))
+                {
                     throw;
+                }
 
                 var resolved = await JiwaApiClient.GetAsync(new SalesOrderGETRequest { InvoiceID = resolvedInvoiceId }, ct);
                 return resolved.ToJson<SalesOrder>();
             }
         });
 
+    private static bool ShouldRetryIdentifierResolution(WebServiceException ex)
+    {
+        if (ex.StatusCode == 404)
+            return true;
+
+        var message = ex.Message ?? string.Empty;
+        return message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("couldn't find", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("cannot find", StringComparison.OrdinalIgnoreCase);
+    }
+
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Create")]
-    [McpServerTool(Name = "CreateSalesOrder"), Description("Create a new sales order (SO) for a customer. Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "CreateSalesOrder"), Description("Create a sales order.")]
     public Task<string> CreateSalesOrder(SalesOrderPOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -47,12 +61,12 @@ public class SalesOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Create", Aliases = ["create so", "new so"])]
-    [McpServerTool(Name = "CreateSO"), Description("Alias for CreateSalesOrder. Create a new sales order (SO) for a customer.")]
+    [McpServerTool(Name = "CreateSO"), Description("Alias for CreateSalesOrder.")]
     public Task<string> CreateSO(SalesOrderPOSTRequest requestDTO, CancellationToken ct = default)
         => CreateSalesOrder(requestDTO, ct);
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Update")]
-    [McpServerTool(Name = "UpdateSalesOrder"), Description("Update an existing sales order (SO). Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "UpdateSalesOrder"), Description("Update a sales order.")]
     public Task<string> ModifySalesOrder(SalesOrderPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -61,7 +75,7 @@ public class SalesOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Add")]
-    [McpServerTool(Name = "AddItemToSalesOrder"), Description("Add a product or line item to an existing sales order (SO). Sales orders are also known as sales invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. If InvoiceHistoryID is omitted, the current history (highest HistoryNo for that InvoiceID) is used.")]
+    [McpServerTool(Name = "AddItemToSalesOrder"), Description("Add a line to an existing sales order.")]
     public Task<string> AddAProductToASalesOrder(SalesOrderLinePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -94,13 +108,33 @@ public class SalesOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Add", Aliases = ["add so line", "add item to so"])]
-    [McpServerTool(Name = "AddItemToSO"), Description("Alias for AddItemToSalesOrder. Add a product or line item to an existing sales order (SO).")]
+    [McpServerTool(Name = "AddItemToSO"), Description("Alias for AddItemToSalesOrder.")]
     public Task<string> AddItemToSO(SalesOrderLinePOSTRequest requestDTO, CancellationToken ct = default)
         => AddAProductToASalesOrder(requestDTO, ct);
 
     private async Task<SalesOrderHistory?> ResolveCurrentHistoryAsync(string invoiceId, CancellationToken ct)
     {
-        var salesOrder = await JiwaApiClient.GetAsync(new SalesOrderGETRequest { InvoiceID = invoiceId }, ct);
+        var effectiveInvoiceId = invoiceId?.Trim();
+        if (string.IsNullOrWhiteSpace(effectiveInvoiceId))
+            return null;
+
+        SalesOrder? salesOrder;
+        try
+        {
+            salesOrder = await JiwaApiClient.GetAsync(new SalesOrderGETRequest { InvoiceID = effectiveInvoiceId }, ct);
+        }
+        catch (WebServiceException ex) when (ShouldRetryIdentifierResolution(ex))
+        {
+            var resolvedInvoiceId = await TryResolveSalesOrderIdFromDocumentNumberAsync(effectiveInvoiceId, ct);
+            if (string.IsNullOrWhiteSpace(resolvedInvoiceId) ||
+                string.Equals(resolvedInvoiceId, effectiveInvoiceId, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            salesOrder = await JiwaApiClient.GetAsync(new SalesOrderGETRequest { InvoiceID = resolvedInvoiceId }, ct);
+        }
+
         return salesOrder?.Histories?
             .Where(history => history != null && !string.IsNullOrWhiteSpace(history.InvoiceHistoryID))
             .OrderByDescending(history => history.HistoryNo ?? int.MinValue)
@@ -108,12 +142,7 @@ public class SalesOrderTools : JiwaToolBase
     }
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Search")]
-    [McpServerTool(Name = "ListSalesHistory", ReadOnly = true), Description("List or search sales history by customer, product, invoice, or other fields. Includes part numbers that were sold. Sales orders are also known as sales invoices. Use this when the user asks for sales history or what was sold. " +
-        "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
-        "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
-        "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
-        "Then call again with confirmLargeResultSet=true and that token. " +
-        "You can use the GetSalesOrderDetails tool to retrieve full details for a specific sales order if required.")]
+    [McpServerTool(Name = "ListSalesHistory", ReadOnly = true), Description("List sales history.")]
     public Task<string> SearchSalesInformation(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_SalesInformationQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -130,13 +159,7 @@ public class SalesOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "SalesOrder", ActionType = "Search")]
-    [McpServerTool(Name = "ListSalesOrders", ReadOnly = true), Description("List or search sales orders (SOs) by customer, order number, invoice, or other fields. Sales orders are also known as sales invoices. Use this when the user asks to show sales orders or sales invoices. " +
-        "Treat visible sales order/invoice numbers as the default user input and resolve them here first, then call GetSalesOrderDetails with the returned internal InvoiceID. " +
-        "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
-        "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
-        "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
-        "Then call again with confirmLargeResultSet=true and that token. " +
-        "You can use the GetSalesOrderDetails tool to retrieve full details for a specific sales order if required.")]
+    [McpServerTool(Name = "ListSalesOrders", ReadOnly = true), Description("List or search sales orders.")]
     public Task<string> SearchSalesOrders(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_SalesOrdersQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -150,6 +173,33 @@ public class SalesOrderTools : JiwaToolBase
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
             return CreateSearchResponseJson(allResults, Config.PageSize);
+        });
+
+    [BusinessTool(EntityType = "SalesOrder", ActionType = "Resolve", Aliases = ["resolve sales order number", "resolve invoice number", "sales order no to id", "invoice no to id", "document number to invoice id"])]
+    [McpServerTool(Name = "ResolveSalesOrderId", ReadOnly = true), Description("Resolve a sales order or invoice document number to InvoiceID.")]
+    public Task<string> ResolveSalesOrderId(string documentNumber, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(documentNumber);
+
+            var trimmedDocumentNumber = documentNumber.Trim();
+            var resolvedInvoiceId = await TryResolveSalesOrderIdFromDocumentNumberAsync(trimmedDocumentNumber, ct);
+            if (string.IsNullOrWhiteSpace(resolvedInvoiceId))
+            {
+                return new
+                {
+                    success = false,
+                    error = $"Unable to resolve sales order/invoice document number '{trimmedDocumentNumber}' to a unique InvoiceID.",
+                    hint = "Use ListSalesOrders with InvoiceNo or OrderNo to locate the correct InvoiceID, then retry."
+                }.ToJson();
+            }
+
+            return new
+            {
+                success = true,
+                documentNo = trimmedDocumentNumber,
+                invoiceID = resolvedInvoiceId
+            }.ToJson();
         });
 
     private static async Task<string?> TryResolveSalesOrderIdFromDocumentNumberAsync(string documentNumber, CancellationToken ct)

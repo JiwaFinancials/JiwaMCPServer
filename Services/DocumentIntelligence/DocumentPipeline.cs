@@ -18,6 +18,7 @@ public sealed class DocumentPipeline(
     IDocumentAuditLogger auditLogger,
     IMemoryCache cache,
     DocumentIntelligenceOptions options,
+    SemanticDocumentClassifier documentClassifier,
     ILogger<DocumentPipeline> logger) : IDocumentPipeline
 {
     public async Task<DocumentIngestResponse> IngestAsync(DocumentIngestRequest request, CancellationToken cancellationToken)
@@ -148,7 +149,7 @@ public sealed class DocumentPipeline(
             }
 
             var pageText = string.Join(Environment.NewLine + Environment.NewLine, pages.Select(p => p.Text));
-            var detectedType = DetectDocumentType(doc.FileName, pageText);
+            var detectedType = await documentClassifier.ClassifyAsync(doc.FileName, pageText, cancellationToken);
             var invoice = ExtractInvoice(pageText);
             var metadata = BuildMetadata(doc, pageText, pages, extracted.Metadata, detectedType, invoice);
 
@@ -368,36 +369,6 @@ public sealed class DocumentPipeline(
         return byPage.Values.OrderBy(x => x.PageNumber).ToArray();
     }
 
-    private static DocumentType DetectDocumentType(string fileName, string text)
-    {
-        var sample = (fileName + "\n" + text).ToLowerInvariant();
-        if (sample.Contains("invoice") || sample.Contains("tax invoice") || sample.Contains("bill to"))
-        {
-            return DocumentType.Invoice;
-        }
-
-        if (sample.Contains("statement") || sample.Contains("balance brought forward"))
-        {
-            return DocumentType.Statement;
-        }
-
-        if (sample.Contains("agreement") || sample.Contains("terms and conditions") || sample.Contains("party"))
-        {
-            return DocumentType.Contract;
-        }
-
-        if (sample.Contains("user guide") || sample.Contains("manual") || sample.Contains("troubleshooting"))
-        {
-            return DocumentType.Manual;
-        }
-
-        if (sample.Contains("report") || sample.Contains("executive summary"))
-        {
-            return DocumentType.Report;
-        }
-
-        return DocumentType.Unknown;
-    }
 
     private static InvoiceData? ExtractInvoice(string text)
     {

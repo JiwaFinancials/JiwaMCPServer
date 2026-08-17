@@ -127,6 +127,45 @@ public class FileStorageService
     }
 
     /// <summary>
+    /// Gets lightweight metadata for the most recently uploaded file in the current session.
+    /// Returns null if no active file is available.
+    /// </summary>
+    public UploadedFileInfo? GetLastUploadedFileInfo()
+    {
+        var sessionId = GetCurrentSessionId();
+        CleanupExpiredFiles(sessionId);
+
+        if (!_lastUploadedFilePerSession.TryGetValue(sessionId, out var lastFileId)
+            || string.IsNullOrWhiteSpace(lastFileId)
+            || !_sessionStorage.TryGetValue(sessionId, out var sessionFiles)
+            || !sessionFiles.TryGetValue(lastFileId, out var metadata)
+            || metadata.ExpiresAt <= DateTimeOffset.UtcNow)
+        {
+            return null;
+        }
+
+        return new UploadedFileInfo(metadata.FileId, metadata.FileName, metadata.MimeType);
+    }
+
+    /// <summary>
+    /// Gets lightweight metadata for the most recently uploaded active file across all sessions.
+    /// Returns null if no active file is available.
+    /// </summary>
+    public UploadedFileInfo? GetLastUploadedFileInfoAcrossSessions()
+    {
+        var latest = _sessionStorage
+            .Values
+            .SelectMany(sessionFiles => sessionFiles.Values)
+            .Where(metadata => metadata.ExpiresAt > DateTimeOffset.UtcNow)
+            .OrderByDescending(metadata => metadata.UploadedAt)
+            .FirstOrDefault();
+
+        return latest is null
+            ? null
+            : new UploadedFileInfo(latest.FileId, latest.FileName, latest.MimeType);
+    }
+
+    /// <summary>
     /// Validates MIME type against the allowed list.
     /// </summary>
     private static bool IsAllowedMimeType(string mimeType, string fileName)
@@ -375,6 +414,75 @@ public class FileStorageService
         }
 
         return ReadFileBinaryResult.CreateError($"File '{fileId}' not found in any active session");
+    }
+
+    /// <summary>
+    /// Resolves an uploaded file by an attachment-style reference such as its original file name or path.
+    /// </summary>
+    public bool TryResolveUploadedFileReference(string fileReference, out string fileId)
+    {
+        fileId = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(fileReference))
+            return false;
+
+        var sessionId = GetCurrentSessionId();
+        CleanupExpiredFiles(sessionId);
+
+        if (!_sessionStorage.TryGetValue(sessionId, out var sessionFiles) || sessionFiles.IsEmpty)
+            return false;
+
+        var candidates = GetFileReferenceCandidates(fileReference);
+        if (candidates.Count == 0)
+            return false;
+
+        var match = sessionFiles.Values
+            .Where(metadata => candidates.Contains(NormalizeFileReference(metadata.FileName)))
+            .OrderByDescending(metadata => metadata.UploadedAt)
+            .FirstOrDefault();
+
+        if (match is null)
+            return false;
+
+        fileId = match.FileId;
+        return true;
+    }
+
+    private static HashSet<string> GetFileReferenceCandidates(string fileReference)
+    {
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var normalizedReference = NormalizeFileReference(fileReference);
+        if (normalizedReference.Length == 0)
+            return candidates;
+
+        candidates.Add(normalizedReference);
+
+        var fileName = NormalizeFileReference(Path.GetFileName(normalizedReference));
+        if (fileName.Length > 0)
+        {
+            candidates.Add(fileName);
+        }
+
+        return candidates;
+    }
+
+    private static string NormalizeFileReference(string fileReference)
+    {
+        var normalized = fileReference.Trim();
+
+        if (normalized.Length >= 2)
+        {
+            var firstChar = normalized[0];
+            var lastChar = normalized[^1];
+            if ((firstChar == '"' && lastChar == '"') || (firstChar == '\'' && lastChar == '\''))
+            {
+                normalized = normalized[1..^1].Trim();
+            }
+        }
+
+        return normalized
+            .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
 
     /// <summary>
@@ -1486,6 +1594,8 @@ public class FileStorageService
         public static ReadFileBinaryResult CreateError(string error) =>
             new() { IsSuccess = false, Error = error };
     }
+
+    public sealed record UploadedFileInfo(string FileId, string FileName, string MimeType);
 
     /// <summary>
     /// Result of CSV query operation

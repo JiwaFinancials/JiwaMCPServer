@@ -1,168 +1,111 @@
-using System.Text;
-
 namespace JiwaMcpServer.ToolMetadata;
 
 public sealed class ToolDescriptionComposer
 {
-    private static readonly HashSet<string> AliasOnlyTools = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "GetPurchaseOrder",
-        "GetPO",
-        "CreatePO",
-        "AddItemToPO",
-        "CreateSO",
-        "AddItemToSO"
-    };
-
-    private readonly BusinessTerminologyRegistry _terminologyRegistry;
-
     public ToolDescriptionComposer(BusinessTerminologyRegistry terminologyRegistry)
     {
-        _terminologyRegistry = terminologyRegistry;
+        ArgumentNullException.ThrowIfNull(terminologyRegistry);
     }
 
     public string Compose(BusinessToolDescriptor descriptor)
     {
-        var metadata = descriptor.Metadata;
-        var action = string.IsNullOrWhiteSpace(metadata.ActionType) ? "Use" : metadata.ActionType;
-        var entity = string.IsNullOrWhiteSpace(metadata.EntityType) ? "BusinessEntity" : metadata.EntityType;
-        var synonyms = MergeDistinct(_terminologyRegistry.GetSynonyms(entity), metadata.Aliases);
-        var tags = metadata.Tags;
-        var commonRequests = BuildCommonRequests(action, synonyms, descriptor.ToolName);
-        var doNotUse = BuildDoNotUse(action, descriptor.ToolName);
-        var intentExamples = BuildIntentExamples(commonRequests, descriptor.ToolName);
+        ArgumentNullException.ThrowIfNull(descriptor);
 
-        var sb = new StringBuilder();
-        var baseDescription = string.IsNullOrWhiteSpace(descriptor.Description)
-            ? $"{descriptor.ToolName} business operation."
-            : descriptor.Description.Trim();
-        sb.AppendLine(baseDescription);
-
-        if (AliasOnlyTools.Contains(descriptor.ToolName))
+        var description = FirstSentence(descriptor.Description);
+        if (string.IsNullOrWhiteSpace(description))
         {
-            var canonical = ResolveCanonicalToolName(descriptor.ToolName);
-            sb.AppendLine();
-            sb.AppendLine($"Alias for {canonical}.");
+            description = BuildFallbackDescription(descriptor);
         }
 
-        if (synonyms.Count > 0)
+        description = AppendEntityDisambiguation(descriptor, description);
+        description = AppendWorkflowGuidance(descriptor, description);
+
+        if (ToolAliasRegistry.TryGetCanonicalName(descriptor.ToolName, out var canonicalToolName))
         {
-            sb.AppendLine();
-            sb.AppendLine($"Business synonyms: {string.Join(", ", synonyms)}.");
+            return $"{description} Use {canonicalToolName}.";
         }
 
-        if (tags.Count > 0)
-        {
-            sb.AppendLine($"Alternative terminology: {string.Join(", ", tags)}.");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine("Use this tool when users ask:");
-        foreach (var request in commonRequests)
-        {
-            sb.AppendLine($"- {request}");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine("Do not use this tool for:");
-        foreach (var notUse in doNotUse)
-        {
-            sb.AppendLine($"- {notUse}");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine("User intent examples:");
-        foreach (var example in intentExamples)
-        {
-            sb.AppendLine($"- User: {example.UserPhrase}");
-            sb.AppendLine($"  Tool: {example.ToolName}");
-        }
-
-        return sb.ToString().Trim();
+        return description;
     }
 
-    private static string ResolveCanonicalToolName(string toolName)
-        => toolName switch
+    private static string BuildFallbackDescription(BusinessToolDescriptor descriptor)
+    {
+        var action = string.IsNullOrWhiteSpace(descriptor.Metadata.ActionType)
+            ? "Use"
+            : descriptor.Metadata.ActionType.Trim();
+        var entity = string.IsNullOrWhiteSpace(descriptor.Metadata.EntityType)
+            ? descriptor.ToolName
+            : descriptor.Metadata.EntityType.Trim();
+
+        return $"{action} {SplitWords(entity)}.";
+    }
+
+    private static string AppendEntityDisambiguation(BusinessToolDescriptor descriptor, string description)
+    {
+        var entityType = descriptor.Metadata.EntityType;
+        var actionType = descriptor.Metadata.ActionType;
+
+        if (!string.Equals(actionType, "Create", StringComparison.OrdinalIgnoreCase))
         {
-            "GetPurchaseOrder" => "GetPurchaseOrderDetails",
-            "GetPO" => "GetPurchaseOrderDetails",
-            "CreatePO" => "CreatePurchaseOrder",
-            "AddItemToPO" => "AddItemToPurchaseOrder",
-            "CreateSO" => "CreateSalesOrder",
-            "AddItemToSO" => "AddItemToSalesOrder",
-            _ => toolName
+            return description;
+        }
+
+        var hint = entityType switch
+        {
+            "PurchaseOrder" => "This is a purchase order (PO), not a supplier invoice or creditor purchase",
+            "CreditorPurchase" => "This is a supplier invoice (creditor purchase), not a purchase order (PO)",
+            _ => null
         };
 
-    private static IReadOnlyList<(string UserPhrase, string ToolName)> BuildIntentExamples(IReadOnlyList<string> requests, string toolName)
-        => requests.Take(5).Select(x => (x, toolName)).ToArray();
-
-    private static IReadOnlyList<string> BuildCommonRequests(string actionType, IReadOnlyList<string> synonyms, string toolName)
-    {
-        var action = string.IsNullOrWhiteSpace(actionType)
-            ? "use"
-            : actionType.Trim().ToLowerInvariant();
-        var verbs = action switch
+        if (string.IsNullOrWhiteSpace(hint))
         {
-            "create" => new[] { "create", "add", "new" },
-            "get" => new[] { "get", "show", "view" },
-            "list" => new[] { "list", "show", "find" },
-            "search" => new[] { "search", "find", "show" },
-            "update" => new[] { "update", "edit", "change" },
-            "delete" => new[] { "delete", "remove" },
-            "set" => new[] { "set", "change" },
-            "add" => new[] { "add", "append" },
-            _ => new[] { action }
-        };
-
-        var requests = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var synonym in synonyms.DefaultIfEmpty(toolName))
-        {
-            foreach (var verb in verbs)
-            {
-                var phrase = $"{verb} {synonym}".Trim();
-                if (seen.Add(phrase))
-                {
-                    requests.Add(phrase);
-                }
-            }
+            return description;
         }
 
-        return requests.Take(8).ToArray();
-    }
-
-    private static IReadOnlyList<string> BuildDoNotUse(string actionType, string toolName)
-    {
-        var action = string.IsNullOrWhiteSpace(actionType)
-            ? "use"
-            : actionType.Trim().ToLowerInvariant();
-        return action switch
+        var trimmed = description.Trim();
+        if (trimmed.EndsWith('.'))
         {
-            "create" => ["updating existing records", "deleting records", "searching records"],
-            "get" => ["listing many records", "creating records", "deleting records"],
-            "list" or "search" => ["creating new records", "updating a specific record", "deleting records"],
-            "update" => ["creating new records", "deleting records", "searching records"],
-            "delete" => ["creating records", "updating records", "searching records"],
-            _ => ["unrelated business domains", "administrative tasks outside this tool", $"calling alias tools when {toolName} is not relevant"]
-        };
-    }
-
-    private static IReadOnlyList<string> MergeDistinct(IReadOnlyList<string> first, IReadOnlyList<string> second)
-    {
-        var merged = new List<string>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var value in first.Concat(second))
-        {
-            var normalized = value?.Trim();
-            if (string.IsNullOrWhiteSpace(normalized))
-                continue;
-
-            if (seen.Add(normalized))
-                merged.Add(normalized);
+            trimmed = trimmed[..^1];
         }
 
-        return merged;
+        return $"{trimmed}. {hint}.";
     }
+
+    private static string AppendWorkflowGuidance(BusinessToolDescriptor descriptor, string description)
+    {
+        var guidance = descriptor.ToolName switch
+        {
+            "DocumentIngest" => "Use this first for uploaded PDFs, Word documents, or images to obtain a documentId for extraction",
+            "DocumentExtractInvoice" => "Use this after DocumentIngest with the returned documentId to extract invoice fields",
+            _ => null
+        };
+
+        if (string.IsNullOrWhiteSpace(guidance))
+        {
+            return description;
+        }
+
+        var trimmed = description.Trim();
+        if (trimmed.EndsWith('.'))
+        {
+            trimmed = trimmed[..^1];
+        }
+
+        return $"{trimmed}. {guidance}.";
+    }
+
+    private static string FirstSentence(string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return string.Empty;
+        }
+
+        var trimmed = description.Trim();
+        var index = trimmed.IndexOf('.');
+        return index >= 0 ? trimmed[..(index + 1)] : trimmed;
+    }
+
+    private static string SplitWords(string value)
+        => System.Text.RegularExpressions.Regex.Replace(value, "([a-z0-9])([A-Z])", "$1 $2");
 }

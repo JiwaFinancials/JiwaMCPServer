@@ -1,4 +1,5 @@
 using JiwaMcpServer.Services.DocumentIntelligence;
+using JiwaMcpServer.ToolRouting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,6 +34,7 @@ public class DocumentPipelineTests
         var cache = new MemoryCache(new MemoryCacheOptions());
         var scanner = new PassThroughMalwareScanner();
         var audit = new LoggerAuditLogger(NullLogger<LoggerAuditLogger>.Instance);
+        var classifier = new SemanticDocumentClassifier(NullLogger<SemanticDocumentClassifier>.Instance);
 
         var extractors = new IDocumentExtractor[]
         {
@@ -49,7 +51,7 @@ public class DocumentPipelineTests
 
         return new DocumentPipeline(
             repo, queue, composite, ocrComposite, embeddingService,
-            vectorStore, chunker, scanner, audit, cache, options,
+            vectorStore, chunker, scanner, audit, cache, options, classifier,
             NullLogger<DocumentPipeline>.Instance);
     }
 

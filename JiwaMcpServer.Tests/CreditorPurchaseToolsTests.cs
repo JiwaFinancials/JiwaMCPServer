@@ -1,5 +1,6 @@
 using JiwaFinancials.Jiwa.JiwaServiceModel;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
+using JiwaMcpServer.Services;
 using JiwaMcpServer.Tools;
 using Xunit;
 
@@ -80,6 +81,73 @@ public class CreditorPurchaseToolsTests
 
         Assert.NotNull(task);
         Assert.IsAssignableFrom<Task<string>>(task);
+    }
+
+    [Fact]
+    public async Task ImportCreditorPurchaseFromLocalCsv_UploadedAttachmentPathOutsideAllowlist_ReadsUploadedCsv()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+        var attachedPath = @"C:\Users\scott\Downloads\creditor-purchase.csv";
+        var fileStorage = new FileStorageService();
+        var tools = new CreditorPurchaseTools(fileStorage);
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+            FileStorageService.SetSessionId($"creditor-import-{Guid.NewGuid():N}");
+
+            var csv = "CreditorID,Amount\r\n";
+            var upload = fileStorage.UploadFile("creditor-purchase.csv", "text/csv", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(csv)));
+            Assert.True(upload.IsSuccess);
+
+            var result = await tools.ImportCreditorPurchaseFromLocalCsv(attachedPath);
+
+            Assert.DoesNotContain("outside allowed roots", result, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("contains no data rows", result, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task ImportCreditorPurchaseFromLocalCsv_UploadedPdfPathOutsideAllowlist_ReturnsCsvValidationError()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+        var attachedPath = @"C:\Users\scott\Downloads\invoice.pdf";
+        var fileStorage = new FileStorageService();
+        var tools = new CreditorPurchaseTools(fileStorage);
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+            FileStorageService.SetSessionId($"creditor-import-{Guid.NewGuid():N}");
+
+            var upload = fileStorage.UploadFile("invoice.pdf", "application/pdf", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("pdf bytes")));
+            Assert.True(upload.IsSuccess);
+
+            var result = await tools.ImportCreditorPurchaseFromLocalCsv(attachedPath);
+
+            Assert.DoesNotContain("outside allowed roots", result, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Only .csv files are supported for ImportCreditorPurchaseFromLocalCsv", result, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
     }
 
     private static object[] Case(string methodName, params object?[] arguments)

@@ -145,9 +145,8 @@ public class BusinessToolMetadataTests
         var descriptionComposer = new ToolDescriptionComposer(new BusinessTerminologyRegistry());
         result.ApplyBusinessToolMetadata(catalog, descriptionComposer);
 
-        var enrichedDescription = (result.Tools.Single().Description ?? string.Empty).ToLowerInvariant();
-        Assert.Contains("business synonyms", enrichedDescription);
-        Assert.Contains("user intent examples", enrichedDescription);
+        var enrichedDescription = result.Tools.Single().Description ?? string.Empty;
+        Assert.Equal("Creates a supplier account.", enrichedDescription);
 
         var toolMeta = result.Tools.Single().Meta;
         Assert.NotNull(toolMeta);
@@ -173,6 +172,87 @@ public class BusinessToolMetadataTests
         Assert.Contains("supplier", descriptor.Metadata.Aliases);
     }
 
+    [Fact]
+    public void AttributeMerge_PreservesCompanionAndExclusionMetadata()
+    {
+        var extractor = new ToolMetadataExtractor(new BusinessToolMetadataBuilder(new BusinessEntityRegistry()));
+
+        var descriptors = extractor.ExtractFromAssemblies([typeof(TestMcpTools).Assembly]);
+        var descriptor = descriptors.Single(x => x.ToolName == "MergedMetadataCreateSupplier");
+
+        Assert.Contains("Customer", descriptor.Metadata.RelatedEntities);
+        Assert.Contains("Document", descriptor.Metadata.RelatedEntities);
+        Assert.Contains("ListSuppliers", descriptor.Metadata.RequiredCompanionTools);
+        Assert.Contains("GetSupplierDetails", descriptor.Metadata.RequiredCompanionTools);
+        Assert.Contains("DeleteSupplier", descriptor.Metadata.ExcludedTools);
+        Assert.Contains("UpdateSupplier", descriptor.Metadata.ExcludedTools);
+    }
+
+    [Fact]
+    public void ApplyBusinessToolMetadata_RemovesAliasToolsFromList()
+    {
+        var extractor = new ToolMetadataExtractor(new BusinessToolMetadataBuilder(new BusinessEntityRegistry()));
+        var catalog = new BusinessToolMetadataCatalog(extractor.ExtractFromAssemblies([typeof(PurchaseOrderTools).Assembly]));
+        var composer = new ToolDescriptionComposer(new BusinessTerminologyRegistry());
+        var result = new ListToolsResult
+        {
+            Tools =
+            [
+                new Tool
+                {
+                    Name = "CreatePurchaseOrder",
+                    Description = "Create a purchase order.",
+                    InputSchema = JsonDocument.Parse("{\"type\":\"object\"}").RootElement.Clone()
+                },
+                new Tool
+                {
+                    Name = "CreatePO",
+                    Description = "Alias for CreatePurchaseOrder.",
+                    InputSchema = JsonDocument.Parse("{\"type\":\"object\"}").RootElement.Clone()
+                }
+            ]
+        };
+
+        result.ApplyBusinessToolMetadata(catalog, composer);
+
+        Assert.Collection(
+            result.Tools,
+            tool => Assert.Equal("CreatePurchaseOrder", tool.Name));
+    }
+
+    [Fact]
+    public void AliasRegistry_CoversAllAliasToolDescriptions()
+    {
+        var extractor = new ToolMetadataExtractor(new BusinessToolMetadataBuilder(new BusinessEntityRegistry()));
+        var descriptors = extractor.ExtractFromAssemblies([typeof(SupplierTools).Assembly]);
+        var aliasDescriptors = descriptors
+            .Where(x => x.Description.StartsWith("Alias for ", StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.NotEmpty(aliasDescriptors);
+        Assert.All(aliasDescriptors, descriptor =>
+        {
+            Assert.True(ToolAliasRegistry.TryGetCanonicalName(descriptor.ToolName, out var canonicalToolName));
+            Assert.Equal($"Alias for {canonicalToolName}.", descriptor.Description);
+        });
+    }
+
+    [Fact]
+    public void ToolDescriptions_AreSingleSentenceAndTrimmed()
+    {
+        var extractor = new ToolMetadataExtractor(new BusinessToolMetadataBuilder(new BusinessEntityRegistry()));
+        var descriptors = extractor.ExtractFromAssemblies([typeof(SupplierTools).Assembly]);
+
+        Assert.All(descriptors, descriptor =>
+        {
+            Assert.DoesNotContain("GetDtoSchema", descriptor.Description, StringComparison.Ordinal);
+            Assert.DoesNotContain("Supports pagination", descriptor.Description, StringComparison.Ordinal);
+            Assert.DoesNotContain("For large result sets", descriptor.Description, StringComparison.Ordinal);
+            Assert.DoesNotContain("Use this tool when", descriptor.Description, StringComparison.Ordinal);
+            Assert.DoesNotContain(". ", descriptor.Description);
+        });
+    }
+
     [McpServerToolType]
     private class TestMcpTools
     {
@@ -193,5 +273,15 @@ public class BusinessToolMetadataTests
         [McpServerTool(Name = "ClassLevelListSuppliers")]
         [Description("List suppliers for matching.")]
         public string ListSuppliers() => "ok";
+    }
+
+    [McpServerToolType]
+    [BusinessTool(EntityType = "Supplier", ActionType = "Create", RelatedEntities = "Customer", RequiredCompanionTools = "ListSuppliers", ExcludedTools = "DeleteSupplier")]
+    private class MergedMetadataTestTools
+    {
+        [BusinessTool(RelatedEntities = "Document", RequiredCompanionTools = "GetSupplierDetails", ExcludedTools = "UpdateSupplier")]
+        [McpServerTool(Name = "MergedMetadataCreateSupplier")]
+        [Description("Create supplier with merged metadata.")]
+        public string CreateSupplier() => "ok";
     }
 }

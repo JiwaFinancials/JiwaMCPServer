@@ -10,6 +10,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 - [Large Result Set Confirmation](#large-result-set-confirmation)
 - [Warehouse Context Synchronization](#warehouse-context-synchronization)
 - [Configuration](#configuration)
+  - [Tool Routing and Diagnostics](#tool-routing-and-diagnostics)
   - [Per-Request API Key](#per-request-api-key)
 - [Building and Running](#building-and-running)
 - [Testing](#testing)
@@ -37,10 +38,11 @@ JiwaMcpServer/
 ├── appsettings.json
 ├── Tools/
 │   ├── JiwaToolBase.cs
-│   ├── FileTools.cs              (File upload, retrieval, CSV/XML/JSON/Excel queries)
+│   ├── BusinessDiscoveryTools.cs (Business capability catalog/discovery)
+│   ├── FileTools.cs              (File upload, local file access, CSV/XML/JSON/Excel queries)
 │   ├── DocumentTools.cs          (Document intelligence + RAG: ingest/search/extract)
 │   ├── CustomerTools.cs
-│   ├── FormTools.cs
+│   ├── FormTools.cs              (Prompt-aware form lookup and record-aware open requests)
 │   ├── ProductTools.cs
 │   ├── SalesOrderTools.cs
 │   ├── PurchaseOrderTools.cs
@@ -48,6 +50,8 @@ JiwaMcpServer/
 │   ├── SupplierTools.cs
 │   ├── WarehouseTools.cs
 │   └── SchemaTools.cs
+├── ToolMetadata/                (Business metadata, terminology, aliases, form mappings)
+├── ToolRouting/                 (Retrieval-augmented routing, diagnostics, health endpoints)
 ├── Services/
 │   ├── JiwaApiClient.cs
 │   ├── FileStorageService.cs
@@ -68,7 +72,9 @@ JiwaMcpServer/
 │       └── DatabaseSchema.sql              (PostgreSQL + pgvector production schema)
 └── JiwaMcpServer.Tests/
     ├── JiwaMcpServer.Tests.csproj
-    └── DocumentPipelineTests.cs
+    ├── DocumentPipelineTests.cs
+    ├── FormToolsTests.cs
+    └── ToolRouting*Tests.cs
 ```
 
 ---
@@ -81,15 +87,15 @@ JiwaMcpServer/
 | `upload_file` | Upload and store a base64-encoded file. Returns a unique `fileId` for reference. Supports text files up to 50 MB; allowed MIME types: `text/*`, `application/json`, `application/xml`, `application/sql`, `application/pdf`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`, `image/png`, `image/jpeg`, `image/gif`, `image/webp`, and `application/octet-stream` for `.sql`/`.pdf`/`.docx`/`.xlsx`/`.png`/`.jpg`/`.jpeg`/`.gif`/`.webp` files. |
 | `read_uploaded_file` | Retrieve the content of a previously uploaded file by its `fileId`, or omit the ID to read the most recently uploaded file in this session. |
 | `query_csv` | Execute natural language queries on CSV files (e.g., "How many rows?", "Show me the Name column"). If no `fileId` is provided, queries the most recently uploaded CSV file in this session. Supports field extraction, counting, and summarization. |
-| `query_excel` | Execute natural language queries on Excel (`.xlsx`) files by `fileId` or local path. Optional `sheetName` and `range` parameters target specific worksheet data. If omitted, it uses the latest uploaded Excel file in the session and the worksheet used range. |
-| `describe_excel` | Describe an Excel workbook by `fileId` or local path. Returns sheet list, used ranges, selected sheet/range, inferred headers, and data row count to help craft better follow-up questions. |
-| `read_excel_rows` | Read Excel rows deterministically for import workflows by `fileId` or local path. Returns `headers`, `rows`, `totalRows`, `returnedRows`, and `hasMore`, with optional `sheetName`, `range`, `skip`, and `take` paging controls. |
+| `query_excel` | Execute natural language queries on Excel (`.xlsx`) files by `fileId`, uploaded-file reference, or allowed local path. Optional `sheetName` and `range` parameters target specific worksheet data. If omitted, it uses the latest uploaded Excel file in the session and the worksheet used range. |
+| `describe_excel` | Describe an Excel workbook by `fileId`, uploaded-file reference, or allowed local path. Returns sheet list, used ranges, selected sheet/range, inferred headers, and data row count to help craft better follow-up questions. |
+| `read_excel_rows` | Read Excel rows deterministically for import workflows by `fileId`, uploaded-file reference, or allowed local path. Returns `headers`, `rows`, `totalRows`, `returnedRows`, and `hasMore`, with optional `sheetName`, `range`, `skip`, and `take` paging controls. |
 | `query_xml` | Execute natural language queries on XML files (e.g., "How many elements?", "Find the config element"). If no `fileId` is provided, queries the most recently uploaded XML file in this session. Supports element search, structure summarization, and top 10 result limiting. |
 | `query_json` | Execute natural language queries on JSON files (e.g., "How many keys?", "Show me the settings property"). If no `fileId` is provided, queries the most recently uploaded JSON file in this session. Supports key search, value extraction, array/object navigation, and top 10 result limiting. |
-| `SaveLocalFile` | Save or create a local text file (`.csv`, `.txt`, `.json`, `.xml`) under an allowed root. Use this for export/save-to-disk requests. |
+| `SaveLocalFile` | Save or create a local text file (`.csv`, `.txt`, `.json`, `.xml`) under an allowed root. Use this for export/save-to-disk requests. Output is limited by `LocalFileSystem:MaxWriteBytes`. |
 | `list_local_directory` | List files/folders from an allowed local or UNC **directory** path. Access is restricted to configured `LocalFileSystem:AllowedRoots`. |
-| `read_local_file` | Read text content from an allowed local or UNC **file** path. If the path is a folder, use `list_local_directory` instead. Output is limited by `LocalFileSystem:MaxReadBytes` and may be truncated. |
-| `query_local_structured_file` | Query a local structured file directly by path with natural language. Supports `.csv`, `.xml`, `.json`, and `.xlsx` under `LocalFileSystem:AllowedRoots`. |
+| `read_local_file` | Read text content from an allowed local or UNC **file** path, or from an uploaded-file reference/filename when the file is already staged in the current session. If the path is a folder, use `list_local_directory` instead. Output is limited by `LocalFileSystem:MaxReadBytes` and may be truncated. |
+| `query_local_structured_file` | Query a local structured file directly by allowed path, or by uploaded-file reference/filename, with natural language. Supports `.csv`, `.xml`, `.json`, and `.xlsx`. |
 
 **Latest File Convenience:** You don't need to copy/paste `fileId` values! All file query tools (`query_csv`, `query_excel`, `query_xml`, `query_json`) and `read_uploaded_file` will automatically use the most recently uploaded file in your session if you omit or leave empty the `fileId` parameter. This enables natural workflows like:
 1. Upload a CSV file
@@ -98,7 +104,12 @@ JiwaMcpServer/
 
 For deterministic import pipelines (for example debtor/customer imports), use `read_excel_rows` instead of natural-language query tools so row data is returned in a predictable paged structure.
 
-**Session Isolation:** Files are stored per client connection.
+**Session Isolation:** Files are stored per client connection, while file IDs and uploaded-file references can be reused across related follow-up tools in the same workflow.
+
+### BusinessDiscoveryTools
+| Tool | Description |
+|---|---|
+| `GetAvailableBusinessActions` | Return the business tool catalog grouped by area (customers, suppliers, supplier invoices, purchase orders, sales orders, inventory, warehouses, documents, and files). Useful when a client needs a concise capability map before choosing a tool. |
 
 ---
 
@@ -258,18 +269,21 @@ User           Chat UI       MCP Bridge     MCP Server (DocumentTools)     LLM
 ### FormTools
 | Tool | Description |
 |---|---|
-| `SearchForms` | Search forms and plugins by field. |
-| `OpenAForm` | Open a Jiwa form or plugin, optionally with a specific record loaded via `DrillDownID`. |
+| `ListForms` | Search forms and plugins by description, class name, prompt terms, and configured aliases. `FormNameMappings` can bias common requests such as `po` or `inventory` to the expected Jiwa class. |
+| `OpenForm` | Resolve a Jiwa form/plugin from natural language and optionally a document number, then return the `className` and `drillDownID` needed to open a specific record when resolution succeeds. |
 
 ### SalesOrderTools
 | Tool | Description |
 |---|---|
-| `GetSalesOrder` | Get full details for a sales order (sales invoice) by internal `InvoiceID`, or pass a visible sales order/invoice number and the tool will auto-resolve it. |
+| `GetSalesOrderDetails` | Get full details for a sales order (sales invoice) by internal `InvoiceID`, or pass a visible sales order/invoice number and the tool will auto-resolve it. |
 | `CreateSalesOrder` | Create a sales order. |
-| `ModifySalesOrder` | Modify an existing sales order. |
-| `AddAProductToASalesOrder` | Add a product line to an existing sales order. |
-| `SearchSalesInformation` | Search detailed sales information (including sold part numbers). |
-| `SearchSalesOrders` | Search sales order headers; use this first to resolve visible sales order/invoice numbers to internal `InvoiceID` before calling `GetSalesOrder`. |
+| `CreateSO` | Alias for `CreateSalesOrder`. |
+| `UpdateSalesOrder` | Modify an existing sales order. |
+| `AddItemToSalesOrder` | Add a product line to an existing sales order. |
+| `AddItemToSO` | Alias for `AddItemToSalesOrder`. |
+| `ResolveSalesOrderId` | Resolve a visible sales order/invoice document number to internal `InvoiceID`. |
+| `ListSalesHistory` | Search detailed sales information, including sold part numbers. |
+| `ListSalesOrders` | Search sales order headers; use this first to resolve visible sales order/invoice numbers to internal `InvoiceID` before calling `GetSalesOrderDetails`. |
 
 ### PurchaseOrderTools
 | Tool | Description |
@@ -280,9 +294,11 @@ User           Chat UI       MCP Bridge     MCP Server (DocumentTools)     LLM
 | `CreatePurchaseOrder` | Create a purchase order header. |
 | `CreatePO` | Alias for `CreatePurchaseOrder`. |
 | `CreatePurchaseOrderWithLines` | Create a purchase order header and add multiple part lines in one call; when configured, missing parts are skipped and the PO is still created. |
+| `CreatePOWithLines` | Alias for `CreatePurchaseOrderWithLines`. |
 | `UpdatePurchaseOrder` | Modify an existing purchase order. |
 | `AddItemToPurchaseOrder` | Add a product line to an existing purchase order. |
 | `AddItemToPO` | Alias for `AddItemToPurchaseOrder`. |
+| `ResolvePurchaseOrderId` | Resolve a visible purchase order document number to internal `PurchaseOrderID` (`OrderID`). |
 | `ListPurchaseHistory` | Search current and historical purchase detail, including purchased part numbers; use `GetPurchaseOrderDetails` to retrieve full details for a specific purchase order. |
 | `ListPurchaseOrders` | Search current and historical purchase order header data. Use this first when the user provides a PO/document number (for example, `PO 100191`) so you can resolve `OrderNo` to `OrderID` before calling `GetPurchaseOrderDetails`. |
 | `DeletePurchaseOrder` | Delete a purchase order. |
@@ -295,8 +311,9 @@ Creditor purchase tools cover creditor purchase headers, lines, documents, notes
 | Tool | Description |
 |---|---|
 | `ActivateCreditorPurchase` | Activate a creditor purchase. |
-| `CreateCreditorPurchase` | Create a creditor purchase. For local-file imports, first use FileTools (`list_local_directory`, `read_local_file`, or `query_local_structured_file`) to read/parse the allowed local path, then map fields into the create request. |
-| `ImportCreditorPurchaseFromLocalCsv` | Create a new creditor purchase directly from a local CSV path under `LocalFileSystem:AllowedRoots` (file path or folder with a single CSV). Creates the purchase and adds one line per row. |
+| `CreateCreditorPurchase` | Create a creditor purchase. For file-driven imports, either map the data yourself after using FileTools, or use `ImportCreditorPurchaseFromLocalCsv` when the source is a CSV. |
+| `ImportCreditorPurchaseFromLocalCsv` | Create a new creditor purchase from either an uploaded CSV attachment/reference or a local CSV path under `LocalFileSystem:AllowedRoots` (file path or folder with a single CSV). Creates the purchase and adds one line per row, resolving the creditor from the parameter or CSV data. |
+| `ResolveCreditorPurchaseBatchId` | Resolve a visible supplier invoice/batch document number to internal `BatchID`. |
 | `GetCreditorPurchase` | Retrieve a creditor purchase by internal `BatchID`, or pass visible supplier purchase batch/document/invoice numbers and the tool will auto-resolve where possible. |
 | `UpdateCreditorPurchase` | Update a creditor purchase. |
 | `DeleteCreditorPurchase` | Delete a creditor purchase. |
@@ -444,7 +461,8 @@ Configuration is stored in `appsettings.json` in the application directory.
       "C:\\Allowed\\Folder",
       "\\\\fileserver\\share\\finance"
     ],
-    "MaxReadBytes": 262144
+    "MaxReadBytes": 262144,
+    "MaxWriteBytes": 262144
   },
   "DocumentIntelligence": {
     "MaxDocumentSizeBytes": 83886080,
@@ -474,21 +492,58 @@ Configuration is stored in `appsettings.json` in the application directory.
       "ExecutablePath": "tesseract",
       "Language": "eng"
     }
+  },
+  "FormNameMappings": {
+    "po": "JiwaFinancials.Jiwa.JiwaPurchaseOrdersUI.PurchaseOrders",
+    "purchase order": "JiwaFinancials.Jiwa.JiwaPurchaseOrdersUI.PurchaseOrders",
+    "inventory": "JiwaFinancials.Jiwa.JiwaInventoryUI.InventoryMaintenanceForm"
+  },
+  "ToolRouting": {
+    "EnableRouting": true,
+    "EnableDomainClassification": true,
+    "RetrievalTopK": 20,
+    "MaxSelectedTools": 5,
+    "SimilarityThreshold": 0.2,
+    "EmbeddingDimensions": 768
+  },
+  "ToolRoutingDiagnostics": {
+    "EnableDetailedLogging": true,
+    "EnablePromptLogging": true,
+    "EnableMetrics": true,
+    "EnableDiagnosticEndpoint": true,
+    "RestrictDiagnosticEndpointToLocalhost": true,
+    "DiagnosticApiKeyHeaderName": "X-Tool-Routing-Diagnostics-Key",
+    "DiagnosticApiKey": ""
   }
 }
 ```
 
 | Setting | Description |
 |---|---|
-| `JiwaAPIURL` | The base URL of your Jiwa Financials REST API |
+| `JiwaAPIURL` | The base URL of your Jiwa Financials REST API. |
 | `JiwaAPIKey` | *(Optional)* A server-side fallback Jiwa API key. When set, it is used for any request that does not supply its own key via the `X-Jiwa-API-Key` header. Can be left blank if all clients supply their own key. |
 | `PageSize` | *(Optional)* Default page size used by paginated search/list tools. Default is `100`. |
 | `Plugins` | *(Optional)* Plugin loading settings. `Folder` is scanned for `*.dll` assemblies at startup, and `Assemblies` can include explicit relative or absolute DLL paths. |
-| `LocalFileSystem:AllowedRoots` | *(Optional)* Absolute local and/or UNC root paths that `list_local_directory`, `read_local_file`, and path-based file tools (`query_excel`, `describe_excel`, `read_excel_rows`, `query_local_structured_file`) are allowed to access. If empty, local file tools are disabled. |
+| `LocalFileSystem:AllowedRoots` | *(Optional)* Absolute local and/or UNC root paths that local path tools are allowed to access. If empty, local file tools are disabled. |
 | `LocalFileSystem:MaxReadBytes` | *(Optional)* Maximum bytes returned by one `read_local_file` call. Default is `262144` (256 KB). |
+| `LocalFileSystem:MaxWriteBytes` | *(Optional)* Maximum UTF-8 payload size accepted by `SaveLocalFile`. Default is `262144` (256 KB). |
 | `DocumentIntelligence` | *(Optional)* Document ingestion, OCR, chunking, embeddings, and RAG settings. `EnableBackgroundProcessing` queues work, `Chunk*` controls chunking, `MinimumExtractedCharactersBeforeOcr` controls the OCR fallback threshold, and `Embeddings`/`AzureDocumentIntelligence`/`Tesseract` configure the retrieval and OCR backends. |
+| `FormNameMappings` | *(Optional)* Friendly prompt aliases for `ListForms` and `OpenForm`. Map short business terms such as `po` or `inventory` to Jiwa form class names. |
+| `ToolRouting` | *(Optional)* Retrieval-augmented MCP tool selection settings. Controls whether routing is enabled, whether domain classification runs, candidate pool sizes, and selection thresholds. |
+| `ToolRoutingDiagnostics` | *(Optional)* Structured logging, metrics, and diagnostics endpoint settings for tool routing observability. |
 
-> **Note:** `JiwaAPIURL` is required. `JiwaAPIKey`, `PageSize`, `Plugins`, `LocalFileSystem`, and `DocumentIntelligence` are optional — see [Per-Request API Key](#per-request-api-key) below.
+> **Note:** `JiwaAPIURL` is required. `JiwaAPIKey`, `PageSize`, `Plugins`, `LocalFileSystem`, `DocumentIntelligence`, `FormNameMappings`, `ToolRouting`, and `ToolRoutingDiagnostics` are optional — see [Per-Request API Key](#per-request-api-key) below.
+
+### Tool Routing and Diagnostics
+
+When an MCP client sends `X-User-Prompt` or `X-Tool-Query`, the server can pre-filter the MCP tool list before it reaches the cloud model. Each routed request also returns `X-Tool-Routing-Id`, which you can use to correlate logs and diagnostics.
+
+| Endpoint / Header | Purpose |
+|---|---|
+| `GET /health/tool-routing` | Health check for the routing pipeline and its embedding/vector services. |
+| `GET /diagnostics/tool-routing/latest` | Return the latest captured routing decision. Controlled by `ToolRoutingDiagnostics` settings and, by default, restricted to localhost. |
+| `X-Tool-Routing-Id` | Response header that identifies the routing decision for a request. |
+| `X-Tool-Query` / `X-User-Prompt` | Request headers a client can send to help the server select the most relevant tool subset. |
 
 ### Plugin Tools
 

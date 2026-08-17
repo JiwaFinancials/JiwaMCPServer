@@ -15,9 +15,11 @@ namespace JiwaMcpServer.Tools;
 
 [McpServerToolType]
 [BusinessTool(EntityType = "CreditorPurchase", Aliases = ["creditor purchase", "supplier purchase batch"], Tags = ["accounts payable", "supplier transactions", "creditor purchases"]) ]
-public class CreditorPurchaseTools : JiwaToolBase
+public class CreditorPurchaseTools(FileStorageService? fileStorage = null) : JiwaToolBase
 {
-    [McpServerTool, Description("Activates a creditor purchase. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    private readonly FileStorageService _fileStorage = fileStorage ?? new();
+
+    [McpServerTool, Description("Activate a supplier invoice.")]
     public Task<string> ActivateCreditorPurchase(CreditorPurchaseACTIVATERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -25,7 +27,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a list of custom field values for a creditor purchase. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get supplier invoice custom field values.")]
     public Task<string> GetCreditorPurchaseCustomFieldValues(CreditorPurchaseCustomFieldValuesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -33,7 +35,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a list of creditor purchase lines. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get supplier invoice lines.")]
     public Task<string> GetCreditorPurchaseLines(CreditorPurchaseLinesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -41,7 +43,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Appends a line to a creditor purchase. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Add a line to a supplier invoice.")]
     public Task<string> AddCreditorPurchaseLine(CreditorPurchaseLinePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -49,7 +51,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a list of creditor purchase line custom fields. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get supplier invoice line custom fields.")]
     public Task<string> GetCreditorPurchaseLineCustomFields(CreditorPurchaseLineCustomFieldsGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -57,7 +59,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a creditor purchase document type. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get a supplier invoice document type.")]
     public Task<string> GetCreditorPurchaseDocumentType(CreditorPurchaseDocumentTypeGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -65,7 +67,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Updates a creditor purchase document type. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Update a supplier invoice document type.")]
     public Task<string> UpdateCreditorPurchaseDocumentType(CreditorPurchaseDocumentTypePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -73,7 +75,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Deletes a creditor purchase document type. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Delete a supplier invoice document type.")]
     public Task<string> DeleteCreditorPurchaseDocumentType(CreditorPurchaseDocumentTypeDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -81,7 +83,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return new { Deleted = true, DocumentTypeID = requestDTO.DocumentTypeID }.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a list of creditor purchase documents. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get supplier invoice documents.")]
     public Task<string> GetCreditorPurchaseDocuments(CreditorPurchaseDocumentsGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -89,7 +91,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Appends a document to a creditor purchase. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Add a document to a supplier invoice.")]
     public Task<string> AddCreditorPurchaseDocument(CreditorPurchaseDocumentPOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -97,7 +99,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a creditor purchase note type. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get a supplier invoice note type.")]
     public Task<string> GetCreditorPurchaseNoteType(CreditorPurchaseNoteTypeGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -105,7 +107,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Updates a creditor purchase note type. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Update a supplier invoice note type.")]
     public Task<string> UpdateCreditorPurchaseNoteType(CreditorPurchaseNoteTypePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -113,7 +115,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Deletes a creditor purchase note type. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Delete a supplier invoice note type.")]
     public Task<string> DeleteCreditorPurchaseNoteType(CreditorPurchaseNoteTypeDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -121,7 +123,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return new { Deleted = true, NoteTypeID = requestDTO.NoteTypeID }.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a list of creditor purchase notes. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get supplier invoice notes.")]
     public Task<string> GetCreditorPurchaseNotes(CreditorPurchaseNotesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -129,7 +131,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Appends a note to a creditor purchase. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Add a note to a supplier invoice.")]
     public Task<string> AddCreditorPurchaseNote(CreditorPurchaseNotePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -138,7 +140,7 @@ public class CreditorPurchaseTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "CreditorPurchase", ActionType = "Get", Aliases = ["get supplier invoice", "show supplier bill", "get vendor bill", "get ap invoice", "get accounts payable invoice", "get creditor invoice"])]
-    [McpServerTool, Description("Retrieve a supplier invoice (creditor purchase) by BatchID or visible supplier bill/vendor bill/AP invoice number. This tool handles supplier invoices, supplier bills, vendor bills, AP invoices, accounts payable invoices, and creditor invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get supplier invoice details by BatchID or document number.")]
     public Task<string> GetCreditorPurchase(CreditorPurchaseGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -160,8 +162,35 @@ public class CreditorPurchaseTools : JiwaToolBase
             }
         });
 
+    [BusinessTool(EntityType = "CreditorPurchase", ActionType = "Resolve", Aliases = ["resolve supplier invoice number", "resolve creditor invoice number", "invoice no to batch id", "document number to batch id", "resolve batch number"])]
+    [McpServerTool(Name = "ResolveCreditorPurchaseBatchId", ReadOnly = true), Description("Resolve a supplier invoice document number to BatchID.")]
+    public Task<string> ResolveCreditorPurchaseBatchId(string documentNumber, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(documentNumber);
+
+            var trimmedDocumentNumber = documentNumber.Trim();
+            var resolvedBatchId = await TryResolveCreditorPurchaseBatchIdAsync(trimmedDocumentNumber, ct);
+            if (string.IsNullOrWhiteSpace(resolvedBatchId))
+            {
+                return new
+                {
+                    success = false,
+                    error = $"Unable to resolve supplier invoice document number '{trimmedDocumentNumber}' to a unique BatchID.",
+                    hint = "Use ListSupplierPurchases with BatchNum or ReceiptID to locate the correct BatchID, then retry."
+                }.ToJson();
+            }
+
+            return new
+            {
+                success = true,
+                documentNo = trimmedDocumentNumber,
+                batchID = resolvedBatchId
+            }.ToJson();
+        });
+
     [BusinessTool(EntityType = "CreditorPurchase", ActionType = "Update", Aliases = ["update supplier invoice", "edit supplier bill", "update vendor bill", "update ap invoice", "update accounts payable invoice", "update creditor invoice"])]
-    [McpServerTool, Description("Update a supplier invoice (creditor purchase). This tool handles supplier invoices, supplier bills, vendor bills, AP invoices, accounts payable invoices, and creditor invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Update a supplier invoice.")]
     public Task<string> UpdateCreditorPurchase(CreditorPurchasePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -170,7 +199,7 @@ public class CreditorPurchaseTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "CreditorPurchase", ActionType = "Delete", Aliases = ["delete supplier invoice", "remove supplier bill", "delete vendor bill", "delete ap invoice", "delete accounts payable invoice", "delete creditor invoice"])]
-    [McpServerTool, Description("Delete a supplier invoice (creditor purchase). This tool handles supplier invoices, supplier bills, vendor bills, AP invoices, accounts payable invoices, and creditor invoices. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Delete a supplier invoice.")]
     public Task<string> DeleteCreditorPurchase(CreditorPurchaseDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -178,7 +207,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return new { Deleted = true, BatchID = requestDTO.BatchID }.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a list of creditor purchase custom fields. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get supplier invoice custom fields.")]
     public Task<string> GetCreditorPurchaseCustomFields(CreditorPurchaseCustomFieldsGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -186,7 +215,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a list of creditor purchase document types. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get supplier invoice document types.")]
     public Task<string> GetCreditorPurchaseDocumentTypes(CreditorPurchaseDocumentTypesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -194,7 +223,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Creates a new creditor purchase document type. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Create a supplier invoice document type.")]
     public Task<string> CreateCreditorPurchaseDocumentType(CreditorPurchaseDocumentTypePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -202,7 +231,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a list of creditor purchase note types. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get supplier invoice note types.")]
     public Task<string> GetCreditorPurchaseNoteTypes(CreditorPurchaseNoteTypesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -210,7 +239,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Creates a new creditor purchase note type. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Create a supplier invoice note type.")]
     public Task<string> CreateCreditorPurchaseNoteType(CreditorPurchaseNoteTypePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -219,7 +248,7 @@ public class CreditorPurchaseTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "CreditorPurchase", ActionType = "Create", Aliases = ["create supplier invoice", "add supplier bill", "create vendor bill", "create ap invoice", "create accounts payable invoice", "create creditor invoice"])]
-    [McpServerTool, Description("Create a supplier invoice (creditor purchase batch transaction). This tool handles supplier invoices, supplier bills, vendor bills, AP invoices, accounts payable invoices, and creditor invoices. This is not purchase order (PO) header creation; for PO creation use CreatePurchaseOrder or CreatePurchaseOrderWithLines in PurchaseOrderTools. For local file import requests, local paths under LocalFileSystem:AllowedRoots are accessible via FileTools (list_local_directory/read_local_file/query_local_structured_file): read or parse the file first, then map values into this request and call AddCreditorPurchaseLine for line rows. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Create a supplier invoice.")]
     public Task<string> CreateCreditorPurchase(CreditorPurchasePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -227,7 +256,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool(Name = "ImportCreditorPurchaseFromLocalCsv"), Description("Import a new creditor purchase from a local CSV path under LocalFileSystem:AllowedRoots. Accepts either a CSV file path or a folder path containing exactly one CSV file. This creates the creditor purchase batch and then adds one purchase line per CSV row. If creditor is omitted, the CSV must include one of: CreditorID, CreditorAccountNo, AccountNo, Supplier, or Creditor. Amount can be provided as SupplierTransAmount, HomeTransAmount, or Amount. Optional columns: RemitNo, ReceiptDate, DueDate, CurrencyID.")]
+    [McpServerTool(Name = "ImportCreditorPurchaseFromLocalCsv"), Description("Import a supplier invoice from a CSV file provided either as an uploaded attachment path or filename, or as a local path under LocalFileSystem:AllowedRoots; do not use this tool for PDF or image invoice attachments.")]
     public Task<string> ImportCreditorPurchaseFromLocalCsv(
         string path,
         string? creditor = null,
@@ -236,37 +265,61 @@ public class CreditorPurchaseTools : JiwaToolBase
         CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            if (!LocalFilePathResolver.TryResolveAllowedPath(path, out var fullPath, out var error))
-                return new { error }.ToJson();
+            List<Dictionary<string, string>> rows;
+            string sourcePath;
 
-            var sourcePath = fullPath;
-            if (Directory.Exists(fullPath))
+            if (_fileStorage.TryResolveUploadedFileReference(path, out var uploadedFileId))
             {
-                var csvFiles = Directory.EnumerateFiles(fullPath, "*.csv", System.IO.SearchOption.TopDirectoryOnly).OrderBy(file => file, StringComparer.OrdinalIgnoreCase).ToList();
-                if (csvFiles.Count == 0)
-                    return new { error = $"Directory '{fullPath}' does not contain any .csv files" }.ToJson();
+                var uploaded = _fileStorage.ReadFileBinary(uploadedFileId);
+                if (!uploaded.IsSuccess || uploaded.ContentBytes is null)
+                    return new { error = uploaded.Error }.ToJson();
 
-                if (csvFiles.Count > 1)
+                sourcePath = string.IsNullOrWhiteSpace(uploaded.FileName) ? path : uploaded.FileName;
+                if (!string.Equals(Path.GetExtension(sourcePath), ".csv", StringComparison.OrdinalIgnoreCase))
+                    return new { error = "Only .csv files are supported for ImportCreditorPurchaseFromLocalCsv" }.ToJson();
+
+                var uploadedRows = TryReadCsvRows(uploaded.ContentBytes, sourcePath);
+                if (uploadedRows.Error is not null)
+                    return new { error = uploadedRows.Error }.ToJson();
+
+                rows = uploadedRows.Rows;
+            }
+            else
+            {
+                if (!LocalFilePathResolver.TryResolveAllowedPath(path, out var fullPath, out var error))
+                    return new { error }.ToJson();
+
+                sourcePath = fullPath;
+                if (Directory.Exists(fullPath))
                 {
-                    return new
+                    var csvFiles = Directory.EnumerateFiles(fullPath, "*.csv", System.IO.SearchOption.TopDirectoryOnly).OrderBy(file => file, StringComparer.OrdinalIgnoreCase).ToList();
+                    if (csvFiles.Count == 0)
+                        return new { error = $"Directory '{fullPath}' does not contain any .csv files" }.ToJson();
+
+                    if (csvFiles.Count > 1)
                     {
-                        error = $"Directory '{fullPath}' contains multiple CSV files. Provide a specific file path.",
-                        files = csvFiles.Take(20).ToList()
-                    }.ToJson();
+                        return new
+                        {
+                            error = $"Directory '{fullPath}' contains multiple CSV files. Provide a specific file path.",
+                            files = csvFiles.Take(20).ToList()
+                        }.ToJson();
+                    }
+
+                    sourcePath = csvFiles[0];
                 }
 
-                sourcePath = csvFiles[0];
+                if (!File.Exists(sourcePath))
+                    return new { error = $"File '{sourcePath}' was not found" }.ToJson();
+
+                if (!string.Equals(Path.GetExtension(sourcePath), ".csv", StringComparison.OrdinalIgnoreCase))
+                    return new { error = "Only .csv files are supported for ImportCreditorPurchaseFromLocalCsv" }.ToJson();
+
+                var localRows = TryReadCsvRows(sourcePath);
+                if (localRows.Error is not null)
+                    return new { error = localRows.Error }.ToJson();
+
+                rows = localRows.Rows;
             }
-
-            if (!File.Exists(sourcePath))
-                return new { error = $"File '{sourcePath}' was not found" }.ToJson();
-
-            if (!string.Equals(Path.GetExtension(sourcePath), ".csv", StringComparison.OrdinalIgnoreCase))
-                return new { error = "Only .csv files are supported for ImportCreditorPurchaseFromLocalCsv" }.ToJson();
-
-            var (rows, csvError) = TryReadCsvRows(sourcePath);
-            if (csvError is not null)
-                return new { error = csvError }.ToJson();
 
             if (rows.Count == 0)
                 return new { error = $"File '{sourcePath}' contains no data rows" }.ToJson();
@@ -288,30 +341,49 @@ public class CreditorPurchaseTools : JiwaToolBase
                         error = "Unable to determine supplier/creditor from CSV. Provide creditor parameter or include one of these columns: CreditorID, CreditorAccountNo, AccountNo, Supplier, Creditor"
                     }.ToJson();
                 }
-
-                if (creditorCandidates.Count > 1)
-                {
-                    return new
-                    {
-                        error = "CSV contains multiple suppliers/creditors. Split the file by supplier or provide a file with one supplier.",
-                        creditors = creditorCandidates.Take(20).ToList()
-                    }.ToJson();
-                }
-
-                creditorValue = creditorCandidates[0];
             }
 
-            var resolvedCreditor = await TryResolveCreditorForImportAsync(creditorValue!, ct);
-            if (resolvedCreditor is null)
-                return new { error = $"Unable to resolve supplier/creditor '{creditorValue}'" }.ToJson();
+            ResolvedCreditor? defaultCreditor = null;
+            if (!string.IsNullOrWhiteSpace(creditorValue))
+            {
+                defaultCreditor = await TryResolveCreditorForImportAsync(creditorValue!, ct);
+                if (defaultCreditor is null)
+                    return new { error = $"Unable to resolve supplier/creditor '{creditorValue}'" }.ToJson();
+            }
+
+            var resolvedCreditorCache = new Dictionary<string, ResolvedCreditor>(StringComparer.OrdinalIgnoreCase);
 
             var preparedLines = new List<ImportedCreditorPurchaseLine>();
             for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
             {
-                if (!TryPrepareImportLine(rows[rowIndex], rowIndex + 2, out var line, out var lineError))
+                var row = rows[rowIndex];
+
+                if (!TryPrepareImportLine(row, rowIndex + 2, out var line, out var lineError))
                     return new { error = lineError }.ToJson();
 
-                preparedLines.Add(line!);
+                var lineCreditor = defaultCreditor;
+                if (lineCreditor is null)
+                {
+                    var lineCreditorValue = GetFirstNonEmpty(row, "CreditorID", "CreditorAccountNo", "AccountNo", "Supplier", "Creditor", "SupplierCode", "SupplierID");
+                    if (string.IsNullOrWhiteSpace(lineCreditorValue))
+                    {
+                        return new
+                        {
+                            error = $"Line {rowIndex + 2}: supplier/creditor is required (CreditorID, CreditorAccountNo, AccountNo, Supplier, Creditor, SupplierCode, or SupplierID column)"
+                        }.ToJson();
+                    }
+
+                    if (!resolvedCreditorCache.TryGetValue(lineCreditorValue, out lineCreditor))
+                    {
+                        lineCreditor = await TryResolveCreditorForImportAsync(lineCreditorValue, ct);
+                        if (lineCreditor is null)
+                            return new { error = $"Line {rowIndex + 2}: Unable to resolve supplier/creditor '{lineCreditorValue}'" }.ToJson();
+
+                        resolvedCreditorCache[lineCreditorValue] = lineCreditor;
+                    }
+                }
+
+                preparedLines.Add(line! with { Creditor = lineCreditor });
             }
 
             if (preparedLines.Count == 0)
@@ -334,8 +406,8 @@ public class CreditorPurchaseTools : JiwaToolBase
                 var lineRequest = new CreditorPurchaseLinePOSTRequest
                 {
                     BatchID = batchId,
-                    CreditorRecID = resolvedCreditor.CreditorID,
-                    CreditorAccountNo = resolvedCreditor.AccountNo,
+                    CreditorRecID = line.Creditor!.CreditorID,
+                    CreditorAccountNo = line.Creditor.AccountNo,
                     RemitNo = line.RemitNo,
                     SupplierTransAmount = line.SupplierTransAmount,
                     HomeTransAmount = line.HomeTransAmount,
@@ -347,21 +419,28 @@ public class CreditorPurchaseTools : JiwaToolBase
                 await JiwaApiClient.PostAsync(lineRequest, ct);
             }
 
+            var creditorsUsed = preparedLines
+                .Select(line => line.Creditor!)
+                .GroupBy(creditor => creditor.CreditorID, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .Select(creditor => new
+                {
+                    id = creditor.CreditorID,
+                    accountNo = creditor.AccountNo,
+                    name = creditor.Name
+                })
+                .ToList();
+
             return new
             {
                 batchId,
                 sourcePath,
                 linesImported = preparedLines.Count,
-                creditor = new
-                {
-                    id = resolvedCreditor.CreditorID,
-                    accountNo = resolvedCreditor.AccountNo,
-                    name = resolvedCreditor.Name
-                }
+                creditors = creditorsUsed
             }.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a creditor purchase custom field value. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get a supplier invoice custom field value.")]
     public Task<string> GetCreditorPurchaseCustomFieldValue(CreditorPurchaseCustomFieldValueGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -369,7 +448,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Updates a creditor purchase custom field value. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Update a supplier invoice custom field value.")]
     public Task<string> UpdateCreditorPurchaseCustomFieldValue(CreditorPurchaseCustomFieldValuePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -377,7 +456,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a creditor purchase line. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get a supplier invoice line.")]
     public Task<string> GetCreditorPurchaseLine(CreditorPurchaseLineGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -385,7 +464,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Updates a line for a creditor purchase. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Update a supplier invoice line.")]
     public Task<string> UpdateCreditorPurchaseLine(CreditorPurchaseLinePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -393,7 +472,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Deletes a line from a creditor purchase. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Delete a supplier invoice line.")]
     public Task<string> DeleteCreditorPurchaseLine(CreditorPurchaseLineDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -406,7 +485,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             }.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a creditor purchase document. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get a supplier invoice document.")]
     public Task<string> GetCreditorPurchaseDocument(CreditorPurchaseDocumentGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -414,7 +493,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Updates a creditor purchase document. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Update a supplier invoice document.")]
     public Task<string> UpdateCreditorPurchaseDocument(CreditorPurchaseDocumentPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -422,7 +501,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Deletes a creditor purchase document. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Delete a supplier invoice document.")]
     public Task<string> DeleteCreditorPurchaseDocument(CreditorPurchaseDocumentDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -435,7 +514,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             }.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a creditor purchase note. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get a supplier invoice note.")]
     public Task<string> GetCreditorPurchaseNote(CreditorPurchaseNoteGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -443,7 +522,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Updates a creditor purchase note. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Update a supplier invoice note.")]
     public Task<string> UpdateCreditorPurchaseNote(CreditorPurchaseNotePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -451,7 +530,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Deletes a creditor purchase note. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Delete a supplier invoice note.")]
     public Task<string> DeleteCreditorPurchaseNote(CreditorPurchaseNoteDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -464,7 +543,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             }.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a list of custom field values for a creditor purchase line. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get supplier invoice line custom field values.")]
     public Task<string> GetCreditorPurchaseLineCustomFieldValues(CreditorPurchaseLineCustomFieldValuesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -472,7 +551,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Retrieves a creditor purchase line custom field value. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Get a supplier invoice line custom field value.")]
     public Task<string> GetCreditorPurchaseLineCustomFieldValue(CreditorPurchaseLineCustomFieldValueGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -480,7 +559,7 @@ public class CreditorPurchaseTools : JiwaToolBase
             return result.ToJson();
         });
 
-    [McpServerTool, Description("Updates a creditor purchase line custom field value. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool, Description("Update a supplier invoice line custom field value.")]
     public Task<string> UpdateCreditorPurchaseLineCustomFieldValue(CreditorPurchaseLineCustomFieldValuePATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -489,12 +568,7 @@ public class CreditorPurchaseTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "CreditorPurchase", ActionType = "Search", Aliases = ["supplier invoice history", "vendor bill history", "ap invoice history", "accounts payable invoice history", "creditor invoice history"])]
-    [McpServerTool(Name = "ListSupplierPurchaseHistory", ReadOnly = true), Description("List or search supplier invoice history (creditor purchases) by supplier, invoice, product, or other fields. This tool handles supplier invoices, supplier bills, vendor bills, AP invoices, accounts payable invoices, and creditor invoices for reporting/history. Includes invoice numbers for purchases. Use this when the user asks for supplier purchase history or what was purchased from a supplier. This is reporting/history, not purchase order header creation. " +
-        "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
-        "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
-        "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
-        "Then call again with confirmLargeResultSet=true and that token. " +
-        "You can use the GetCreditorPurchase tool to retrieve full details for a specific creditor purchase if required.")]
+    [McpServerTool(Name = "ListSupplierPurchaseHistory", ReadOnly = true), Description("List supplier invoice history.")]
     public Task<string> SearchCreditorPurchaseBatchInformation(
         v_Jiwa_CreditorPurchaseInformationQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -511,12 +585,7 @@ public class CreditorPurchaseTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "CreditorPurchase", ActionType = "Search", Aliases = ["list supplier invoices", "list vendor bills", "list ap invoices", "list accounts payable invoices", "list creditor invoices"])]
-    [McpServerTool(Name = "ListSupplierPurchases", ReadOnly = true), Description("List or search supplier invoices (creditor purchase batches) by supplier, batch, invoice, or other fields. This tool handles supplier invoices, supplier bills, vendor bills, AP invoices, accounts payable invoices, and creditor invoices. Suppliers are also known as creditors. Use this when the user asks to show supplier purchases. This tool is for creditor purchase batches, not purchase order (PO) header creation. " +
-        "Treat visible supplier purchase batch/document/invoice numbers as the default user input and resolve them here first, then call GetCreditorPurchase with the internal BatchID. " +
-        "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
-        "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
-        "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
-        "Then call again with confirmLargeResultSet=true and that token.")]
+    [McpServerTool(Name = "ListSupplierPurchases", ReadOnly = true), Description("List or search supplier invoices.")]
     public Task<string> SearchCreditorPurchaseBatches(
         v_Jiwa_CreditorPurchasesQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -540,13 +609,40 @@ public class CreditorPurchaseTools : JiwaToolBase
         decimal? HomeTransAmount,
         DateTime? ReceiptDate,
         DateTime? DueDate,
-        string? CurrencyID);
+        string? CurrencyID,
+        ResolvedCreditor? Creditor = null);
 
     private static (List<Dictionary<string, string>> Rows, string? Error) TryReadCsvRows(string fullPath)
     {
         try
         {
             using var parser = new TextFieldParser(fullPath);
+            return TryReadCsvRows(parser, fullPath);
+        }
+        catch (Exception ex)
+        {
+            return (new List<Dictionary<string, string>>(), $"Failed to read CSV '{fullPath}': {ex.Message}");
+        }
+    }
+
+    private static (List<Dictionary<string, string>> Rows, string? Error) TryReadCsvRows(byte[] content, string sourcePath)
+    {
+        try
+        {
+            using var stream = new MemoryStream(content, writable: false);
+            using var parser = new TextFieldParser(stream);
+            return TryReadCsvRows(parser, sourcePath);
+        }
+        catch (Exception ex)
+        {
+            return (new List<Dictionary<string, string>>(), $"Failed to read CSV '{sourcePath}': {ex.Message}");
+        }
+    }
+
+    private static (List<Dictionary<string, string>> Rows, string? Error) TryReadCsvRows(TextFieldParser parser, string sourcePath)
+    {
+        try
+        {
             parser.SetDelimiters(",");
             parser.HasFieldsEnclosedInQuotes = true;
             parser.TrimWhiteSpace = false;
@@ -582,11 +678,7 @@ public class CreditorPurchaseTools : JiwaToolBase
         }
         catch (MalformedLineException ex)
         {
-            return (new List<Dictionary<string, string>>(), $"Invalid CSV format in '{fullPath}' at line {ex.LineNumber}: {ex.Message}");
-        }
-        catch (Exception ex)
-        {
-            return (new List<Dictionary<string, string>>(), $"Failed to read CSV '{fullPath}': {ex.Message}");
+            return (new List<Dictionary<string, string>>(), $"Invalid CSV format in '{sourcePath}' at line {ex.LineNumber}: {ex.Message}");
         }
     }
 

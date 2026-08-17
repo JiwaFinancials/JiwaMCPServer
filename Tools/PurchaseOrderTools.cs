@@ -15,44 +15,60 @@ namespace JiwaMcpServer.Tools;
 public class PurchaseOrderTools : JiwaToolBase
 {
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Get", Aliases = ["get po details", "get purchase order details", "purchase order id", "po details by id", "show po", "view po"])]
-    [McpServerTool(Name = "GetPurchaseOrderDetails"), Description("Get a specific purchase order (PO) with full details. Accepts internal PurchaseOrderID (OrderID) or a visible PO/document number (for example '100196' or 'PO 100196') and auto-resolves it. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "GetPurchaseOrderDetails"), Description("Get purchase order details by PurchaseOrderID or PO number.")]
     public Task<string> GetPurchaseOrder(PurchaseOrderGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
             var purchaseOrderId = requestDTO.PurchaseOrderID?.Trim();
             if (string.IsNullOrWhiteSpace(purchaseOrderId))
+            {
                 throw new ArgumentException("PurchaseOrderID is required.", nameof(requestDTO));
+            }
 
             try
             {
                 var result = await JiwaApiClient.GetAsync(new PurchaseOrderGETRequest { PurchaseOrderID = purchaseOrderId }, ct);
                 return result.ToJson<PurchaseOrder>();
             }
-            catch (WebServiceException ex) when (ex.StatusCode == 404)
+            catch (WebServiceException ex) when (ShouldRetryIdentifierResolution(ex))
             {
                 var resolvedOrderId = await TryResolvePurchaseOrderIdFromDocumentNumberAsync(purchaseOrderId, ct);
-                if (string.IsNullOrWhiteSpace(resolvedOrderId))
+                if (string.IsNullOrWhiteSpace(resolvedOrderId) ||
+                    string.Equals(resolvedOrderId, purchaseOrderId, StringComparison.OrdinalIgnoreCase))
+                {
                     throw;
+                }
 
                 var resolved = await JiwaApiClient.GetAsync(new PurchaseOrderGETRequest { PurchaseOrderID = resolvedOrderId }, ct);
                 return resolved.ToJson<PurchaseOrder>();
             }
         });
 
+    private static bool ShouldRetryIdentifierResolution(WebServiceException ex)
+    {
+        if (ex.StatusCode == 404)
+            return true;
+
+        var message = ex.Message ?? string.Empty;
+        return message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("couldn't find", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("cannot find", StringComparison.OrdinalIgnoreCase);
+    }
+
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Get", Aliases = ["get purchase order", "get po by id", "retrieve purchase order"])]
-    [McpServerTool(Name = "GetPurchaseOrder"), Description("Alias for GetPurchaseOrderDetails. Accepts PurchaseOrderID or visible PO/document number and auto-resolves to the internal ID when needed.")]
+    [McpServerTool(Name = "GetPurchaseOrder"), Description("Alias for GetPurchaseOrderDetails.")]
 
     public Task<string> GetPurchaseOrderAlias(PurchaseOrderGETRequest requestDTO, CancellationToken ct = default)
         => GetPurchaseOrder(requestDTO, ct);
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Get", Aliases = ["get po", "retrieve po"])]
-    [McpServerTool(Name = "GetPO"), Description("Alias for GetPurchaseOrderDetails. Accepts PurchaseOrderID or visible PO/document number and auto-resolves to the internal ID when needed.")]
+    [McpServerTool(Name = "GetPO"), Description("Alias for GetPurchaseOrderDetails.")]
 
     public Task<string> GetPO(PurchaseOrderGETRequest requestDTO, CancellationToken ct = default)
         => GetPurchaseOrder(requestDTO, ct);
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Create", Aliases = ["create po", "new po", "raise po", "create purchase order", "purchase order header", "po header", "create po for creditor", "create po for supplier"])]
-    [McpServerTool(Name = "CreatePurchaseOrder"), Description("Create a new purchase order (PO) header for a supplier or creditor, including scenarios where the user provides creditor/supplier and order date. Use this as the first step before adding line items with AddItemToPurchaseOrder. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "CreatePurchaseOrder"), Description("Create a purchase order header.")]
     public Task<string> CreatePurchaseOrder(PurchaseOrderPOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -61,9 +77,14 @@ public class PurchaseOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Create", Aliases = ["create po", "new po", "raise po", "create purchase order"])]
-    [McpServerTool(Name = "CreatePO"), Description("Alias for CreatePurchaseOrder. Create a new purchase order (PO) header for a supplier or creditor before adding lines.")]
+    [McpServerTool(Name = "CreatePO"), Description("Alias for CreatePurchaseOrder.")]
     public Task<string> CreatePO(PurchaseOrderPOSTRequest requestDTO, CancellationToken ct = default)
         => CreatePurchaseOrder(requestDTO, ct);
+
+    [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Create", Aliases = ["create po", "new po", "raise po", "create purchase order"])]
+    [McpServerTool(Name = "CreatePOWithLines"), Description("Alias for CreatePurchaseOrder.")]
+    public Task<string> CreatePOWithLines(CreatePurchaseOrderWithLinesRequest requestDTO, CancellationToken ct = default)
+        => CreatePurchaseOrderWithLines(requestDTO, ct);
 
     public sealed class CreatePurchaseOrderWithLinesRequest
     {
@@ -81,7 +102,7 @@ public class PurchaseOrderTools : JiwaToolBase
     }
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Create", Aliases = ["create po with parts", "create purchase order with lines", "create po for creditor with parts", "add parts to new po", "create po and skip missing parts"]) ]
-    [McpServerTool(Name = "CreatePurchaseOrderWithLines"), Description("Create a purchase order (PO) header for a supplier/creditor and then add multiple part lines in one call. Use this when the user asks to create a PO for a creditor with part numbers and quantities. If SkipMissingParts=true, missing parts are skipped and the PO is still created.")]
+    [McpServerTool(Name = "CreatePurchaseOrderWithLines"), Description("Create a purchase order with lines.")]
     public Task<string> CreatePurchaseOrderWithLines(CreatePurchaseOrderWithLinesRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -161,7 +182,7 @@ public class PurchaseOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Update")]
-    [McpServerTool(Name = "UpdatePurchaseOrder"), Description("Update an existing purchase order (PO). Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "UpdatePurchaseOrder"), Description("Update a purchase order.")]
     public Task<string> ModifyPurchaseOrder(PurchaseOrderPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -170,7 +191,7 @@ public class PurchaseOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Delete")]
-    [McpServerTool(Name = "DeletePurchaseOrder"), Description("Delete a purchase order (PO). Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "DeletePurchaseOrder"), Description("Delete a purchase order.")]
     public Task<string> DeletePurchaseOrder(PurchaseOrderDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -179,7 +200,7 @@ public class PurchaseOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Add")]
-    [McpServerTool(Name = "AddItemToPurchaseOrder"), Description("Add a product or line item to an existing purchase order (PO). Requires an existing PurchaseOrderID. If creating a new PO first, call CreatePurchaseOrder or CreatePurchaseOrderWithLines. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "AddItemToPurchaseOrder"), Description("Add a line to an existing purchase order.")]
     public Task<string> AddAProductToAPurchaseOrder(PurchaseOrderLinePOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -188,17 +209,12 @@ public class PurchaseOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Add", Aliases = ["add po line", "add item to po"])]
-    [McpServerTool(Name = "AddItemToPO"), Description("Alias for AddItemToPurchaseOrder. Add a product or line item to an existing purchase order (PO). Requires an existing PurchaseOrderID.")]
+    [McpServerTool(Name = "AddItemToPO"), Description("Alias for AddItemToPurchaseOrder.")]
     public Task<string> AddItemToPO(PurchaseOrderLinePOSTRequest requestDTO, CancellationToken ct = default)
         => AddAProductToAPurchaseOrder(requestDTO, ct);
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Search")]
-    [McpServerTool(Name = "ListPurchaseHistory", ReadOnly = true), Description("List or search purchase order (PO) history by supplier, creditor, product, invoice, or other fields. Includes part numbers that were purchased. Use this when the user asks for purchase history or what was bought. " +
-        "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
-        "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
-        "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
-        "Then call again with confirmLargeResultSet=true and that token. " +
-        "You can use the GetPurchaseOrderDetails tool to retrieve full details for a specific purchase order if required.")]
+    [McpServerTool(Name = "ListPurchaseHistory", ReadOnly = true), Description("List purchase history.")]
     public Task<string> SearchPurchaseInformation(
         v_Jiwa_PurchaseInformationQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -215,12 +231,7 @@ public class PurchaseOrderTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Search", Aliases = ["show po", "view po", "po number", "purchase order number", "find po", "lookup po"])]
-    [McpServerTool(Name = "ListPurchaseOrders", ReadOnly = true), Description("List or search purchase orders (POs) by supplier, creditor, order number, invoice, or other fields. Use this when the user asks to show purchase orders. " +
-        "Treat visible PO/document numbers as the default user input (for example 'PO 100191'). Call this first to resolve OrderNo to internal OrderID, then call GetPurchaseOrderDetails for full details. " +
-        "Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. " +
-        "Supports pagination via skip and take parameters. A single call may return only a partial result set. " +
-        "For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token. " +
-        "Then call again with confirmLargeResultSet=true and that token.")]
+    [McpServerTool(Name = "ListPurchaseOrders", ReadOnly = true), Description("List or search purchase orders.")]
     public Task<string> SearchPurchaseOrders(
         v_Jiwa_PurchaseOrdersQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -236,10 +247,39 @@ public class PurchaseOrderTools : JiwaToolBase
             return CreateSearchResponseJson(allResults, Config.PageSize);
         });
 
+    [BusinessTool(EntityType = "PurchaseOrder", ActionType = "Resolve", Aliases = ["resolve po number", "resolve purchase order number", "purchase order no to id", "po number to id", "document number to order id"])]
+    [McpServerTool(Name = "ResolvePurchaseOrderId", ReadOnly = true), Description("Resolve a purchase order document number to PurchaseOrderID.")]
+    public Task<string> ResolvePurchaseOrderId(string documentNumber, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(documentNumber);
+
+            var trimmedDocumentNumber = documentNumber.Trim();
+            var resolvedOrderId = await TryResolvePurchaseOrderIdFromDocumentNumberAsync(trimmedDocumentNumber, ct);
+            if (string.IsNullOrWhiteSpace(resolvedOrderId))
+            {
+                return new
+                {
+                    success = false,
+                    error = $"Unable to resolve purchase order document number '{trimmedDocumentNumber}' to a unique PurchaseOrderID.",
+                    hint = "Use ListPurchaseOrders with OrderNo to locate the correct OrderID, then retry."
+                }.ToJson();
+            }
+
+            return new
+            {
+                success = true,
+                documentNo = trimmedDocumentNumber,
+                purchaseOrderID = resolvedOrderId
+            }.ToJson();
+        });
+
     private static async Task<string?> TryResolvePurchaseOrderIdFromDocumentNumberAsync(string documentNumber, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(documentNumber))
+        {
             return null;
+        }
 
         var candidates = BuildDocumentNumberCandidates(documentNumber);
         foreach (var candidate in candidates)
@@ -259,7 +299,9 @@ public class PurchaseOrderTools : JiwaToolBase
                 .ToList();
 
             if (matches is { Count: 1 })
+            {
                 return matches[0];
+            }
         }
 
         return null;

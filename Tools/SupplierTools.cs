@@ -16,7 +16,7 @@ namespace JiwaMcpServer.Tools;
 public class SupplierTools : JiwaToolBase
 {
     [BusinessTool(EntityType = "Supplier", ActionType = "Search")]
-    [McpServerTool(Name = "ListSuppliers", ReadOnly = true), Description("List or search suppliers. Suppliers are also known as creditors. Use this tool when the user asks to show suppliers, find suppliers, or return a supplier list. Treat visible supplier/creditor codes or names as the default user input and resolve them here before calling GetSupplierDetails with the internal CreditorID. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
+    [McpServerTool(Name = "ListSuppliers", ReadOnly = true), Description("List or search suppliers.")]
     public Task<string> SearchSuppliers(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_CreditorSummaryQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -33,7 +33,7 @@ public class SupplierTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Supplier", ActionType = "Get")]
-    [McpServerTool(Name = "GetSupplierDetails"), Description("Get a specific supplier with full details. Accepts internal CreditorID or visible supplier/creditor code/name and auto-resolves it. Suppliers are also known as creditors. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "GetSupplierDetails"), Description("Get supplier details by CreditorID, account code, or name.")]
     public Task<string> GetSupplier(CreditorGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -44,19 +44,33 @@ public class SupplierTools : JiwaToolBase
                 var result = await JiwaApiClient.GetAsync(new CreditorGETRequest { CreditorID = creditorId }, ct);
                 return result.ToJson<Creditor>();
             }
-            catch (WebServiceException ex) when (ex.StatusCode == 404 && !string.IsNullOrWhiteSpace(creditorId))
+            catch (WebServiceException ex) when (ShouldRetryIdentifierResolution(ex) && !string.IsNullOrWhiteSpace(creditorId))
             {
                 var resolvedCreditorId = await TryResolveCreditorIdAsync(creditorId, ct);
-                if (string.IsNullOrWhiteSpace(resolvedCreditorId))
+                if (string.IsNullOrWhiteSpace(resolvedCreditorId) ||
+                    string.Equals(resolvedCreditorId, creditorId, StringComparison.OrdinalIgnoreCase))
+                {
                     throw;
+                }
 
                 var resolved = await JiwaApiClient.GetAsync(new CreditorGETRequest { CreditorID = resolvedCreditorId }, ct);
                 return resolved.ToJson<Creditor>();
             }
         });
 
+    private static bool ShouldRetryIdentifierResolution(WebServiceException ex)
+    {
+        if (ex.StatusCode == 404)
+            return true;
+
+        var message = ex.Message ?? string.Empty;
+        return message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("couldn't find", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("cannot find", StringComparison.OrdinalIgnoreCase);
+    }
+
     [BusinessTool(EntityType = "Supplier", ActionType = "Create")]
-    [McpServerTool(Name = "CreateSupplier"), Description("Create a new supplier record. Suppliers are also known as creditors. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "CreateSupplier"), Description("Create a supplier.")]
     public Task<string> CreateSupplier(CreditorPOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -65,7 +79,7 @@ public class SupplierTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Supplier", ActionType = "Update")]
-    [McpServerTool(Name = "UpdateSupplier"), Description("Update an existing supplier record. Suppliers are also known as creditors. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "UpdateSupplier"), Description("Update a supplier.")]
     public Task<string> ModifySupplier(CreditorPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -74,7 +88,7 @@ public class SupplierTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Supplier", ActionType = "Delete")]
-    [McpServerTool(Name = "DeleteSupplier"), Description("Delete a supplier record. Suppliers are also known as creditors. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "DeleteSupplier"), Description("Delete a supplier.")]
     public Task<string> DeleteSupplier(CreditorDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -83,7 +97,7 @@ public class SupplierTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Supplier", ActionType = "List")]
-    [McpServerTool(Name = "ListSupplierClassifications", ReadOnly = true), Description("List supplier classifications. Creditors are also known as suppliers. Use this when the user asks for supplier classifications or creditor classifications. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
+    [McpServerTool(Name = "ListSupplierClassifications", ReadOnly = true), Description("List supplier classifications.")]
     public Task<string> SearchCreditorClassifications(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.CR_ClassificationQuery requestDTO,
         bool confirmLargeResultSet = false,

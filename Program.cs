@@ -1,6 +1,7 @@
 using JiwaMcpServer.Services;
 using JiwaMcpServer.Services.DocumentIntelligence;
 using JiwaMcpServer.ToolMetadata;
+using JiwaMcpServer.ToolRouting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -14,7 +15,6 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 
 builder.Host.UseWindowsService();
 
-// Read and validate configuration settings for the Jiwa API URL and API key
 ConfigurationManager configuration = builder.Configuration;
 Config.JiwaAPIURL = configuration.GetSection("JiwaAPIURL").Value;
 Config.JiwaAPIKey = configuration.GetSection("JiwaAPIKey").Value;
@@ -49,7 +49,6 @@ var startupLogger = LoggerFactory
 
 var pluginAssemblies = PluginAssemblyLoader.LoadPluginAssemblies(configuration, builder.Environment.ContentRootPath, startupLogger);
 
-// Register MCP server with HTTP streaming transport and auto-discover tools
 var toolAssemblies = new List<Assembly> { typeof(Program).Assembly };
 
 var mcpBuilder = builder.Services
@@ -64,6 +63,9 @@ foreach (var pluginAssembly in pluginAssemblies)
 }
 
 mcpBuilder.WithBusinessToolMetadata(toolAssemblies.ToArray());
+mcpBuilder.WithRetrievalAugmentedToolRouting();
+
+builder.Services.AddRetrievalAugmentedToolRouting(configuration, toolAssemblies.ToArray());
 
 builder.Services.AddCors(options =>
 {
@@ -75,37 +77,47 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Register IHttpContextAccessor for tools to access HTTP context (session ID, etc.)
 builder.Services.AddHttpContextAccessor();
-
-// Register FileStorageService as a singleton so files persist across tool invocations
 builder.Services.AddSingleton<FileStorageService>();
-
-// Register document intelligence and RAG services
 builder.Services.AddDocumentIntelligence(configuration);
+
+// Register FormNameRegistry with mappings from configuration
+var formNameMappings = configuration.GetSection("FormNameMappings").Get<Dictionary<string, string>>() 
+    ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+builder.Services.AddSingleton<FormNameRegistry>(new FormNameRegistry(formNameMappings));
 
 var app = builder.Build();
 
 app.UseCors();
 
-// Set session ID and API key for each request
 app.Use(async (context, next) =>
 {
-    // Generate a session ID based on the request connection
-    // This ensures all tool calls within a single MCP connection share the same file storage
     var sessionId = context.Request.Headers["X-Session-ID"].FirstOrDefault()
                     ?? context.Connection.Id
                     ?? Guid.NewGuid().ToString();
 
     FileStorageService.SetSessionId(sessionId);
 
-    // Capture the Jiwa API key supplied by the client for this request
     var clientApiKey = context.Request.Headers["X-Jiwa-API-Key"].FirstOrDefault();
     JiwaMcpServer.Services.JiwaApiClient.CurrentApiKey.Value = clientApiKey;
 
-    await next(context);
+    var routingContextAccessor = context.RequestServices.GetRequiredService<IToolRoutingContextAccessor>();
+    var priorContext = routingContextAccessor.Current;
+    var routingContext = priorContext ?? new ToolRoutingExecutionContext(ToolRoutingCorrelation.CreateRoutingId());
+    routingContextAccessor.Current = routingContext;
+    context.Response.Headers[ToolRoutingCorrelation.ResponseHeaderName] = routingContext.RoutingId;
+
+    try
+    {
+        await next(context);
+    }
+    finally
+    {
+        routingContextAccessor.Current = priorContext;
+    }
 });
 
 app.MapMcp("/mcp");
+app.MapToolRoutingDiagnostics();
 
 await app.RunAsync();

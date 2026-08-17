@@ -8,7 +8,7 @@ namespace JiwaMcpServer.Tools;
 [BusinessTool(EntityType = "Schema", ActionType = "Get", Aliases = ["dto schema", "request schema", "response schema"], Tags = ["contracts", "field list", "model structure"]) ]
 public class SchemaTools : JiwaToolBase
 {
-    [McpServerTool, Description("Returns the DTO schema for any Jiwa DTO type by name (e.g. DebtorGETRequest, Debtor, v_Jiwa_Debtor_ListQuery).")]
+    [McpServerTool, Description("Get the schema for a Jiwa DTO type.")]
     public Task<string> GetDtoSchema([Description("Jiwa DTO type name or fully qualified type name.")] string dtoTypeName, CancellationToken ct = default)
         => InvokeToolAsync(() => Task.FromResult(GetJiwaDtoSchema(dtoTypeName)));
 }

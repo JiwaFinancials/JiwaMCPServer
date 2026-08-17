@@ -16,7 +16,7 @@ namespace JiwaMcpServer.Tools;
 public class CustomerTools : JiwaToolBase
 {
     [BusinessTool(EntityType = "Customer", ActionType = "Search")]
-    [McpServerTool(Name = "ListCustomers", ReadOnly = true), Description("List or search customers. Customers are also known as debtors, accounts, account holders, or clients. Use this tool when the user asks to show customers, find customers, or return a customer list. Treat visible customer/account codes or names as the default user input and resolve them here before calling GetCustomerDetails with the internal DebtorID. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
+    [McpServerTool(Name = "ListCustomers", ReadOnly = true), Description("List or search customers.")]
     public Task<string> SearchCustomers(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Debtor_ListQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -33,7 +33,7 @@ public class CustomerTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Customer", ActionType = "Get")]
-    [McpServerTool(Name = "GetCustomerDetails"), Description("Get a specific customer with full details. Accepts internal DebtorID or visible customer/account code/name and auto-resolves it. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "GetCustomerDetails"), Description("Get customer details by DebtorID, account code, or name.")]
     public Task<string> GetCustomer(DebtorGETRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -44,19 +44,33 @@ public class CustomerTools : JiwaToolBase
                 var result = await JiwaApiClient.GetAsync(new DebtorGETRequest { DebtorID = debtorId }, ct);
                 return result.ToJson<Debtor>();
             }
-            catch (WebServiceException ex) when (ex.StatusCode == 404 && !string.IsNullOrWhiteSpace(debtorId))
+            catch (WebServiceException ex) when (ShouldRetryIdentifierResolution(ex) && !string.IsNullOrWhiteSpace(debtorId))
             {
                 var resolvedDebtorId = await TryResolveDebtorIdAsync(debtorId, ct);
-                if (string.IsNullOrWhiteSpace(resolvedDebtorId))
+                if (string.IsNullOrWhiteSpace(resolvedDebtorId) ||
+                    string.Equals(resolvedDebtorId, debtorId, StringComparison.OrdinalIgnoreCase))
+                {
                     throw;
+                }
 
                 var resolved = await JiwaApiClient.GetAsync(new DebtorGETRequest { DebtorID = resolvedDebtorId }, ct);
                 return resolved.ToJson<Debtor>();
             }
         });
 
+    private static bool ShouldRetryIdentifierResolution(WebServiceException ex)
+    {
+        if (ex.StatusCode == 404)
+            return true;
+
+        var message = ex.Message ?? string.Empty;
+        return message.Contains("not found", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("couldn't find", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("cannot find", StringComparison.OrdinalIgnoreCase);
+    }
+
     [BusinessTool(EntityType = "Customer", ActionType = "Create")]
-    [McpServerTool(Name = "CreateCustomer"), Description("Create a new customer record. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "CreateCustomer"), Description("Create a customer.")]
     public Task<string> CreateCustomer(DebtorPOSTRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -65,7 +79,7 @@ public class CustomerTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Customer", ActionType = "Update")]
-    [McpServerTool(Name = "UpdateCustomer"), Description("Update an existing customer record. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "UpdateCustomer"), Description("Update a customer.")]
     public Task<string> ModifyCustomer(DebtorPATCHRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -74,7 +88,7 @@ public class CustomerTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Customer", ActionType = "Delete")]
-    [McpServerTool(Name = "DeleteCustomer"), Description("Delete a customer record. Customers are also known as debtors, accounts, account holders, or clients. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs.")]
+    [McpServerTool(Name = "DeleteCustomer"), Description("Delete a customer.")]
     public Task<string> DeleteCustomer(DebtorDELETERequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
@@ -83,7 +97,7 @@ public class CustomerTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Customer", ActionType = "List")]
-    [McpServerTool(Name = "ListCustomerOutstandingTransactions", ReadOnly = true), Description("List outstanding customer transactions, including invoices and payments. Customers are also known as debtors, accounts, account holders, or clients. Use this when the user asks for a customer statement, open items, outstanding invoices, or payments. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
+    [McpServerTool(Name = "ListCustomerOutstandingTransactions", ReadOnly = true), Description("List outstanding customer transactions.")]
     public Task<string> GetCustomerTransactions(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Debtor_Transactions_ListQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -100,7 +114,7 @@ public class CustomerTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Customer", ActionType = "List")]
-    [McpServerTool(Name = "ListCustomerClassifications", ReadOnly = true), Description("List customer classifications. Debtors are also known as customers, accounts, account holders, or clients. Use this when the user asks for customer classifications or debtor classifications. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
+    [McpServerTool(Name = "ListCustomerClassifications", ReadOnly = true), Description("List customer classifications.")]
     public Task<string> SearchCustomerClassifications(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.DB_ClassificationQuery requestDTO,
         bool confirmLargeResultSet = false,
@@ -117,7 +131,7 @@ public class CustomerTools : JiwaToolBase
         });
 
     [BusinessTool(EntityType = "Customer", ActionType = "List")]
-    [McpServerTool(Name = "ListCustomerCategories", ReadOnly = true), Description("List customer categories. Debtors are also known as customers, accounts, account holders, or clients. Use this when the user asks for customer categories or debtor categories. Use GetDtoSchema in SchemaTools if you are unsure what fields are available in the request and return DTOs. Supports pagination via skip and take parameters. For large result sets, first call with confirmLargeResultSet=false to receive a confirmation token, then call again with confirmLargeResultSet=true and that token.")]
+    [McpServerTool(Name = "ListCustomerCategories", ReadOnly = true), Description("List customer categories.")]
     public Task<string> SearchCustomerCategories(
         JiwaFinancials.Jiwa.JiwaServiceModel.Tables.DB_CategoriesQuery requestDTO,
         bool confirmLargeResultSet = false,

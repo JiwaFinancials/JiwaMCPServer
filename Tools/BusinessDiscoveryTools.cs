@@ -7,7 +7,9 @@ namespace JiwaMcpServer.Tools;
 
 [McpServerToolType]
 [BusinessTool(EntityType = "Schema", ActionType = "Get", Aliases = ["business action catalog", "available business tools", "what can you do"], Tags = ["tool discovery", "tool selection", "capabilities"])]
-public sealed class BusinessDiscoveryTools(BusinessToolMetadataCatalog catalog) : JiwaToolBase
+public sealed class BusinessDiscoveryTools(
+    BusinessToolMetadataCatalog catalog,
+    ToolDescriptionComposer descriptionComposer) : JiwaToolBase
 {
     private static readonly string[] SectionOrder =
     [
@@ -35,8 +37,7 @@ public sealed class BusinessDiscoveryTools(BusinessToolMetadataCatalog catalog) 
         ["File"] = "Files"
     };
 
-    [McpServerTool(Name = "GetAvailableBusinessActions", ReadOnly = true)]
-    [Description("Return a business-oriented action catalog grouped by Customers, Suppliers, Supplier Invoices, Purchase Orders, Sales Orders, Inventory, Warehouses, Documents, and Files. Use this tool when you are unsure which Jiwa tool should be called.")]
+    [McpServerTool(Name = "GetAvailableBusinessActions", ReadOnly = true), Description("List available business tools by area.")]
     public Task<string> GetAvailableBusinessActions(CancellationToken ct = default)
         => InvokeToolAsync(() =>
         {
@@ -48,13 +49,16 @@ public sealed class BusinessDiscoveryTools(BusinessToolMetadataCatalog catalog) 
 
             foreach (var descriptor in catalog.Descriptors)
             {
+                if (ToolAliasRegistry.IsAlias(descriptor.ToolName))
+                    continue;
+
                 var entity = descriptor.Metadata.EntityType;
                 if (string.IsNullOrWhiteSpace(entity) || !EntityToSection.TryGetValue(entity, out var section))
                     continue;
 
                 sections[section].Add(new CatalogToolEntry(
                     descriptor.ToolName,
-                    FirstSentence(descriptor.Description),
+                    descriptionComposer.Compose(descriptor),
                     descriptor.Metadata.Aliases));
             }
 
@@ -78,16 +82,6 @@ public sealed class BusinessDiscoveryTools(BusinessToolMetadataCatalog catalog) 
                 sections = response
             }.ToJson());
         });
-
-    private static string FirstSentence(string text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return string.Empty;
-
-        var trimmed = text.Trim();
-        var index = trimmed.IndexOf('.');
-        return index > 0 ? trimmed[..(index + 1)] : trimmed;
-    }
 
     private sealed record CatalogToolEntry(string ToolName, string BusinessPurpose, IReadOnlyList<string> CommonAliases);
 }

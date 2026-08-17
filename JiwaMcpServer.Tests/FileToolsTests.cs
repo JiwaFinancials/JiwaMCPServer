@@ -1359,6 +1359,119 @@ public class FileToolsTests
     }
 
     [Fact]
+    public async Task ReadLocalFile_UploadedAttachmentPathOutsideAllowlist_ReturnsUploadedContent()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+        var attachedPath = $@"C:\Users\scott\Downloads\attached.txt";
+        var contentBase64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("uploaded attachment"));
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+
+            await _fileTools.UploadFile("attached.txt", "text/plain", contentBase64);
+
+            var result = await _fileTools.ReadLocalFile(attachedPath);
+
+            Assert.DoesNotContain("error", result.ToLowerInvariant());
+            Assert.Contains("uploaded attachment", result);
+            Assert.Contains("attached.txt", result);
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task QueryLocalStructuredFile_UploadedAttachmentPathOutsideAllowlist_ReturnsRowCount()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+        var attachedPath = $@"C:\Users\scott\Downloads\customers.xlsx";
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Customers");
+            worksheet.Cell(1, 1).Value = "Name";
+            worksheet.Cell(2, 1).Value = "Alice";
+            worksheet.Cell(3, 1).Value = "Bob";
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await _fileTools.UploadFile(
+                "customers.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                Convert.ToBase64String(stream.ToArray()));
+
+            var result = await _fileTools.QueryLocalStructuredFile(attachedPath, "How many rows?");
+
+            Assert.DoesNotContain("error", result.ToLowerInvariant());
+            Assert.Contains("Total rows: 2", result);
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task QueryExcel_UploadedAttachmentPathOutsideAllowlist_ReturnsQueryResults()
+    {
+        var originalRoots = Config.LocalFileSystemAllowedRoots;
+        var tempRoot = Path.Combine(Path.GetTempPath(), $"JiwaMcpServerTests-{Guid.NewGuid():N}");
+        var attachedPath = $@"C:\Users\scott\Downloads\people.xlsx";
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            Config.LocalFileSystemAllowedRoots = new[] { tempRoot };
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("People");
+            worksheet.Cell(1, 1).Value = "Name";
+            worksheet.Cell(2, 1).Value = "Alice";
+            worksheet.Cell(3, 1).Value = "Bob";
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            await _fileTools.UploadFile(
+                "people.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                Convert.ToBase64String(stream.ToArray()));
+
+            var result = await _fileTools.QueryExcel(attachedPath, "How many rows?");
+
+            Assert.DoesNotContain("error", result.ToLowerInvariant());
+            Assert.Contains("Total rows: 2", result);
+        }
+        finally
+        {
+            Config.LocalFileSystemAllowedRoots = originalRoots;
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, true);
+            }
+        }
+    }
+
+    [Fact]
     public async Task ReadLocalFile_PathOutsideAllowlist_ReturnsError()
     {
         var originalRoots = Config.LocalFileSystemAllowedRoots;
