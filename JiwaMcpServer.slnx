@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="JiwaMCPServer.Tests/JiwaMCPServer.Tests.csproj" DisplayName="JiwaMcpServer.Tests" />
+  <Project Path="JiwaMCPServer/JiwaMCPServer.csproj" DisplayName="JiwaMcpServer" />
+  <Project Path="JiwaMcpServerSamplePlugin/JiwaMcpServerSamplePlugin.csproj" />
+</Solution>
