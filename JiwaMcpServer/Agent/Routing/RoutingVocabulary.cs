@@ -197,6 +197,15 @@ public static class RoutingVocabulary
         => !string.IsNullOrWhiteSpace(text)
             && Regex.IsMatch(text, @"\b(it|that|this|them|those|these)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
+    public static bool IsConfirmationPrompt(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var normalized = Regex.Replace(text.Trim(), @"\s+", " ");
+        return Regex.IsMatch(normalized, @"^(?:confirm|confirmed|yes|yes please|yep|yeah|ok|okay|go ahead|proceed|continue|do it|run it)(?:[.!])?$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
     public static bool ContainsKeyword(string input, string keyword)
     {
         if (string.IsNullOrWhiteSpace(input) || string.IsNullOrWhiteSpace(keyword))

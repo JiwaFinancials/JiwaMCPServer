@@ -1,3 +1,4 @@
+using JiwaMcpServer.Agent.Models;
 using JiwaMcpServer.Agent.Routing;
 
 namespace JiwaMcpServer.Tests.Agent;
@@ -81,6 +82,21 @@ public class DomainRouterTests
     public void ResolveDomains_DocumentSupportRouting_ExportProductsWithoutFormat_StillReturnsDocumentTools()
     {
         var domains = _router.ResolveDomains("Export products");
+
+        Assert.Contains("InventoryTools", domains);
+        Assert.Contains("DocumentTools", domains);
+    }
+
+    [Fact]
+    public void ResolveDomains_ConfirmationWithInventorySummary_ReusesSummaryDomains()
+    {
+        var domains = _router.ResolveDomains(
+            "Confirm",
+            intentContext: null,
+            workingContext: new WorkingContext
+            {
+                ConversationSummary = "User asked for a downloadable csv export of parts with stock and sell price."
+            });
 
         Assert.Contains("InventoryTools", domains);
         Assert.Contains("DocumentTools", domains);

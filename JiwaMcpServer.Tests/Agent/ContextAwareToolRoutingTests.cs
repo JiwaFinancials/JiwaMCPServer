@@ -144,9 +144,44 @@ public class ContextAwareToolRoutingTests
 
         Assert.Equal("QueryInventory", route.Tools[0].Name);
         Assert.Contains(route.Tools, tool => tool.Name == "CreateDataExport");
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "GetProduct");
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "GetStockOnHand");
         Assert.Contains("downloadable csv export", route.WorkingContext.ConversationSummary, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("DocumentTools", route.Domains);
         Assert.Contains("InventoryTools", route.Domains);
+    }
+
+    [Fact]
+    public async Task ConfirmWithoutContext_DoesNotFallBackToFullCatalog()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "Confirm",
+            MaxTools = 20
+        });
+
+        Assert.Empty(route.Tools);
+        Assert.Contains(route.SelectionAdjustments, adjustment => adjustment.Contains("no recoverable context", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ConfirmWithSummaryOnly_PrefersInventoryToolsOverFullCatalog()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "Confirm",
+            ConversationSummary = "User asked for a downloadable csv export of parts with stock and sell price.",
+            MaxTools = 5
+        });
+
+        Assert.NotEmpty(route.Tools);
+        Assert.Equal("QueryInventory", route.Tools[0].Name);
+        Assert.Contains(route.Tools, tool => tool.Name == "CreateDataExport");
+        Assert.DoesNotContain(route.Tools, tool => tool.Domain == "CustomerTools");
     }
 
     [Fact]

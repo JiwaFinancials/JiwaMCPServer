@@ -42,18 +42,31 @@ public sealed class ToolShortlistService : IToolShortlistService
         var intent = _intentExtractor.Extract(prompt, workingContext);
         var resolvedDomains = ResolveDomains(prompt, intent, workingContext);
         var allTools = _toolCatalog.GetAllTools();
+        var isConfirmationPrompt = RoutingVocabulary.IsConfirmationPrompt(prompt);
+        var hasRecoverableConfirmationContext = HasRecoverableConfirmationContext(workingContext);
 
         var domainTools = resolvedDomains.Count > 0
             ? _toolCatalog.GetToolsForDomains(resolvedDomains)
-            : allTools;
+            : isConfirmationPrompt && !hasRecoverableConfirmationContext
+                ? []
+                : allTools;
 
         if (domainTools.Count == 0)
         {
-            _logger.LogWarning("No tools matched the resolved domains for prompt '{Prompt}'. Falling back to the full catalog.", prompt);
-            domainTools = allTools;
+            if (isConfirmationPrompt && !hasRecoverableConfirmationContext)
+            {
+                _logger.LogInformation("Confirmation prompt '{Prompt}' arrived without recoverable context. Returning no tools.", prompt);
+            }
+            else
+            {
+                _logger.LogWarning("No tools matched the resolved domains for prompt '{Prompt}'. Falling back to the full catalog.", prompt);
+                domainTools = allTools;
+            }
         }
 
-        var candidateTools = FilterCandidateTools(domainTools, intent, workingContext);
+        var candidateTools = isConfirmationPrompt
+            ? FilterConfirmationCandidateTools(domainTools, allTools, workingContext)
+            : FilterCandidateTools(domainTools, intent, workingContext);
         var rankingInput = BuildRankingInput(prompt, intent, workingContext, resolvedDomains);
 
         var ranked = candidateTools
@@ -68,6 +81,9 @@ public sealed class ToolShortlistService : IToolShortlistService
             .Take(Math.Max(1, maxTools))
             .ToList();
 
+        if (isConfirmationPrompt)
+            PromotePreferredConfirmationTool(ranked, workingContext);
+
         var overrideContext = new ToolSelectionContext(
             safeRequest.ConversationId,
             prompt,
@@ -80,6 +96,11 @@ public sealed class ToolShortlistService : IToolShortlistService
             allTools,
             ranked,
             maxTools);
+
+        if (isConfirmationPrompt && !hasRecoverableConfirmationContext)
+        {
+            overrideContext.AddAdjustment("Confirmation prompt had no recoverable context, so no tool schemas were selected.");
+        }
 
         foreach (var selectionOverride in _selectionOverrides)
             selectionOverride.Apply(overrideContext);
@@ -450,6 +471,123 @@ public sealed class ToolShortlistService : IToolShortlistService
             _ => false
         };
     }
+
+    private static IReadOnlyList<ToolDefinition> FilterConfirmationCandidateTools(
+        IReadOnlyList<ToolDefinition> domainTools,
+        IReadOnlyList<ToolDefinition> availableTools,
+        WorkingContext workingContext)
+    {
+        if (domainTools.Count == 0)
+            return domainTools;
+
+        var retainedDocumentExportTool = ShouldRetainDocumentExportTool(workingContext)
+            ? availableTools.FirstOrDefault(tool => tool.Name.Equals("CreateDataExport", StringComparison.OrdinalIgnoreCase))
+            : null;
+
+        if (!string.IsNullOrWhiteSpace(workingContext.LastToolName))
+        {
+            var priorTool = availableTools.FirstOrDefault(tool => tool.Name.Equals(workingContext.LastToolName, StringComparison.OrdinalIgnoreCase));
+            if (priorTool is not null)
+                return IncludeTool([priorTool], retainedDocumentExportTool);
+        }
+
+        var currentDomain = RoutingVocabulary.ResolveCanonicalDomain(workingContext.CurrentDomain);
+        if (!string.IsNullOrWhiteSpace(currentDomain))
+        {
+            var currentDomainTools = domainTools
+                .Where(tool => RoutingVocabulary.ResolveCanonicalDomain(tool.Domain).Equals(currentDomain, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (currentDomainTools.Count > 0)
+            {
+                var preferredCurrentDomainTool = SelectPreferredConfirmationTool(currentDomainTools, currentDomain, workingContext.ConversationSummary);
+                if (preferredCurrentDomainTool is not null)
+                    return IncludeTool([preferredCurrentDomainTool], retainedDocumentExportTool);
+
+                return IncludeTool(currentDomainTools, retainedDocumentExportTool);
+            }
+        }
+
+        var fallbackDomain = domainTools
+            .Select(tool => RoutingVocabulary.ResolveCanonicalDomain(tool.Domain))
+            .FirstOrDefault(domain => !domain.Equals("DocumentTools", StringComparison.OrdinalIgnoreCase))
+            ?? domainTools.Select(tool => RoutingVocabulary.ResolveCanonicalDomain(tool.Domain)).FirstOrDefault();
+
+        var preferredFallbackTool = SelectPreferredConfirmationTool(domainTools, fallbackDomain, workingContext.ConversationSummary);
+        if (preferredFallbackTool is not null)
+            return IncludeTool([preferredFallbackTool], retainedDocumentExportTool);
+
+        return IncludeTool(domainTools, retainedDocumentExportTool);
+    }
+
+    private static ToolDefinition? SelectPreferredConfirmationTool(
+        IReadOnlyList<ToolDefinition> tools,
+        string? currentDomain,
+        string? conversationSummary)
+    {
+        if (tools.Count == 0)
+            return null;
+
+        var summary = conversationSummary ?? string.Empty;
+        var preferredToolNames = RoutingVocabulary.ResolveCanonicalDomain(currentDomain) switch
+        {
+            "InventoryTools" when Regex.IsMatch(summary, @"\b(stock\s+on\s+hand|warehouse|bin|quantity|qty)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                => new[] { "GetStockOnHand", "QueryInventory" },
+            "InventoryTools" => new[] { "QueryInventory", "GetStockOnHand" },
+            "CustomerTools" when Regex.IsMatch(summary, @"\b(transaction|transactions|history|payment|payments|balance|balances|invoice|invoices)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                => new[] { "QueryCustomerTransactions", "QueryCustomers" },
+            "CustomerTools" => new[] { "QueryCustomers", "QueryCustomerTransactions" },
+            "CreditorPurchaseTools" when Regex.IsMatch(summary, @"\bhistory\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                => new[] { "QuerySupplierPurchaseHistory", "QuerySupplierPurchases" },
+            "CreditorPurchaseTools" => new[] { "QuerySupplierPurchases", "QuerySupplierPurchaseHistory" },
+            _ => Array.Empty<string>()
+        };
+
+        foreach (var toolName in preferredToolNames)
+        {
+            var match = tools.FirstOrDefault(tool => tool.Name.Equals(toolName, StringComparison.OrdinalIgnoreCase));
+            if (match is not null)
+                return match;
+        }
+
+        return null;
+    }
+
+    private static void PromotePreferredConfirmationTool(List<ToolSelectionCandidate> rankedTools, WorkingContext workingContext)
+    {
+        if (rankedTools.Count <= 1)
+            return;
+
+        var currentDomain = RoutingVocabulary.ResolveCanonicalDomain(workingContext.CurrentDomain);
+        if (string.IsNullOrWhiteSpace(currentDomain))
+        {
+            currentDomain = rankedTools
+                .Select(item => RoutingVocabulary.ResolveCanonicalDomain(item.Tool.Domain))
+                .FirstOrDefault(domain => !domain.Equals("DocumentTools", StringComparison.OrdinalIgnoreCase))
+                ?? rankedTools.Select(item => RoutingVocabulary.ResolveCanonicalDomain(item.Tool.Domain)).FirstOrDefault()
+                ?? string.Empty;
+        }
+
+        var preferredTool = SelectPreferredConfirmationTool(
+            rankedTools.Select(item => item.Tool).ToList(),
+            currentDomain,
+            workingContext.ConversationSummary);
+        if (preferredTool is null)
+            return;
+
+        var index = rankedTools.FindIndex(item => item.Tool.Name.Equals(preferredTool.Name, StringComparison.OrdinalIgnoreCase));
+        if (index <= 0)
+            return;
+
+        var preferredCandidate = rankedTools[index];
+        rankedTools.RemoveAt(index);
+        rankedTools.Insert(0, preferredCandidate);
+    }
+
+    private static bool HasRecoverableConfirmationContext(WorkingContext workingContext)
+        => !string.IsNullOrWhiteSpace(workingContext.LastToolName)
+            || !string.IsNullOrWhiteSpace(workingContext.CurrentDomain)
+            || workingContext.FocusedEntity is not null
+            || !string.IsNullOrWhiteSpace(workingContext.ConversationSummary);
 
     private static IReadOnlyList<string> ResolveSelectedDomains(
         IReadOnlyList<ToolSelectionCandidate> selectedTools,

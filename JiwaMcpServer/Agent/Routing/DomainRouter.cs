@@ -95,8 +95,9 @@ public sealed class DomainRouter : IDomainRouter
         }
 
         var resolved = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var isConfirmationPrompt = RoutingVocabulary.IsConfirmationPrompt(userPrompt);
         AddDomainsFromPrompt(resolved, userPrompt);
-        AddDomainsFromConversationSummary(resolved, workingContext?.ConversationSummary);
+        AddDomainsFromConversationSummary(resolved, workingContext?.ConversationSummary, useFullDomainKeywordScan: isConfirmationPrompt);
         AddDomainForEntity(resolved, intentContext?.EntityType);
 
         if (RoutingVocabulary.ContainsReferencePronoun(userPrompt)
@@ -132,10 +133,13 @@ public sealed class DomainRouter : IDomainRouter
             resolved.Add("DocumentTools");
     }
 
-    private static void AddDomainsFromConversationSummary(HashSet<string> resolved, string? conversationSummary)
+    private static void AddDomainsFromConversationSummary(HashSet<string> resolved, string? conversationSummary, bool useFullDomainKeywordScan = false)
     {
         if (string.IsNullOrWhiteSpace(conversationSummary))
             return;
+
+        if (useFullDomainKeywordScan)
+            AddDomainsFromPrompt(resolved, conversationSummary);
 
         if (DocumentSupportKeywords.Any(keyword => RoutingVocabulary.ContainsKeyword(conversationSummary, keyword)))
             resolved.Add("DocumentTools");
