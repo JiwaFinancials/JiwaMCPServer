@@ -54,6 +54,7 @@ IMPORTANT:
 • Updates live business data.
 • Requires a DebtorID.
 • If the customer has not been identified, use QueryCustomers first.
+• Supply only the fields being changed inside Changes. Do not send the full customer payload.
 • Do not ask the user for a DebtorID if QueryCustomers can determine it.
 
 Use for customer details, contact information, account settings, and customer maintenance.

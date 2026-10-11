@@ -39,4 +39,17 @@ public class ReflectionToolSchemaResolverTests
         Assert.Equal("array", dispersals["type"]?.GetValue<string>());
         Assert.NotNull(dispersals["items"]);
     }
+
+    [Fact]
+    public async Task ResolveAsync_DeleteProduct_AllowsInventoryIdOrPartNo()
+    {
+        var schemas = await _resolver.ResolveAsync(["DeleteProduct"]);
+
+        var schema = Assert.IsType<JsonObject>(schemas["DeleteProduct"].ParametersSchema);
+        var requestDto = Assert.IsType<JsonObject>(Assert.IsType<JsonObject>(schema["properties"])["requestDTO"]);
+        var requestProperties = Assert.IsType<JsonObject>(requestDto["properties"]);
+
+        Assert.Contains("inventoryID", requestProperties.Select(p => p.Key));
+        Assert.Contains("partNo", requestProperties.Select(p => p.Key));
+    }
 }

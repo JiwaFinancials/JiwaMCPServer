@@ -7,5 +7,9 @@ public interface IToolResultStore
 {
     void Store(ToolExecutionContextUpdateRequest request);
 
+    string StoreStructuredResult(JsonNode structuredResult);
+
+    JsonNode? GetStructuredResultByHandle(string resultHandle);
+
     JsonNode? GetLatestStructuredResult(string conversationId, string? toolName = null);
 }

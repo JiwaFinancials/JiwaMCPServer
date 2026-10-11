@@ -1,6 +1,7 @@
 ﻿using JiwaFinancials.Jiwa.JiwaServiceModel;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Debtors;
 using JiwaMcpServer.Agent.Catalog;
+using JiwaMcpServer.Models;
 using JiwaMcpServer.Services;
 using ModelContextProtocol.Server;
 using ServiceStack;
@@ -26,7 +27,7 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
         });
 
     [McpServerTool, Description(CustomerToolDescriptions.GetCustomer)]
@@ -46,11 +47,15 @@ public class CustomerTools : JiwaToolBase
         });
 
     [McpServerTool, Description(CustomerToolDescriptions.ModifyCustomer)]
-    public Task<string> ModifyCustomer(DebtorPATCHRequest requestDTO, CancellationToken ct = default)
+    public Task<string> ModifyCustomer(CustomerPatchToolRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
-            return result.ToJson<Debtor>();
+            var changes = PreparePatchChanges(requestDTO.Changes, nameof(DebtorPATCHRequest.DebtorID));
+            var result = await JiwaApiClient.PatchPartialAsync<DebtorPATCHRequest, Debtor>(
+                changes,
+                [(nameof(DebtorPATCHRequest.DebtorID), requestDTO.DebtorID)],
+                ct);
+            return CreatePatchResponseJson("customer", changes, result, [(nameof(DebtorPATCHRequest.DebtorID), requestDTO.DebtorID)]);
         });
 
     [McpServerTool, Description(CustomerToolDescriptions.DeleteCustomer)]
@@ -74,7 +79,7 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
         });
 
     [McpServerTool(ReadOnly = true), Description(CustomerToolDescriptions.SearchCustomerClassifications)]
@@ -90,7 +95,7 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
         });
 
     [McpServerTool(ReadOnly = true), Description(CustomerToolDescriptions.SearchCustomerCategories)]
@@ -106,6 +111,6 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
         });
 }

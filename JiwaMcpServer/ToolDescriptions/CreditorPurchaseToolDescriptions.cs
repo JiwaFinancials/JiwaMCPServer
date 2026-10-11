@@ -71,6 +71,7 @@ Use when the user wants to update purchasing information, invoice details, or pu
 IMPORTANT:
 • Updates live business data.
 • Ensure the correct purchase has been identified before making changes.
+• Supply only the fields being changed inside Changes. Do not send the full purchase payload.
 """;
 
     public const string DeleteCreditorPurchase = """
@@ -125,6 +126,7 @@ Use to update quantities, pricing, products, costs, or other line-level purchase
 
 IMPORTANT:
 • Modifies live business data.
+• Supply only the fields being changed inside Changes. Do not send the full line payload.
 """;
 
     public const string DeleteCreditorPurchaseLine = """

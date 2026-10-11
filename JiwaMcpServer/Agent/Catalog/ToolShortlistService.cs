@@ -204,7 +204,7 @@ public sealed class ToolShortlistService : IToolShortlistService
             : null;
 
         var entityType = FirstNonEmpty(intent.EntityType, workingContext.FocusedEntity?.EntityType);
-        if (RequiresProductIdentifierLookup(intent, entityType))
+        if (RequiresProductIdentifierLookup(intent, entityType, workingContext))
         {
             var lookupTool = domainTools.FirstOrDefault(tool => tool.Name.Equals("QueryInventory", StringComparison.OrdinalIgnoreCase));
             if (lookupTool is not null)
@@ -309,6 +309,19 @@ public sealed class ToolShortlistService : IToolShortlistService
                 score -= 25d;
         }
 
+        if (RequiresProductIdentifierLookup(rankingInput.Intent, entityType, new WorkingContext { FocusedEntity = rankingInput.FocusedEntity }))
+        {
+            if (tool.Name.Equals("QueryInventory", StringComparison.OrdinalIgnoreCase))
+                score += 60d;
+
+            if (tool.Name.Equals("GetProduct", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("ModifyProduct", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("DeleteProduct", StringComparison.OrdinalIgnoreCase))
+            {
+                score -= 25d;
+            }
+        }
+
         if (LooksLikeGenericProductDiscoveryPrompt(rankingInput.UserMessage, rankingInput.Intent.Action, entityType))
         {
             if (tool.Name.Equals("QueryInventory", StringComparison.OrdinalIgnoreCase))
@@ -320,6 +333,21 @@ public sealed class ToolShortlistService : IToolShortlistService
                 || tool.Name.Equals("GetProductPicture", StringComparison.OrdinalIgnoreCase))
             {
                 score -= 20d;
+            }
+        }
+
+        if (LooksLikeGroupedInventoryCountPrompt(rankingInput.UserMessage))
+        {
+            if (tool.Name.Equals("AggregateInventoryCounts", StringComparison.OrdinalIgnoreCase))
+                score += 90d;
+
+            if (tool.Name.Equals("QueryInventory", StringComparison.OrdinalIgnoreCase))
+                score -= 30d;
+
+            if (tool.Name.Equals("SearchProductClassifications", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("SearchProductCategories", StringComparison.OrdinalIgnoreCase))
+            {
+                score -= 10d;
             }
         }
 
@@ -436,18 +464,37 @@ public sealed class ToolShortlistService : IToolShortlistService
         return Regex.IsMatch(prompt, @"\b(?:part|parts|product|products|inventory|items?)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
-    private static bool RequiresProductIdentifierLookup(IntentContext intent, string? entityType)
+    private static bool LooksLikeGroupedInventoryCountPrompt(string? prompt)
     {
-        if (!string.Equals(intent.Action, "Update", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(prompt))
             return false;
 
+        var countSignal = Regex.IsMatch(prompt, @"\b(?:count|counts|total|totals|summary|summaries|group(?:ed|ing)?|per|first\s+letter|prefix|starts\s+with)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var inventorySignal = Regex.IsMatch(prompt, @"\b(?:part|parts|product|products|inventory|classification|classifications|category|categories|warehouse|stock)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        return countSignal && inventorySignal;
+    }
+
+    private static bool RequiresProductIdentifierLookup(IntentContext intent, string? entityType, WorkingContext workingContext)
+    {
         if (!RoutingVocabulary.AreEntityTypesCompatible(entityType, "Product"))
             return false;
 
-        if (!intent.Parameters.TryGetValue("identifier", out var identifier))
+        if (!intent.Parameters.TryGetValue("identifier", out var identifier) || string.IsNullOrWhiteSpace(identifier))
             return false;
 
-        return !string.IsNullOrWhiteSpace(identifier);
+        if (workingContext.FocusedEntity is not null
+            && RoutingVocabulary.AreEntityTypesCompatible(workingContext.FocusedEntity.EntityType, "Product")
+            && !string.IsNullOrWhiteSpace(workingContext.FocusedEntity.EntityId))
+        {
+            return false;
+        }
+
+        return intent.Action switch
+        {
+            "Read" or "Update" or "Delete" => true,
+            _ => false
+        };
     }
 
     private static bool RequiresCustomerIdentifierLookup(IntentContext intent, string? entityType, WorkingContext workingContext)
@@ -484,9 +531,25 @@ public sealed class ToolShortlistService : IToolShortlistService
             ? availableTools.FirstOrDefault(tool => tool.Name.Equals("CreateDataExport", StringComparison.OrdinalIgnoreCase))
             : null;
 
+        var summary = workingContext.ConversationSummary ?? string.Empty;
+        var groupedInventoryCountIntent = LooksLikeGroupedInventoryCountPrompt(summary)
+            || LooksLikeGroupedInventoryCountPrompt(workingContext.LastToolName);
+
         if (!string.IsNullOrWhiteSpace(workingContext.LastToolName))
         {
             var priorTool = availableTools.FirstOrDefault(tool => tool.Name.Equals(workingContext.LastToolName, StringComparison.OrdinalIgnoreCase));
+            if (groupedInventoryCountIntent)
+            {
+                var aggregateTool = availableTools.FirstOrDefault(tool => tool.Name.Equals("AggregateInventoryCounts", StringComparison.OrdinalIgnoreCase));
+                var preferredTools = new List<ToolDefinition>();
+                if (aggregateTool is not null)
+                    preferredTools.Add(aggregateTool);
+                if (priorTool is not null && !string.Equals(priorTool.Name, aggregateTool?.Name, StringComparison.OrdinalIgnoreCase))
+                    preferredTools.Add(priorTool);
+                if (preferredTools.Count > 0)
+                    return IncludeTool(preferredTools, retainedDocumentExportTool);
+            }
+
             if (priorTool is not null)
                 return IncludeTool([priorTool], retainedDocumentExportTool);
         }
@@ -530,6 +593,8 @@ public sealed class ToolShortlistService : IToolShortlistService
         var summary = conversationSummary ?? string.Empty;
         var preferredToolNames = RoutingVocabulary.ResolveCanonicalDomain(currentDomain) switch
         {
+            "InventoryTools" when LooksLikeGroupedInventoryCountPrompt(summary)
+                => new[] { "AggregateInventoryCounts", "QueryInventory", "GetStockOnHand" },
             "InventoryTools" when Regex.IsMatch(summary, @"\b(stock\s+on\s+hand|warehouse|bin|quantity|qty)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
                 => new[] { "GetStockOnHand", "QueryInventory" },
             "InventoryTools" => new[] { "QueryInventory", "GetStockOnHand" },

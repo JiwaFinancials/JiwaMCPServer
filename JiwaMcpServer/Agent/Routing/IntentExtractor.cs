@@ -28,6 +28,13 @@ public sealed class IntentExtractor : IIntentExtractor
         if (string.IsNullOrWhiteSpace(prompt))
             return string.Empty;
 
+        if (Regex.IsMatch(prompt,
+            @"\b(?:how\s+much|how\s+many|what\s+is|what's|do\s+i\s+have|tell\s+me\s+how\s+much)\b.*\b(?:stock|qty|quantity|available|availability|on\s+hand|inventory\s+balance)\b|\b(?:stock|qty|quantity|available|availability|on\s+hand|inventory\s+balance)\b.*\b(?:how\s+much|how\s+many|what\s+is|what's|do\s+i\s+have|tell\s+me\s+how\s+much)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            return "Read";
+        }
+
         foreach (var action in new[] { "Approve", "Update", "Delete", "Create", "Query", "Read" })
         {
             var canonical = RoutingVocabulary.ResolveCanonicalAction(action);
@@ -86,6 +93,14 @@ public sealed class IntentExtractor : IIntentExtractor
             if (!string.IsNullOrWhiteSpace(field))
                 parameters[field] = string.IsNullOrWhiteSpace(value) ? "pending" : value;
         }
+
+        var productIdentifierReferenceMatch = Regex.Match(
+            prompt,
+            @"\b(?:part\s*(?:no|number)|sku|item\s*code|product\s*code)\b(?:\s+(?:of|is|=))?\s*(?<identifier>[A-Za-z0-9][A-Za-z0-9\-/]*)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        if (productIdentifierReferenceMatch.Success)
+            parameters.TryAdd("identifier", productIdentifierReferenceMatch.Groups["identifier"].Value.Trim());
 
         var entityReferenceMatch = Regex.Match(
             prompt,

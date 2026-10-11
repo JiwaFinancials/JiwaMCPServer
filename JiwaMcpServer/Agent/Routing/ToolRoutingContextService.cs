@@ -396,13 +396,14 @@ public sealed class ToolRoutingContextService : IToolRoutingContextService
         if (!string.IsNullOrWhiteSpace(requestedArtifact))
             sentences.Add($"Requested output: {requestedArtifact}.");
 
+        if (!string.IsNullOrWhiteSpace(userMessage))
+            sentences.Add($"Recent request: {Summarize(userMessage)}.");
+
         if (!string.IsNullOrWhiteSpace(toolName))
             sentences.Add($"Last tool: {toolName}.");
 
         if (sentences.Count == 0 && !string.IsNullOrWhiteSpace(existingSummary))
             sentences.Add(existingSummary);
-        else if (sentences.Count == 0 && !string.IsNullOrWhiteSpace(userMessage))
-            sentences.Add($"Recent request: {Summarize(userMessage)}");
 
         return Summarize(string.Join(' ', sentences));
     }

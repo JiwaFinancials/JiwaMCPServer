@@ -173,16 +173,24 @@ public sealed class DocumentTools(
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        var resultHandle = request.ResultHandle ?? request.StructuredResultHandle ?? request.DataHandle;
+
         JsonNode data;
         if (request.Data is JsonElement dataElement
             && dataElement.ValueKind is not JsonValueKind.Undefined and not JsonValueKind.Null)
         {
             data = JsonNode.Parse(dataElement.GetRawText()) ?? new JsonArray();
         }
-        else if (!string.IsNullOrWhiteSpace(request.ClientSessionId)
-            && (request.UseLatestStructuredToolResult || !string.IsNullOrWhiteSpace(request.SourceToolName)))
+        else if (!string.IsNullOrWhiteSpace(resultHandle))
         {
-            data = _toolResultStore.GetLatestStructuredResult(request.ClientSessionId, request.SourceToolName)
+            data = _toolResultStore.GetStructuredResultByHandle(resultHandle)
+                ?? throw new InvalidOperationException("No stored structured tool result is available for the supplied result handle.");
+        }
+        else if (request.UseLatestStructuredToolResult || !string.IsNullOrWhiteSpace(request.SourceToolName))
+        {
+            var sessionId = request.ClientSessionId ?? string.Empty;
+            var latestStructuredResult = _toolResultStore.GetLatestStructuredResult(sessionId, request.SourceToolName);
+            data = latestStructuredResult
                 ?? throw new InvalidOperationException("No stored structured tool result is available for this export request.");
         }
         else

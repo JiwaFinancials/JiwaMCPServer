@@ -201,6 +201,83 @@ public class ContextAwareToolRoutingTests
     }
 
     [Fact]
+    public async Task CountPartsByClassification_PrefersAggregateInventoryCounts()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "show me the list again but with a count of parts that belong to each classification",
+            MaxTools = 5
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Contains(route.Tools, tool => tool.Name == "AggregateInventoryCounts");
+        Assert.Equal("AggregateInventoryCounts", route.Tools[0].Name);
+    }
+
+    [Fact]
+    public async Task ConfirmAfterGroupedInventoryCountRequest_PrefersAggregateInventoryCounts()
+    {
+        var router = CreateActualRouter();
+
+        await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "inventory-count-confirm",
+            UserMessage = "show me the list again but with a count of parts that belong to each classification",
+            ToolName = "QueryInventory",
+            ToolResultText = "{\"total\":297,\"returned\":10,\"pageSize\":100,\"truncated\":true,\"results\":[{\"InventoryClassificationID\":\"A\"},{\"InventoryClassificationID\":\"B\"}],\"resultHandle\":\"abc123\"}"
+        });
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            ConversationId = "inventory-count-confirm",
+            Prompt = "confirm",
+            MaxTools = 5
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Contains(route.Tools, tool => tool.Name == "AggregateInventoryCounts");
+        Assert.Equal("AggregateInventoryCounts", route.Tools[0].Name);
+    }
+
+    [Fact]
+    public async Task DeleteProductByPartNumber_PrefersQueryInventoryBeforeDeleteProduct()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "Delete the part with an part no of 000Test",
+            MaxTools = 1
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Single(route.Tools);
+        Assert.Equal("QueryInventory", route.Tools[0].Name);
+        Assert.Equal("000Test", route.Intent.Parameters["identifier"]);
+    }
+
+    [Fact]
+    public async Task StockQueryByPartNumber_PrefersStockToolAndNotModifyDelete()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "How much stock do I have of part no T1170",
+            MaxTools = 5
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Contains(route.Tools, tool => tool.Name == "GetStockOnHand");
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "ModifyProduct");
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "DeleteProduct");
+        Assert.Equal("Product", route.Intent.EntityType);
+        Assert.Equal("Read", route.Intent.Action);
+    }
+
+    [Fact]
     public async Task DeleteCustomerByCustomerNumber_PrefersQueryCustomersBeforeDeleteCustomer()
     {
         var router = CreateActualRouter();

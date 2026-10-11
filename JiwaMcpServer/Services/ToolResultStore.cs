@@ -8,6 +8,7 @@ namespace JiwaMcpServer.Services;
 public sealed class ToolResultStore : IToolResultStore
 {
     private const int MaxStoredResultsPerConversation = 10;
+    private const int MaxGlobalStoredResults = 50;
     private static readonly JsonDocumentOptions JsonOptions = new()
     {
         AllowTrailingCommas = true,
@@ -15,12 +16,12 @@ public sealed class ToolResultStore : IToolResultStore
     };
 
     private readonly ConcurrentDictionary<string, ConcurrentQueue<StoredToolResult>> _resultsByConversation = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentQueue<StoredToolResult> _latestStructuredResults = new();
 
     public void Store(ToolExecutionContextUpdateRequest request)
     {
         if (request is null
             || !request.Successful
-            || string.IsNullOrWhiteSpace(request.ConversationId)
             || string.IsNullOrWhiteSpace(request.ToolName)
             || string.IsNullOrWhiteSpace(request.ToolResultText)
             || !TryParseStructuredResult(request.ToolResultText, out var structuredResult))
@@ -28,28 +29,57 @@ public sealed class ToolResultStore : IToolResultStore
             return;
         }
 
-        var queue = _resultsByConversation.GetOrAdd(request.ConversationId, _ => new ConcurrentQueue<StoredToolResult>());
-        queue.Enqueue(new StoredToolResult(request.ToolName, structuredResult!));
+        var result = new StoredToolResult(request.ToolName, structuredResult!.DeepClone());
 
-        while (queue.Count > MaxStoredResultsPerConversation && queue.TryDequeue(out _))
+        if (!string.IsNullOrWhiteSpace(request.ConversationId))
+        {
+            var queue = _resultsByConversation.GetOrAdd(request.ConversationId, _ => new ConcurrentQueue<StoredToolResult>());
+            queue.Enqueue(result);
+
+            while (queue.Count > MaxStoredResultsPerConversation && queue.TryDequeue(out _))
+            {
+            }
+        }
+
+        _latestStructuredResults.Enqueue(result);
+        while (_latestStructuredResults.Count > MaxGlobalStoredResults && _latestStructuredResults.TryDequeue(out _))
         {
         }
     }
 
+    public string StoreStructuredResult(JsonNode structuredResult)
+        => StructuredResultHandleStore.Store(structuredResult);
+
+    public JsonNode? GetStructuredResultByHandle(string resultHandle)
+        => StructuredResultHandleStore.Get(resultHandle);
+
     public JsonNode? GetLatestStructuredResult(string conversationId, string? toolName = null)
     {
-        if (string.IsNullOrWhiteSpace(conversationId)
-            || !_resultsByConversation.TryGetValue(conversationId, out var queue))
+        var normalizedToolName = NormalizeToolName(toolName);
+
+        if (!string.IsNullOrWhiteSpace(conversationId)
+            && _resultsByConversation.TryGetValue(conversationId, out var queue))
         {
-            return null;
+            var snapshots = queue.ToArray();
+            for (var index = snapshots.Length - 1; index >= 0; index--)
+            {
+                var snapshot = snapshots[index];
+                if (!string.IsNullOrWhiteSpace(normalizedToolName)
+                    && !MatchesToolName(snapshot.ToolName, normalizedToolName))
+                {
+                    continue;
+                }
+
+                return snapshot.StructuredResult.DeepClone();
+            }
         }
 
-        var snapshots = queue.ToArray();
-        for (var index = snapshots.Length - 1; index >= 0; index--)
+        var globalSnapshots = _latestStructuredResults.ToArray();
+        for (var index = globalSnapshots.Length - 1; index >= 0; index--)
         {
-            var snapshot = snapshots[index];
-            if (!string.IsNullOrWhiteSpace(toolName)
-                && !snapshot.ToolName.Equals(toolName, StringComparison.OrdinalIgnoreCase))
+            var snapshot = globalSnapshots[index];
+            if (!string.IsNullOrWhiteSpace(normalizedToolName)
+                && !MatchesToolName(snapshot.ToolName, normalizedToolName))
             {
                 continue;
             }
@@ -60,6 +90,27 @@ public sealed class ToolResultStore : IToolResultStore
         return null;
     }
 
+    private static bool MatchesToolName(string actualToolName, string expectedToolName)
+    {
+        var normalizedActual = NormalizeToolName(actualToolName);
+        var normalizedExpected = NormalizeToolName(expectedToolName);
+
+        return string.Equals(normalizedActual, normalizedExpected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeToolName(string? toolName)
+    {
+        if (string.IsNullOrWhiteSpace(toolName))
+            return string.Empty;
+
+        var normalized = toolName.Trim();
+        var lastSegment = normalized.Split('.', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+        if (!string.IsNullOrWhiteSpace(lastSegment))
+            normalized = lastSegment;
+
+        return new string(normalized.Where(char.IsLetterOrDigit).ToArray());
+    }
+
     private static bool TryParseStructuredResult(string toolResultText, out JsonNode? structuredResult)
     {
         structuredResult = null;
@@ -67,6 +118,17 @@ public sealed class ToolResultStore : IToolResultStore
         try
         {
             using var document = JsonDocument.Parse(toolResultText, JsonOptions);
+            if (TryGetPropertyCaseInsensitive(document.RootElement, "resultHandle", out var resultHandleElement)
+                && resultHandleElement.ValueKind == JsonValueKind.String)
+            {
+                var resultHandle = resultHandleElement.GetString();
+                structuredResult = StructuredResultHandleStore.Get(resultHandle ?? string.Empty);
+                if (structuredResult is not null)
+                {
+                    return true;
+                }
+            }
+
             structuredResult = ExtractExportableNode(document.RootElement);
             return structuredResult is not null;
         }

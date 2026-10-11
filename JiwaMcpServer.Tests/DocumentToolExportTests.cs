@@ -6,6 +6,7 @@ using JiwaMcpServer.Tools;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using System.Text;
+using System.Text.Json.Nodes;
 
 namespace JiwaMcpServer.Tests;
 
@@ -45,6 +46,88 @@ public class DocumentToolExportTests
             ClientSessionId = "chat-123",
             UseLatestStructuredToolResult = true,
             SourceToolName = "QueryInventory",
+            Fields = ["PartNo", "Description", "AvailableStock", "SellPrice"],
+            Format = "csv",
+            FileName = "parts"
+        }, CancellationToken.None);
+
+        var csv = Encoding.UTF8.GetString(storage.LastSavedContent);
+        Assert.Equal("parts.csv", storage.LastSavedFileName);
+        Assert.Contains("PartNo,Description,AvailableStock,SellPrice", csv);
+        Assert.Contains("A1,Widget,5,10.5", csv);
+        Assert.Contains("A2,Gadget,0,22", csv);
+        Assert.DoesNotContain("Extra", csv, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CreateDataExport_UsesLatestStoredStructuredToolResultWhenToolNameIsNamespaced()
+    {
+        var toolResultStore = new ToolResultStore();
+        toolResultStore.Store(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "chat-456",
+            UserMessage = "Give me the parts list.",
+            ToolName = "QueryInventory",
+            Successful = true,
+            ToolResultText = """
+            {"total":2,"returned":2,"results":[{"PartNo":"B1","Description":"Bolt","AvailableStock":4,"SellPrice":12.5},{"PartNo":"B2","Description":"Nut","AvailableStock":8,"SellPrice":1.25}]}
+            """
+        });
+
+        var storage = new FakeFileStorageService();
+        var tool = new DocumentTools(
+            new FakeDocumentProcessingService(),
+            new FileExportService(NullLogger<FileExportService>.Instance),
+            storage,
+            toolResultStore,
+            Microsoft.Extensions.Options.Options.Create(new DocumentProcessingOptions
+            {
+                MaxUploadSizeMB = 50,
+                TempFolder = Path.GetTempPath(),
+                RetentionHours = 24
+            }),
+            NullLogger<DocumentTools>.Instance);
+
+        await tool.CreateDataExport(new FileExportRequest
+        {
+            ClientSessionId = "chat-456",
+            UseLatestStructuredToolResult = true,
+            SourceToolName = "functions.query_inventory",
+            Fields = ["PartNo", "Description", "AvailableStock", "SellPrice"],
+            Format = "csv",
+            FileName = "parts"
+        }, CancellationToken.None);
+
+        var csv = Encoding.UTF8.GetString(storage.LastSavedContent);
+        Assert.Contains("B1,Bolt,4,12.5", csv);
+        Assert.Contains("B2,Nut,8,1.25", csv);
+    }
+
+    [Fact]
+    public async Task CreateDataExport_UsesStoredResultHandleForFullCsvExport()
+    {
+        var toolResultStore = new ToolResultStore();
+        var resultHandle = toolResultStore.StoreStructuredResult(JsonNode.Parse("""
+        [{"PartNo":"A1","Description":"Widget","AvailableStock":5,"SellPrice":10.5,"Extra":"x"},{"PartNo":"A2","Description":"Gadget","AvailableStock":0,"SellPrice":22.0,"Extra":"y"}]
+        """)!);
+
+        var storage = new FakeFileStorageService();
+        var tool = new DocumentTools(
+            new FakeDocumentProcessingService(),
+            new FileExportService(NullLogger<FileExportService>.Instance),
+            storage,
+            toolResultStore,
+            Microsoft.Extensions.Options.Options.Create(new DocumentProcessingOptions
+            {
+                MaxUploadSizeMB = 50,
+                TempFolder = Path.GetTempPath(),
+                RetentionHours = 24
+            }),
+            NullLogger<DocumentTools>.Instance);
+
+        await tool.CreateDataExport(new FileExportRequest
+        {
+            ResultHandle = resultHandle,
             Fields = ["PartNo", "Description", "AvailableStock", "SellPrice"],
             Format = "csv",
             FileName = "parts"

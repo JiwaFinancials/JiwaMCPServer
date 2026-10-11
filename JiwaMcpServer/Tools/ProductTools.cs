@@ -1,11 +1,14 @@
 ﻿using JiwaFinancials.Jiwa.JiwaServiceModel;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Inventory;
 using JiwaMcpServer.Agent.Catalog;
+using JiwaMcpServer.Models;
 using JiwaMcpServer.Services;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using JiwaMcpServer.ToolDescriptions;
 
 namespace JiwaMcpServer.Tools;
@@ -27,7 +30,7 @@ public class ProductTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
         });
 
     [McpServerTool, Description(ProductToolDescriptions.GetProduct)]
@@ -47,19 +50,24 @@ public class ProductTools : JiwaToolBase
         });
 
     [McpServerTool, Description(ProductToolDescriptions.ModifyProduct)]
-    public Task<string> ModifyProduct(InventoryPATCHRequest requestDTO, CancellationToken ct = default)
+    public Task<string> ModifyProduct(ProductPatchToolRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
-            return result.ToJson<InventoryItem>();
+            var changes = PreparePatchChanges(requestDTO.Changes, nameof(InventoryPATCHRequest.InventoryID));
+            var result = await JiwaApiClient.PatchPartialAsync<InventoryPATCHRequest, InventoryItem>(
+                changes,
+                [(nameof(InventoryPATCHRequest.InventoryID), requestDTO.InventoryID)],
+                ct);
+            return CreatePatchResponseJson("product", changes, result, [(nameof(InventoryPATCHRequest.InventoryID), requestDTO.InventoryID)]);
         });
 
     [McpServerTool, Description(ProductToolDescriptions.DeleteProduct)]
-    public Task<string> DeleteProduct(InventoryDELETERequest requestDTO, CancellationToken ct = default)
+    public Task<string> DeleteProduct(ProductDeleteToolRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            await JiwaApiClient.DeleteAsync(requestDTO, ct);
-            return new { Deleted = true, InventoryItemID = requestDTO.InventoryID }.ToJson();
+            var inventoryId = await ResolveInventoryIdForDeleteAsync(requestDTO, ct);
+            await JiwaApiClient.DeleteAsync(new InventoryDELETERequest { InventoryID = inventoryId }, ct);
+            return new { Deleted = true, InventoryID = inventoryId, PartNo = requestDTO.PartNo }.ToJson();
         });
 
     [McpServerTool(ReadOnly = true), Description(ProductToolDescriptions.GetStockOnHand)]
@@ -75,7 +83,7 @@ public class ProductTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
         });
 
     [McpServerTool(ReadOnly = true), Description(ProductToolDescriptions.SearchProductClassifications)]
@@ -91,7 +99,7 @@ public class ProductTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
         });
 
     [McpServerTool(ReadOnly = true), Description(ProductToolDescriptions.SearchProductCategories)]
@@ -107,7 +115,36 @@ public class ProductTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
+        });
+
+    [McpServerTool(ReadOnly = true), Description(ProductToolDescriptions.AggregateInventoryCounts)]
+    public Task<string> AggregateInventoryCounts(
+        [Description("The resultHandle returned by a previous QueryInventory or related inventory search. Use this whenever possible so the full result set is aggregated, not a preview.")] string? resultHandle = null,
+        [Description("The property to count by, such as InventoryClassificationID, CategoryID, PartNo, or WarehouseID.")] string groupByField = "InventoryClassificationID",
+        [Description("Optional transform before grouping. Supported values: none, trim, lower, upper, firstLetter, firstLetterUpper.")] string? groupByTransform = null,
+        [Description("Optional full inventory query to execute when resultHandle is not supplied.")] JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Inventory_Item_List_No_SOHQuery? requestDTO = null,
+        CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            JsonNode? structuredResult;
+            if (!string.IsNullOrWhiteSpace(resultHandle))
+            {
+                structuredResult = StructuredResultHandleStore.Get(resultHandle);
+                if (structuredResult is null)
+                    throw new InvalidOperationException("The supplied resultHandle is not available.");
+            }
+            else
+            {
+                if (requestDTO is null)
+                    throw new InvalidOperationException("Either a resultHandle or requestDTO is required to aggregate inventory counts.");
+
+                var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
+                structuredResult = JsonSerializer.SerializeToNode(allResults) ?? new JsonArray();
+            }
+
+            var summary = AggregateStructuredResultsByField(structuredResult, groupByField, groupByTransform);
+            return JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true });
         });
 
     [McpServerTool, Description(ProductToolDescriptions.GetProductPicture)]
@@ -140,5 +177,39 @@ public class ProductTools : JiwaToolBase
         {
             return [new TextContentBlock { Text = $"Error retrieving picture for product {identifier}: {ex.Message}" }];
         }
+    }
+
+    private static async Task<string> ResolveInventoryIdForDeleteAsync(ProductDeleteToolRequest requestDTO, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(requestDTO.InventoryID))
+            return requestDTO.InventoryID;
+
+        if (string.IsNullOrWhiteSpace(requestDTO.PartNo))
+            throw new InvalidOperationException("Either InventoryID or PartNo must be provided.");
+
+        var matches = await GetAllQueryResultsAsync(
+            new JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Inventory_Item_List_No_SOHQuery
+            {
+                PartNo = requestDTO.PartNo
+            },
+            Config.PageSize,
+            ct);
+
+        var exactMatches = matches
+            .Where(item => string.Equals(item.PartNo, requestDTO.PartNo, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        var candidates = exactMatches.Count > 0 ? exactMatches : matches;
+
+        if (candidates.Count == 0)
+            throw new InvalidOperationException($"No product found for PartNo '{requestDTO.PartNo}'.");
+
+        if (candidates.Count > 1)
+            throw new InvalidOperationException($"Multiple products matched PartNo '{requestDTO.PartNo}'. Use InventoryID instead.");
+
+        var inventoryId = candidates[0].InventoryID;
+        if (string.IsNullOrWhiteSpace(inventoryId))
+            throw new InvalidOperationException($"The product matched PartNo '{requestDTO.PartNo}' but did not return an InventoryID.");
+
+        return inventoryId;
     }
 }

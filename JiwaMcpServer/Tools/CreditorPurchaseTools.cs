@@ -1,6 +1,8 @@
 ﻿using JiwaFinancials.Jiwa.JiwaServiceModel;
+using JiwaFinancials.Jiwa.JiwaServiceModel.CRBatchTX;
 using JiwaFinancials.Jiwa.JiwaServiceModel.Tables;
 using JiwaMcpServer.Agent.Catalog;
+using JiwaMcpServer.Models;
 using ModelContextProtocol.Server;
 using ServiceStack;
 using System.ComponentModel;
@@ -142,11 +144,15 @@ public class CreditorPurchaseTools : JiwaToolBase
         });
 
     [McpServerTool, Description(CreditorToolDescriptions.ModifyCreditorPurchase)]
-    public Task<string> ModifyCreditorPurchase(CreditorPurchasePATCHRequest requestDTO, CancellationToken ct = default)
+    public Task<string> ModifyCreditorPurchase(CreditorPurchasePatchToolRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
-            return result.ToJson();
+            var changes = PreparePatchChanges(requestDTO.Changes, nameof(CreditorPurchasePATCHRequest.BatchID));
+            var result = await JiwaApiClient.PatchPartialAsync<CreditorPurchasePATCHRequest, CreditorBatchTrans>(
+                changes,
+                [(nameof(CreditorPurchasePATCHRequest.BatchID), requestDTO.BatchID)],
+                ct);
+            return CreatePatchResponseJson("supplier purchase", changes, result, [(nameof(CreditorPurchasePATCHRequest.BatchID), requestDTO.BatchID)]);
         });
 
     [McpServerTool, Description(CreditorToolDescriptions.DeleteCreditorPurchase)]
@@ -230,11 +236,19 @@ public class CreditorPurchaseTools : JiwaToolBase
         });
 
     [McpServerTool, Description(CreditorToolDescriptions.ModifyCreditorPurchaseLine)]
-    public Task<string> ModifyCreditorPurchaseLine(CreditorPurchaseLinePATCHRequest requestDTO, CancellationToken ct = default)
+    public Task<string> ModifyCreditorPurchaseLine(CreditorPurchaseLinePatchToolRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var result = await JiwaApiClient.PatchAsync(requestDTO, ct);
-            return result.ToJson();
+            var changes = PreparePatchChanges(requestDTO.Changes, nameof(CreditorPurchaseLinePATCHRequest.BatchID), nameof(CreditorPurchaseLinePATCHRequest.LineID));
+            var result = await JiwaApiClient.PatchPartialAsync<CreditorPurchaseLinePATCHRequest, CRBatchTranLine>(
+                changes,
+                [(nameof(CreditorPurchaseLinePATCHRequest.BatchID), requestDTO.BatchID), (nameof(CreditorPurchaseLinePATCHRequest.LineID), requestDTO.LineID)],
+                ct);
+            return CreatePatchResponseJson(
+                "supplier purchase line",
+                changes,
+                result,
+                [(nameof(CreditorPurchaseLinePATCHRequest.BatchID), requestDTO.BatchID), (nameof(CreditorPurchaseLinePATCHRequest.LineID), requestDTO.LineID)]);
         });
 
     [McpServerTool, Description(CreditorToolDescriptions.DeleteCreditorPurchaseLine)]
@@ -345,7 +359,7 @@ public class CreditorPurchaseTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
         });
 
     [McpServerTool(ReadOnly = true), Description(CreditorToolDescriptions.QuerySupplierPurchases)]
@@ -361,6 +375,6 @@ public class CreditorPurchaseTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
         });
 }
