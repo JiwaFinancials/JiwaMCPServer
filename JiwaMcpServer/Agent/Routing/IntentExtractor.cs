@@ -14,7 +14,7 @@ public sealed class IntentExtractor : IIntentExtractor
             EntityType = ResolveEntityType(prompt, workingContext)
         };
 
-        foreach (var pair in ExtractParameters(prompt, intent.Action))
+        foreach (var pair in ExtractParameters(prompt, intent.Action, workingContext))
             intent.Parameters[pair.Key] = pair.Value;
 
         if (intent.Parameters.Count > 0 && string.IsNullOrWhiteSpace(intent.Action))
@@ -30,6 +30,13 @@ public sealed class IntentExtractor : IIntentExtractor
 
         if (Regex.IsMatch(prompt,
             @"\b(?:how\s+much|how\s+many|what\s+is|what's|do\s+i\s+have|tell\s+me\s+how\s+much)\b.*\b(?:stock|qty|quantity|available|availability|on\s+hand|inventory\s+balance)\b|\b(?:stock|qty|quantity|available|availability|on\s+hand|inventory\s+balance)\b.*\b(?:how\s+much|how\s+many|what\s+is|what's|do\s+i\s+have|tell\s+me\s+how\s+much)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            return "Read";
+        }
+
+        if (Regex.IsMatch(prompt,
+            @"\b(?:tell\s+me\s+more\s+about|more\s+about|details(?:\s+(?:for|on|about))?|info(?:rmation)?(?:\s+(?:for|on|about))?)\b",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
         {
             return "Read";
@@ -75,7 +82,7 @@ public sealed class IntentExtractor : IIntentExtractor
         return string.Empty;
     }
 
-    private static IReadOnlyDictionary<string, string> ExtractParameters(string prompt, string action)
+    private static IReadOnlyDictionary<string, string> ExtractParameters(string prompt, string action, WorkingContext? workingContext)
     {
         var parameters = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (string.IsNullOrWhiteSpace(prompt))
@@ -118,6 +125,24 @@ public sealed class IntentExtractor : IIntentExtractor
         if (productPriceReferenceMatch.Success)
             parameters.TryAdd("identifier", productPriceReferenceMatch.Groups["identifier"].Value.Trim());
 
+        var contextualIdentifierMatch = Regex.Match(
+            prompt,
+            @"\b(?:tell\s+me\s+more\s+about|more\s+about|details(?:\s+(?:for|on|about))?|info(?:rmation)?(?:\s+(?:for|on|about))?)\s+(?<identifier>[A-Za-z0-9][A-Za-z0-9\-/]*)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        if (contextualIdentifierMatch.Success && HasFocusedEntityContext(workingContext))
+            parameters.TryAdd("identifier", contextualIdentifierMatch.Groups["identifier"].Value.Trim());
+
+        if (!parameters.ContainsKey("identifier")
+            && workingContext?.FocusedEntity is not null
+            && RoutingVocabulary.AreEntityTypesCompatible(workingContext.FocusedEntity.EntityType, "Product")
+            && LooksLikeProductStockReferencePrompt(prompt, action))
+        {
+            var focusedIdentifier = FirstNonEmpty(workingContext.FocusedEntity.EntityId, workingContext.FocusedEntity.DisplayName);
+            if (!string.IsNullOrWhiteSpace(focusedIdentifier))
+                parameters["identifier"] = focusedIdentifier;
+        }
+
         if (string.Equals(action, "Approve", StringComparison.OrdinalIgnoreCase)
             && !parameters.ContainsKey("status"))
         {
@@ -126,6 +151,32 @@ public sealed class IntentExtractor : IIntentExtractor
 
         return parameters;
     }
+
+    private static bool LooksLikeProductStockReferencePrompt(string? prompt, string? action)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            return false;
+
+        if (!RoutingVocabulary.AreActionsCompatible(action, "Read")
+            && !RoutingVocabulary.AreActionsCompatible(action, "Query"))
+        {
+            return false;
+        }
+
+        return ContainsReferencePronoun(prompt)
+            && Regex.IsMatch(prompt, @"\b(?:stock|qty|quantity|available|availability|on\s+hand|inventory\s+balance)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
+    private static bool ContainsReferencePronoun(string? text)
+        => !string.IsNullOrWhiteSpace(text)
+            && Regex.IsMatch(text, @"\b(it|that|this|them|those|these)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static string FirstNonEmpty(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
+
+    private static bool HasFocusedEntityContext(WorkingContext? workingContext)
+        => !string.IsNullOrWhiteSpace(workingContext?.FocusedEntity?.EntityType)
+            || !string.IsNullOrWhiteSpace(workingContext?.CurrentDomain);
 
     private static string NormalizeFieldName(string value)
     {

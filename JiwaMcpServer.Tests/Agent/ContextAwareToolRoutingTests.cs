@@ -185,6 +185,171 @@ public class ContextAwareToolRoutingTests
     }
 
     [Fact]
+    public async Task CreateDataExportAfterInventoryQuery_PreservesInventoryFocus()
+    {
+        var router = CreateActualRouter();
+
+        await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "inventory-export-follow-up",
+            UserMessage = "Give me a list of parts",
+            ToolName = "QueryInventory",
+            ToolResultText = """
+            {"total":1,"returned":1,"pageSize":100,"truncated":false,"results":[{"InventoryID":"955a7c7884104808ae97","PartNo":"T1170","Description":"Widget"}],"message":null}
+            """
+        });
+
+        var context = await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "inventory-export-follow-up",
+            UserMessage = "make it a downloadable csv file",
+            ToolName = "CreateDataExport",
+            ToolArgumentsJson = """
+            {"useLatestStructuredToolResult":true,"format":"csv","fileName":"InventoryPartsList.csv","sourceToolName":"query_inventory"}
+            """,
+            ToolResultText = "Created 'InventoryPartsList.csv' (26808 bytes). FileId: a1e2ccd93d544df0bb9c65c7379a65b4. Resource URI: jiwa-file://files/a1e2ccd93d544df0bb9c65c7379a65b4."
+        });
+
+        Assert.Equal("Product", context.FocusedEntity?.EntityType);
+        Assert.Equal("955a7c7884104808ae97", context.FocusedEntity?.EntityId);
+        Assert.Equal("Widget", context.FocusedEntity?.DisplayName);
+        Assert.Equal("InventoryTools", context.CurrentDomain);
+    }
+
+    [Fact]
+    public async Task ExportFollowUpAfterConfirmedInventoryList_PrefersCreateDataExport()
+    {
+        var router = CreateActualRouter();
+
+        await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "inventory-export-after-confirm",
+            UserMessage = "Give me a list of parts",
+            ToolName = "QueryInventory",
+            ToolResultText = "WARNING: This query will return 297 records which exceeds the threshold of 100. Please confirm with the user before proceeding."
+        });
+
+        await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "inventory-export-after-confirm",
+            UserMessage = "show all parts",
+            ToolName = "QueryInventory",
+            ToolResultText = """
+            {"text":"Showing the first 10 of 297 records. The full result set is stored on the server for follow-up actions and exports.","total":297,"returned":10,"pageSize":100,"truncated":true,"results":[{"InventoryID":"955a7c7884104808ae97","PartNo":"111345","Description":"Bottled Fiji Water"}],"resultHandle":"bd86f7beef934b54b8f7b3c69cf7c3be"}
+            """
+        });
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            ConversationId = "inventory-export-after-confirm",
+            Prompt = "make it a downloadable csv file",
+            MaxTools = 5
+        });
+
+        Assert.Equal("CreateDataExport", route.Tools[0].Name);
+        Assert.Contains("DocumentTools", route.Domains);
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "ModifyProduct");
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "DeleteProduct");
+    }
+
+    [Fact]
+    public async Task CustomerFollowUpAfterDebtorExportWithSnakeCaseToolNames_PrefersQueryCustomers()
+    {
+        var router = CreateActualRouter();
+
+        await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "customer-export-follow-up",
+            UserMessage = "give me a list of debtors",
+            ToolName = "query_customers",
+            ToolResultText = """
+            {"total":35,"returned":35,"pageSize":100,"truncated":false,"results":[{"DebtorID":"000000000C000000000T","AccountNo":"1149","Name":"Armadale Shire Council"}],"message":null}
+            """
+        });
+
+        await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "customer-export-follow-up",
+            UserMessage = "make it a downloadable excel file",
+            ToolName = "create_data_export",
+            ToolArgumentsJson = """
+            {"request":{"useLatestStructuredToolResult":true,"format":"xlsx","fileName":"debtors.xlsx"}}
+            """,
+            ToolResultText = "Created 'debtors.xlsx' (7838 bytes). FileId: c3673e1d7931478ea96f32268b9bdd95. Resource URI: jiwa-file://files/c3673e1d7931478ea96f32268b9bdd95."
+        });
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            ConversationId = "customer-export-follow-up",
+            Prompt = "tell me more about 1149",
+            MaxTools = 5
+        });
+
+        Assert.Equal("QueryCustomers", route.Tools[0].Name);
+        Assert.Equal("Customer", route.Intent.EntityType);
+        Assert.Equal("1149", route.Intent.Parameters["identifier"]);
+        Assert.DoesNotContain(route.Tools, tool => tool.Domain == "InventoryTools");
+    }
+
+    [Fact]
+    public async Task SummaryOnlyCustomerExportFollowUp_PrefersQueryCustomers()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "tell me more about 1149",
+            ConversationSummary = "User is working with customer Armadale Shire Council (000000000C000000000T). Current domain: customer. Current task: query customer (identifier). Requested output: downloadable xlsx export. Recent request: make it a downloadable excel file. Last tool: CreateDataExport.",
+            MaxTools = 5
+        });
+
+        Assert.Equal("QueryCustomers", route.Tools[0].Name);
+        Assert.Equal("Customer", route.Intent.EntityType);
+        Assert.Equal("1149", route.Intent.Parameters["identifier"]);
+        Assert.DoesNotContain(route.Tools, tool => tool.Domain == "InventoryTools");
+    }
+
+    [Fact]
+    public async Task ProductFollowUpAfterInventoryExport_PrefersQueryInventory()
+    {
+        var router = CreateActualRouter();
+
+        await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "inventory-export-product-follow-up",
+            UserMessage = "Give me a list of parts",
+            ToolName = "QueryInventory",
+            ToolResultText = """
+            {"total":1,"returned":1,"pageSize":100,"truncated":false,"results":[{"InventoryID":"955a7c7884104808ae97","PartNo":"T1170","Description":"Widget"}],"message":null}
+            """
+        });
+
+        await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "inventory-export-product-follow-up",
+            UserMessage = "make it a downloadable csv file",
+            ToolName = "CreateDataExport",
+            ToolArgumentsJson = """
+            {"useLatestStructuredToolResult":true,"format":"csv","fileName":"InventoryPartsList.csv","sourceToolName":"query_inventory"}
+            """,
+            ToolResultText = "Created 'InventoryPartsList.csv' (26808 bytes). FileId: a1e2ccd93d544df0bb9c65c7379a65b4. Resource URI: jiwa-file://files/a1e2ccd93d544df0bb9c65c7379a65b4."
+        });
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            ConversationId = "inventory-export-product-follow-up",
+            Prompt = "tell me more about T1170",
+            MaxTools = 5
+        });
+
+        Assert.Equal("QueryInventory", route.Tools[0].Name);
+        Assert.Equal("Read", route.Intent.Action);
+        Assert.Equal("Product", route.Intent.EntityType);
+        Assert.Equal("T1170", route.Intent.Parameters["identifier"]);
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "QueryUploadedDocument");
+    }
+
+    [Fact]
     public async Task PartNumberRrpUpdate_PrefersQueryInventoryBeforeModifyProduct()
     {
         var router = CreateActualRouter();
@@ -275,6 +440,33 @@ public class ContextAwareToolRoutingTests
         Assert.DoesNotContain(route.Tools, tool => tool.Name == "DeleteProduct");
         Assert.Equal("Product", route.Intent.EntityType);
         Assert.Equal("Read", route.Intent.Action);
+    }
+
+    [Fact]
+    public async Task StockQueryForFocusedProductPronoun_PrefersGetStockOnHand()
+    {
+        var router = CreateActualRouter();
+
+        await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+        {
+            ConversationId = "product-stock-pronoun",
+            UserMessage = "tell me more about T1170",
+            ToolName = "GetProduct",
+            ToolResultText = "{\"InventoryID\":\"000000000K00000000BQ\",\"PartNo\":\"T1170\",\"Description\":\"Keyboard - Wireless Illuminated Compact\"}"
+        });
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            ConversationId = "product-stock-pronoun",
+            Prompt = "how much stock of it do i have?",
+            MaxTools = 5
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Equal("GetStockOnHand", route.Tools[0].Name);
+        Assert.Equal("Product", route.Intent.EntityType);
+        Assert.Equal("Read", route.Intent.Action);
+        Assert.Equal("000000000K00000000BQ", route.Intent.Parameters["identifier"]);
     }
 
     [Fact]

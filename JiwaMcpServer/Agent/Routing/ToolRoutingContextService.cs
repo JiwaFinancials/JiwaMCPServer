@@ -37,6 +37,8 @@ public sealed class ToolRoutingContextService : IToolRoutingContextService
                 ? SummarizeLegacyConversationContext(safeRequest.ConversationContext)
                 : merged.ConversationSummary;
 
+        AugmentContextFromSummary(merged);
+
         if (string.IsNullOrWhiteSpace(merged.CurrentDomain) && merged.FocusedEntity is not null)
             merged.CurrentDomain = RoutingVocabulary.ResolveDomainForEntityType(merged.FocusedEntity.EntityType);
 
@@ -49,24 +51,21 @@ public sealed class ToolRoutingContextService : IToolRoutingContextService
         var safeRequest = request ?? new ToolExecutionContextUpdateRequest();
         var current = MergeContexts(GetPersistedContext(safeRequest.ConversationId), safeRequest.WorkingContext);
         var intent = _intentExtractor.Extract(safeRequest.UserMessage, current);
-        var tool = _toolCatalog.GetAllTools().FirstOrDefault(candidate => candidate.Name.Equals(safeRequest.ToolName, StringComparison.OrdinalIgnoreCase));
+        var tool = FindToolDefinition(safeRequest.ToolName);
         var focusedEntity = safeRequest.Successful
             ? ResolveFocusedEntity(tool, safeRequest.ToolArgumentsJson, safeRequest.ToolResultText, current.FocusedEntity)
             : current.FocusedEntity;
 
-        var resolvedDomain = FirstNonEmpty(
-            tool?.Metadata.Domain,
-            tool?.Domain,
-            current.CurrentDomain,
-            focusedEntity is null ? string.Empty : RoutingVocabulary.ResolveDomainForEntityType(focusedEntity.EntityType));
+        var resolvedDomain = ResolveCurrentDomain(tool, current, focusedEntity);
+        var resolvedToolName = FirstNonEmpty(tool?.Name, safeRequest.ToolName);
 
         var updated = new WorkingContext
         {
             FocusedEntity = focusedEntity,
             CurrentDomain = resolvedDomain,
             LastIntent = DescribeIntent(intent),
-            LastToolName = safeRequest.ToolName ?? string.Empty,
-            ConversationSummary = BuildSummary(current.ConversationSummary, safeRequest.UserMessage, intent, focusedEntity, resolvedDomain, safeRequest.ToolName)
+            LastToolName = resolvedToolName,
+            ConversationSummary = BuildSummary(current.ConversationSummary, safeRequest.UserMessage, intent, focusedEntity, resolvedDomain, resolvedToolName)
         };
 
         PersistIfConversationScoped(safeRequest.ConversationId, updated);
@@ -143,6 +142,78 @@ public sealed class ToolRoutingContextService : IToolRoutingContextService
         _contexts[conversationId] = CloneContext(context) ?? new WorkingContext();
     }
 
+    private ToolDefinition? FindToolDefinition(string? toolName)
+    {
+        var normalizedToolName = NormalizeToolName(toolName);
+        if (string.IsNullOrWhiteSpace(normalizedToolName))
+            return null;
+
+        return _toolCatalog.GetAllTools().FirstOrDefault(candidate =>
+            NormalizeToolName(candidate.Name).Equals(normalizedToolName, StringComparison.OrdinalIgnoreCase)
+            || NormalizeToolName(candidate.Metadata.ToolName).Equals(normalizedToolName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static void AugmentContextFromSummary(WorkingContext context)
+    {
+        if (string.IsNullOrWhiteSpace(context.ConversationSummary))
+            return;
+
+        if (context.FocusedEntity is null)
+        {
+            var inferredEntityType = TryInferEntityTypeFromSummary(context.ConversationSummary);
+            if (!string.IsNullOrWhiteSpace(inferredEntityType))
+                context.FocusedEntity = new ActiveEntity { EntityType = inferredEntityType };
+        }
+
+        if (!string.IsNullOrWhiteSpace(context.CurrentDomain))
+            return;
+
+        context.CurrentDomain = TryInferDomainFromSummary(context.ConversationSummary, context.FocusedEntity?.EntityType);
+    }
+
+    private static string TryInferEntityTypeFromSummary(string? conversationSummary)
+    {
+        if (string.IsNullOrWhiteSpace(conversationSummary))
+            return string.Empty;
+
+        var taskMatch = Regex.Match(
+            conversationSummary,
+            @"\bCurrent task:\s+[a-z]+\s+(?<entityType>[a-z]+(?:\s+[a-z]+)?)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var taskEntityType = RoutingVocabulary.ResolveEntityType(taskMatch.Groups["entityType"].Value);
+        if (!string.IsNullOrWhiteSpace(taskEntityType))
+            return taskEntityType;
+
+        var summaryEntityType = RoutingVocabulary.TryResolveEntityTypeFromText(conversationSummary);
+        return string.IsNullOrWhiteSpace(summaryEntityType)
+            ? string.Empty
+            : RoutingVocabulary.ResolveEntityType(summaryEntityType);
+    }
+
+    private static string TryInferDomainFromSummary(string? conversationSummary, string? entityType)
+    {
+        if (string.IsNullOrWhiteSpace(conversationSummary))
+            return string.IsNullOrWhiteSpace(entityType)
+                ? string.Empty
+                : RoutingVocabulary.ResolveDomainForEntityType(entityType);
+
+        var domainMatch = Regex.Match(
+            conversationSummary,
+            @"\bCurrent domain:\s+(?<domain>[a-z]+(?:\s+[a-z]+)?)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var inferredDomain = RoutingVocabulary.ResolveCanonicalDomain(domainMatch.Groups["domain"].Value.Replace(" ", string.Empty, StringComparison.Ordinal));
+        if (!string.IsNullOrWhiteSpace(inferredDomain))
+            return inferredDomain;
+
+        if (!string.IsNullOrWhiteSpace(entityType))
+            return RoutingVocabulary.ResolveDomainForEntityType(entityType);
+
+        var summaryEntityType = RoutingVocabulary.TryResolveEntityTypeFromText(conversationSummary);
+        return string.IsNullOrWhiteSpace(summaryEntityType)
+            ? string.Empty
+            : RoutingVocabulary.ResolveDomainForEntityType(summaryEntityType);
+    }
+
     private ActiveEntity? ResolveFocusedEntity(ToolDefinition? tool, string? argumentsJson, string? resultText, ActiveEntity? currentEntity)
     {
         if (IsToolFailure(resultText))
@@ -153,13 +224,15 @@ public sealed class ToolRoutingContextService : IToolRoutingContextService
         using var argumentDocument = TryParseJson(argumentsJson);
 
         var primaryNode = TrySelectPrimaryNode(resultDocument?.RootElement);
-        var id = ExtractEntityId(primaryNode, entityType)
-            ?? ExtractEntityId(argumentDocument?.RootElement, entityType)
+        var extractedId = ExtractEntityId(primaryNode, entityType)
+            ?? ExtractEntityId(argumentDocument?.RootElement, entityType);
+        var id = extractedId
             ?? currentEntity?.EntityId
             ?? string.Empty;
 
-        var displayName = ExtractDisplayName(primaryNode, entityType)
-            ?? ExtractDisplayName(argumentDocument?.RootElement, entityType)
+        var extractedDisplayName = ExtractDisplayName(primaryNode, entityType)
+            ?? ExtractDisplayName(argumentDocument?.RootElement, entityType);
+        var displayName = extractedDisplayName
             ?? currentEntity?.DisplayName
             ?? string.Empty;
 
@@ -167,6 +240,9 @@ public sealed class ToolRoutingContextService : IToolRoutingContextService
             entityType,
             ExtractEntityType(primaryNode),
             ExtractEntityType(argumentDocument?.RootElement));
+
+        if (ShouldPreservePriorBusinessEntity(tool, resolvedEntityType, extractedId, extractedDisplayName, currentEntity))
+            return CloneEntity(currentEntity);
 
         if (string.IsNullOrWhiteSpace(resolvedEntityType) && string.IsNullOrWhiteSpace(id) && string.IsNullOrWhiteSpace(displayName))
             return CloneEntity(currentEntity);
@@ -177,6 +253,58 @@ public sealed class ToolRoutingContextService : IToolRoutingContextService
             EntityId = id,
             DisplayName = displayName
         };
+    }
+
+    private static string ResolveCurrentDomain(ToolDefinition? tool, WorkingContext current, ActiveEntity? focusedEntity)
+    {
+        var toolDomain = FirstNonEmpty(tool?.Metadata.Domain, tool?.Domain);
+        if (ShouldPreservePriorBusinessDomain(tool, current, focusedEntity))
+        {
+            return FirstNonEmpty(
+                current.CurrentDomain,
+                focusedEntity is null ? string.Empty : RoutingVocabulary.ResolveDomainForEntityType(focusedEntity.EntityType),
+                toolDomain);
+        }
+
+        return FirstNonEmpty(
+            toolDomain,
+            current.CurrentDomain,
+            focusedEntity is null ? string.Empty : RoutingVocabulary.ResolveDomainForEntityType(focusedEntity.EntityType));
+    }
+
+    private static bool ShouldPreservePriorBusinessDomain(ToolDefinition? tool, WorkingContext current, ActiveEntity? focusedEntity)
+    {
+        if (tool is null || !tool.Name.Equals("CreateDataExport", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var currentDomain = RoutingVocabulary.ResolveCanonicalDomain(current.CurrentDomain);
+        if (string.IsNullOrWhiteSpace(currentDomain)
+            || currentDomain.Equals("DocumentTools", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return focusedEntity is not null
+            && !RoutingVocabulary.AreEntityTypesCompatible(focusedEntity.EntityType, "Document");
+    }
+
+    private static bool ShouldPreservePriorBusinessEntity(
+        ToolDefinition? tool,
+        string resolvedEntityType,
+        string? extractedId,
+        string? extractedDisplayName,
+        ActiveEntity? currentEntity)
+    {
+        if (tool is null || currentEntity is null)
+            return false;
+
+        if (!tool.Name.Equals("CreateDataExport", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(extractedId) || !string.IsNullOrWhiteSpace(extractedDisplayName))
+            return false;
+
+        return !RoutingVocabulary.AreEntityTypesCompatible(currentEntity.EntityType, resolvedEntityType);
     }
 
     private static JsonDocument? TryParseJson(string? text)
@@ -461,6 +589,19 @@ public sealed class ToolRoutingContextService : IToolRoutingContextService
             normalized = string.Join(' ', words.Take(80));
 
         return normalized.Length <= 500 ? normalized : normalized[..500].TrimEnd();
+    }
+
+    private static string NormalizeToolName(string? toolName)
+    {
+        if (string.IsNullOrWhiteSpace(toolName))
+            return string.Empty;
+
+        var normalized = toolName.Trim();
+        var lastSegment = normalized.Split('.', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+        if (!string.IsNullOrWhiteSpace(lastSegment))
+            normalized = lastSegment;
+
+        return new string(normalized.Where(char.IsLetterOrDigit).ToArray());
     }
 
     private static string FirstNonEmpty(params string?[] values)

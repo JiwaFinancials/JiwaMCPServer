@@ -309,6 +309,22 @@ public sealed class ToolShortlistService : IToolShortlistService
                 score -= 25d;
         }
 
+        if (LooksLikeStockQueryPrompt(rankingInput.UserMessage, rankingInput.Intent.Action, entityType, rankingInput.FocusedEntity))
+        {
+            if (tool.Name.Equals("GetStockOnHand", StringComparison.OrdinalIgnoreCase))
+                score += 80d;
+
+            if (tool.Name.Equals("QueryInventory", StringComparison.OrdinalIgnoreCase))
+                score -= 35d;
+
+            if (tool.Name.Equals("GetProduct", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("ModifyProduct", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("DeleteProduct", StringComparison.OrdinalIgnoreCase))
+            {
+                score -= 10d;
+            }
+        }
+
         if (RequiresProductIdentifierLookup(rankingInput.Intent, entityType, new WorkingContext { FocusedEntity = rankingInput.FocusedEntity }))
         {
             if (tool.Name.Equals("QueryInventory", StringComparison.OrdinalIgnoreCase))
@@ -375,6 +391,21 @@ public sealed class ToolShortlistService : IToolShortlistService
             && ShouldRetainDocumentExportTool(new WorkingContext { ConversationSummary = rankingInput.ConversationSummary }))
         {
             score += 20d;
+        }
+
+        if (LooksLikeDownloadExportPrompt(rankingInput.UserMessage, rankingInput.ConversationSummary))
+        {
+            if (tool.Name.Equals("CreateDataExport", StringComparison.OrdinalIgnoreCase))
+                score += 100d;
+
+            if (tool.Name.Equals("ConvertDocument", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("ExtractDocumentData", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("ExtractLocalDocumentData", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("UploadLocalDocument", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("QueryUploadedDocument", StringComparison.OrdinalIgnoreCase))
+            {
+                score -= 25d;
+            }
         }
 
         var primaryTokens = Tokenize(string.Join(' ', new[]
@@ -447,6 +478,25 @@ public sealed class ToolShortlistService : IToolShortlistService
         return priceField && (identifier || partHint);
     }
 
+    private static bool LooksLikeStockQueryPrompt(string? prompt, string? action, string? entityType, ActiveEntity? focusedEntity)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            return false;
+
+        if (!RoutingVocabulary.AreActionsCompatible(action, "Read")
+            && !RoutingVocabulary.AreActionsCompatible(action, "Query"))
+        {
+            return false;
+        }
+
+        var productContext = RoutingVocabulary.AreEntityTypesCompatible(entityType, "Product")
+            || (focusedEntity is not null && RoutingVocabulary.AreEntityTypesCompatible(focusedEntity.EntityType, "Product"));
+        if (!productContext)
+            return false;
+
+        return Regex.IsMatch(prompt, @"\b(?:stock|qty|quantity|available|availability|on\s+hand|inventory\s+balance|warehouse\s+qty)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
     private static bool LooksLikeGenericProductDiscoveryPrompt(string? prompt, string? action, string? entityType)
     {
         if (string.IsNullOrWhiteSpace(prompt))
@@ -475,6 +525,24 @@ public sealed class ToolShortlistService : IToolShortlistService
         return countSignal && inventorySignal;
     }
 
+    private static bool LooksLikeDownloadExportPrompt(string? prompt, string? conversationSummary)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            return false;
+
+        var wantsDownload = Regex.IsMatch(prompt, @"\b(?:download|downloadable|export|csv|xlsx|excel|json|xml|pdf|docx)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (!wantsDownload)
+            return false;
+
+        var convertIntent = Regex.IsMatch(prompt, @"\b(?:convert|conversion|transform)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            || Regex.IsMatch(prompt, @"\bfile\s*id\b|\bupload(?:ed)?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (convertIntent)
+            return false;
+
+        return !string.IsNullOrWhiteSpace(conversationSummary)
+            || Regex.IsMatch(prompt, @"\b(?:make|create|generate)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
     private static bool RequiresProductIdentifierLookup(IntentContext intent, string? entityType, WorkingContext workingContext)
     {
         if (!RoutingVocabulary.AreEntityTypesCompatible(entityType, "Product"))
@@ -482,13 +550,6 @@ public sealed class ToolShortlistService : IToolShortlistService
 
         if (!intent.Parameters.TryGetValue("identifier", out var identifier) || string.IsNullOrWhiteSpace(identifier))
             return false;
-
-        if (workingContext.FocusedEntity is not null
-            && RoutingVocabulary.AreEntityTypesCompatible(workingContext.FocusedEntity.EntityType, "Product")
-            && !string.IsNullOrWhiteSpace(workingContext.FocusedEntity.EntityId))
-        {
-            return false;
-        }
 
         return intent.Action switch
         {
@@ -504,13 +565,6 @@ public sealed class ToolShortlistService : IToolShortlistService
 
         if (!intent.Parameters.TryGetValue("identifier", out var identifier) || string.IsNullOrWhiteSpace(identifier))
             return false;
-
-        if (workingContext.FocusedEntity is not null
-            && RoutingVocabulary.AreEntityTypesCompatible(workingContext.FocusedEntity.EntityType, "Customer")
-            && !string.IsNullOrWhiteSpace(workingContext.FocusedEntity.EntityId))
-        {
-            return false;
-        }
 
         return intent.Action switch
         {
