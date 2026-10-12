@@ -14,6 +14,11 @@ namespace JiwaMcpServer.Tools;
 [McpServerToolType]
 public class CustomerTools : JiwaToolBase
 {
+    private static readonly string[] DefaultCustomerListFields = ["DebtorID", "AccountNo", "Name"];
+    private static readonly string[] DefaultCustomerTransactionFields = ["TransID", "DebtorID", "AccountNo", "Name", "TranDate", "InvRemitNo", "Amount", "OutstandingAmount", "Description"];
+    private static readonly string[] DefaultCustomerClassificationFields = ["DebtorClassificationID", "Description"];
+    private static readonly string[] DefaultCustomerCategoryFields = ["CategoryID", "Description"];
+
     [McpServerTool(ReadOnly = true), Description(CustomerToolDescriptions.QueryCustomers)]
     public Task<string> QueryCustomers(
         [Description("Search and filter criteria for customer or debtor records. Leave fields empty to return all matching records, or set exact-match and *Contains filters to narrow the search.")] JiwaFinancials.Jiwa.JiwaServiceModel.Tables.v_Jiwa_Debtor_ListQuery requestDTO,
@@ -27,7 +32,7 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields, DefaultCustomerListFields);
         });
 
     [McpServerTool, Description(CustomerToolDescriptions.GetCustomer)]
@@ -79,7 +84,7 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields, DefaultCustomerTransactionFields);
         });
 
     [McpServerTool(ReadOnly = true), Description(CustomerToolDescriptions.SearchCustomerClassifications)]
@@ -95,7 +100,7 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields, DefaultCustomerClassificationFields);
         });
 
     [McpServerTool(ReadOnly = true), Description(CustomerToolDescriptions.SearchCustomerCategories)]
@@ -111,6 +116,6 @@ public class CustomerTools : JiwaToolBase
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
+            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields, DefaultCustomerCategoryFields);
         });
 }

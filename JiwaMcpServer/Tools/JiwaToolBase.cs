@@ -137,7 +137,10 @@ public abstract class JiwaToolBase
     }
 
     protected static string CreateSearchResponseJson<T>(IReadOnlyCollection<T> results, int pageSize, string? requestedFields)
-        => CreateSearchResponseJson(ApplyRequestedFieldSelection(results, requestedFields), pageSize);
+        => CreateSearchResponseJson(results, pageSize, requestedFields, defaultFields: null);
+
+    protected static string CreateSearchResponseJson<T>(IReadOnlyCollection<T> results, int pageSize, string? requestedFields, IReadOnlyCollection<string>? defaultFields)
+        => CreateSearchResponseJson(ApplyRequestedFieldSelection(results, ResolveRequestedFields(requestedFields, defaultFields)), pageSize);
 
     protected static JsonObject AggregateStructuredResultsByField(JsonNode? structuredResult, string groupByField, string? groupByTransform = null)
     {
@@ -243,6 +246,17 @@ public abstract class JiwaToolBase
         }
 
         return matchedAnyField ? filteredResults : materializedResults;
+    }
+
+    private static string ResolveRequestedFields(string? requestedFields, IReadOnlyCollection<string>? defaultFields)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedFields))
+            return requestedFields;
+
+        if (defaultFields is null || defaultFields.Count == 0)
+            return string.Empty;
+
+        return string.Join(", ", defaultFields.Where(field => !string.IsNullOrWhiteSpace(field)));
     }
 
     private static string[] ParseRequestedFields(string? requestedFields)

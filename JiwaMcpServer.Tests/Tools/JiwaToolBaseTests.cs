@@ -125,6 +125,56 @@ public class JiwaToolBaseTests
     }
 
     [Fact]
+    public void CreateSearchResponseJson_WithDefaultFields_FiltersSearchRowsWhenRequestDidNotSpecifyFields()
+    {
+        var items = new[]
+        {
+            new
+            {
+                DebtorID = "0000000008000000001M",
+                AccountNo = "ACME01",
+                Name = "Acme Trading",
+                EmailAddress = "accounts@acme.example",
+                CurrentBalance = 123.45m
+            }
+        };
+
+        var json = ToolBaseHarness.RenderWithDefaultFields(items, 100, null, ["DebtorID", "AccountNo", "Name"]);
+        using var doc = JsonDocument.Parse(json);
+
+        var result = doc.RootElement.GetProperty("results")[0];
+        Assert.Equal("0000000008000000001M", result.GetProperty("DebtorID").GetString());
+        Assert.Equal("ACME01", result.GetProperty("AccountNo").GetString());
+        Assert.Equal("Acme Trading", result.GetProperty("Name").GetString());
+        Assert.False(result.TryGetProperty("EmailAddress", out _));
+        Assert.False(result.TryGetProperty("CurrentBalance", out _));
+    }
+
+    [Fact]
+    public void CreateSearchResponseJson_WithExplicitFields_DoesNotApplyDefaultFields()
+    {
+        var items = new[]
+        {
+            new
+            {
+                DebtorID = "0000000008000000001M",
+                AccountNo = "ACME01",
+                Name = "Acme Trading",
+                CurrentBalance = 123.45m
+            }
+        };
+
+        var json = ToolBaseHarness.RenderWithDefaultFields(items, 100, "Name, CurrentBalance", ["DebtorID", "AccountNo", "Name"]);
+        using var doc = JsonDocument.Parse(json);
+
+        var result = doc.RootElement.GetProperty("results")[0];
+        Assert.Equal("Acme Trading", result.GetProperty("Name").GetString());
+        Assert.Equal(123.45m, result.GetProperty("CurrentBalance").GetDecimal());
+        Assert.False(result.TryGetProperty("DebtorID", out _));
+        Assert.False(result.TryGetProperty("AccountNo", out _));
+    }
+
+    [Fact]
     public void AggregateStructuredResultsByField_CountsRowsFromFullStoredResult()
     {
         var rows = new JsonArray
@@ -199,6 +249,9 @@ public class JiwaToolBaseTests
 
         public static string RenderWithRequestedFields<T>(IReadOnlyCollection<T> results, int pageSize, string? requestedFields)
             => CreateSearchResponseJson(results, pageSize, requestedFields);
+
+        public static string RenderWithDefaultFields<T>(IReadOnlyCollection<T> results, int pageSize, string? requestedFields, IReadOnlyCollection<string>? defaultFields)
+            => CreateSearchResponseJson(results, pageSize, requestedFields, defaultFields);
 
         public static JsonNode AggregateByField(JsonNode structuredResult, string groupByField, string? groupByTransform = null)
             => AggregateStructuredResultsByField(structuredResult, groupByField, groupByTransform);
