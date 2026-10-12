@@ -27,8 +27,6 @@ public sealed class DocumentTools(
     IOptions<DocumentProcessingOptions> documentOptions,
     ILogger<DocumentTools> logger) : JiwaToolBase
 {
-    private const int EmbeddedResourceThresholdBytes = 1024 * 1024;
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true
@@ -145,7 +143,7 @@ public sealed class DocumentTools(
             await using var stream = await _fileStorageService.OpenReadAsync(request.FileId, ct);
             var export = await _documentProcessingService.ConvertDocumentAsync(stream, metadata.FileName, metadata.ContentType, request.TargetFormat, ct);
             var storedExport = await SaveGeneratedFileAsync(export, ct);
-            return CreateFileBlocks(storedExport, export);
+            return CreateFileBlocks(storedExport);
         }
         catch (Exception ex)
         {
@@ -161,7 +159,7 @@ public sealed class DocumentTools(
             var data = ResolveExportData(request);
             var export = await _fileExportService.CreateExportAsync(data, request.Format, request.FileName, ct);
             var storedExport = await SaveGeneratedFileAsync(export, ct);
-            return CreateFileBlocks(storedExport, export);
+            return CreateFileBlocks(storedExport);
         }
         catch (Exception ex)
         {
@@ -287,10 +285,10 @@ public sealed class DocumentTools(
         return storedFile;
     }
 
-    private IEnumerable<ContentBlock> CreateFileBlocks(StoredFileReference storedFile, ExportFileResult export)
+    private IEnumerable<ContentBlock> CreateFileBlocks(StoredFileReference storedFile)
     {
-        var blocks = new List<ContentBlock>
-        {
+        return
+        [
             new TextContentBlock
             {
                 Text = $"Created '{storedFile.FileName}' ({storedFile.Length} bytes). FileId: {storedFile.FileId}. Resource URI: {storedFile.ResourceUri}. Temporary retention: {_documentOptions.RetentionHours} hour(s)."
@@ -304,17 +302,7 @@ public sealed class DocumentTools(
                 MimeType = storedFile.ContentType,
                 Size = storedFile.Length
             }
-        };
-
-        if (export.ContentLength <= EmbeddedResourceThresholdBytes)
-        {
-            blocks.Add(new EmbeddedResourceBlock
-            {
-                Resource = BlobResourceContents.FromBytes(export.Content, storedFile.ResourceUri, storedFile.ContentType)
-            });
-        }
-
-        return blocks;
+        ];
     }
 
     private static string BuildDeterministicDocumentAnswer(ExtractedDocument extractedDocument, string question)

@@ -291,6 +291,7 @@ public class ContextAwareToolRoutingTests
         Assert.NotNull(route.Tools);
         Assert.Contains(route.Tools, tool => tool.Name == "QueryCustomers");
         Assert.Equal("QueryCustomers", route.Tools[0].Name);
+        Assert.Equal("1001", route.Intent.Parameters["identifier"]);
     }
 
     [Fact]

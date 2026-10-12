@@ -28,9 +28,10 @@ Workflow:
 Retrieve detailed information for a specific customer.
 
 IMPORTANT:
-• Requires a DebtorID.
 • Customers and debtors are equivalent terms.
-• If the user supplies a customer number, debtor number, account number, code, name, phone number, or email address, use QueryCustomers first.
+• Accepts either a DebtorID or a user-supplied Identifier such as AccountNo, AltAccountNo, debtor number, customer code, or exact customer name.
+• If Identifier is used, the tool resolves the matching DebtorID first.
+• If the user supplies a customer number, debtor number, account number, code, name, phone number, or email address, prefer QueryCustomers first when the customer still needs to be located or disambiguated.
 • Do not ask the user for a DebtorID if QueryCustomers can determine it.
 
 Use for customer details, account information, and customer settings.
@@ -52,7 +53,8 @@ Modify an existing customer record.
 
 IMPORTANT:
 • Updates live business data.
-• Requires a DebtorID.
+• Accepts either a DebtorID or a user-supplied Identifier such as AccountNo, AltAccountNo, debtor number, customer code, or exact customer name.
+• If Identifier is used, the tool resolves the matching DebtorID first.
 • If the customer has not been identified, use QueryCustomers first.
 • Supply only the fields being changed inside Changes. Do not send the full customer payload.
 • Do not ask the user for a DebtorID if QueryCustomers can determine it.
@@ -65,7 +67,8 @@ Delete an existing customer record.
 
 IMPORTANT:
 • Deletes live business data.
-• Requires a DebtorID.
+• Accepts either a DebtorID or a user-supplied Identifier such as AccountNo, AltAccountNo, debtor number, customer code, or exact customer name.
+• If Identifier is used, the tool resolves the matching DebtorID first.
 • If the customer has not been identified, use QueryCustomers first.
 • Use only when the user's intent to delete the customer is explicit.
 """;

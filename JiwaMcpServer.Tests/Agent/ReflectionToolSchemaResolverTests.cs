@@ -52,4 +52,44 @@ public class ReflectionToolSchemaResolverTests
         Assert.Contains("inventoryID", requestProperties.Select(p => p.Key));
         Assert.Contains("partNo", requestProperties.Select(p => p.Key));
     }
+
+    [Fact]
+    public async Task ResolveAsync_GetCustomer_AllowsDebtorIdOrIdentifier()
+    {
+        var schemas = await _resolver.ResolveAsync(["GetCustomer"]);
+
+        var schema = Assert.IsType<JsonObject>(schemas["GetCustomer"].ParametersSchema);
+        var requestDto = Assert.IsType<JsonObject>(Assert.IsType<JsonObject>(schema["properties"])["requestDTO"]);
+        var requestProperties = Assert.IsType<JsonObject>(requestDto["properties"]);
+
+        Assert.Contains("debtorID", requestProperties.Select(p => p.Key));
+        Assert.Contains("identifier", requestProperties.Select(p => p.Key));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_ModifyCustomer_AllowsDebtorIdOrIdentifier()
+    {
+        var schemas = await _resolver.ResolveAsync(["ModifyCustomer"]);
+
+        var schema = Assert.IsType<JsonObject>(schemas["ModifyCustomer"].ParametersSchema);
+        var requestDto = Assert.IsType<JsonObject>(Assert.IsType<JsonObject>(schema["properties"])["requestDTO"]);
+        var requestProperties = Assert.IsType<JsonObject>(requestDto["properties"]);
+
+        Assert.Contains("debtorID", requestProperties.Select(p => p.Key));
+        Assert.Contains("identifier", requestProperties.Select(p => p.Key));
+        Assert.Contains("changes", requestProperties.Select(p => p.Key));
+    }
+
+    [Fact]
+    public async Task ResolveAsync_DeleteCustomer_AllowsDebtorIdOrIdentifier()
+    {
+        var schemas = await _resolver.ResolveAsync(["DeleteCustomer"]);
+
+        var schema = Assert.IsType<JsonObject>(schemas["DeleteCustomer"].ParametersSchema);
+        var requestDto = Assert.IsType<JsonObject>(Assert.IsType<JsonObject>(schema["properties"])["requestDTO"]);
+        var requestProperties = Assert.IsType<JsonObject>(requestDto["properties"]);
+
+        Assert.Contains("debtorID", requestProperties.Select(p => p.Key));
+        Assert.Contains("identifier", requestProperties.Select(p => p.Key));
+    }
 }

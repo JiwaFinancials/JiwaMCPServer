@@ -5,6 +5,7 @@ using JiwaMcpServer.Services;
 using JiwaMcpServer.Tools;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using ModelContextProtocol.Protocol;
 using System.Text;
 using System.Text.Json.Nodes;
 
@@ -41,7 +42,7 @@ public class DocumentToolExportTests
             }),
             NullLogger<DocumentTools>.Instance);
 
-        await tool.CreateDataExport(new FileExportRequest
+        var blocks = (await tool.CreateDataExport(new FileExportRequest
         {
             ClientSessionId = "chat-123",
             UseLatestStructuredToolResult = true,
@@ -49,9 +50,12 @@ public class DocumentToolExportTests
             Fields = ["PartNo", "Description", "AvailableStock", "SellPrice"],
             Format = "csv",
             FileName = "parts"
-        }, CancellationToken.None);
+        }, CancellationToken.None)).ToList();
 
         var csv = Encoding.UTF8.GetString(storage.LastSavedContent);
+        var resourceLink = Assert.Single(blocks.OfType<ResourceLinkBlock>());
+        Assert.Equal("jiwa-file://files/file-123", resourceLink.Uri?.ToString());
+        Assert.DoesNotContain(blocks, block => block is EmbeddedResourceBlock);
         Assert.Equal("parts.csv", storage.LastSavedFileName);
         Assert.Contains("PartNo,Description,AvailableStock,SellPrice", csv);
         Assert.Contains("A1,Widget,5,10.5", csv);

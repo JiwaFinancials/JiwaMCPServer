@@ -5,11 +5,23 @@ namespace JiwaMcpServer.Models;
 
 public sealed class CustomerPatchToolRequest
 {
-    [Description("The DebtorID of the existing customer to update.")]
-    public string DebtorID { get; set; } = string.Empty;
+    [Description("The DebtorID of the existing customer to update when it is already known.")]
+    public string? DebtorID { get; set; }
+
+    [Description("A user-supplied customer reference such as AccountNo, AltAccountNo, debtor number, customer code, or customer name. Use this when DebtorID is not known. The tool will resolve the matching DebtorID first.")]
+    public string? Identifier { get; set; }
 
     [Description("Only the customer fields to change. Omit unchanged fields. Example: {\"Phone\":\"03 9000 0000\",\"Email\":\"accounts@example.com\"}.")]
     public JsonObject Changes { get; set; } = [];
+}
+
+public sealed class CustomerDeleteToolRequest
+{
+    [Description("The DebtorID of the existing customer to delete when it is already known.")]
+    public string? DebtorID { get; set; }
+
+    [Description("A user-supplied customer reference such as AccountNo, AltAccountNo, debtor number, customer code, or customer name. Use this when DebtorID is not known. The tool will resolve the matching DebtorID first.")]
+    public string? Identifier { get; set; }
 }
 
 public sealed class ProductPatchToolRequest
