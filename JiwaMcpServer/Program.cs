@@ -15,8 +15,30 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 
 builder.Host.UseWindowsService();
 
+if (OperatingSystem.IsWindows())
+{
+    builder.Logging.AddEventLog();
+}
+
 // Read and validate configuration settings
 ConfigurationManager configuration = builder.Configuration;
+var listenUrl = configuration.GetValue<string>("Server:ListenUrl")?.Trim();
+if (string.IsNullOrWhiteSpace(listenUrl))
+{
+    throw new InvalidOperationException("Server:ListenUrl is blank - check appsettings.json");
+}
+
+if (!Uri.TryCreate(listenUrl, UriKind.Absolute, out var listenUri)
+    || (listenUri.Scheme != Uri.UriSchemeHttp && listenUri.Scheme != Uri.UriSchemeHttps)
+    || listenUri.AbsolutePath != "/"
+    || !string.IsNullOrEmpty(listenUri.Query)
+    || !string.IsNullOrEmpty(listenUri.Fragment))
+{
+    throw new InvalidOperationException("Server:ListenUrl must be an absolute http:// or https:// URL with no path, query, or fragment.");
+}
+
+builder.WebHost.UseUrls(listenUrl);
+
 Config.JiwaAPIURL = configuration.GetSection("JiwaAPIURL").Value;
 Config.JiwaAPIKey = configuration.GetSection("JiwaAPIKey").Value;
 var pageSizeConfig = configuration.GetSection("PageSize").Value;
@@ -92,6 +114,29 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+var documentProcessingOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<DocumentProcessingOptions>>().Value;
+var allowedRootsSummary = Config.LocalFileSystemAllowedRoots.Length == 0
+    ? "(none)"
+    : string.Join("; ", Config.LocalFileSystemAllowedRoots);
+var pluginFolder = configuration.GetValue<string>("Plugins:Folder")?.Trim();
+
+app.Logger.LogInformation(
+    "Startup configuration: Environment={Environment}; ListenUrl={ListenUrl}; JiwaApiUrl={JiwaApiUrl}; JiwaApiKeyConfigured={JiwaApiKeyConfigured}; PageSize={PageSize}; AllowedRoots={AllowedRoots}; MaxReadBytes={MaxReadBytes}; MaxWriteBytes={MaxWriteBytes}; PluginsEnabled={PluginsEnabled}; PluginFolder={PluginFolder}; LoadedPluginAssemblies={LoadedPluginAssemblies}; DocumentTempFolder={DocumentTempFolder}; MaxUploadSizeMB={MaxUploadSizeMB}; RetentionHours={RetentionHours}",
+    app.Environment.EnvironmentName,
+    listenUrl,
+    Config.JiwaAPIURL,
+    !string.IsNullOrWhiteSpace(Config.JiwaAPIKey),
+    Config.PageSize,
+    allowedRootsSummary,
+    Config.LocalFileSystemMaxReadBytes,
+    Config.LocalFileSystemMaxWriteBytes,
+    configuration.GetValue("Plugins:Enabled", true),
+    string.IsNullOrWhiteSpace(pluginFolder) ? "(default)" : pluginFolder,
+    pluginAssemblies.Count,
+    documentProcessingOptions.TempFolder,
+    documentProcessingOptions.MaxUploadSizeMB,
+    documentProcessingOptions.RetentionHours);
 
 var diagnosticsLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AgentStartupDiagnostics");
 var catalog = app.Services.GetRequiredService<IToolCatalog>();
