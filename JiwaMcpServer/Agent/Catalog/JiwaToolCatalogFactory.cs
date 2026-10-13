@@ -91,6 +91,20 @@ public static class JiwaToolCatalogFactory
         },
         new DomainDefinition
         {
+            Name = "SalesOrderTools",
+            Description = "Sales orders, sales invoices, line items, and sales history.",
+            Capabilities =
+            [
+                "Query and search sales orders and sales invoices",
+                "Retrieve detailed sales-order records and histories",
+                "Create and update sales orders and invoice records",
+                "Add products or line items to a sales order",
+                "Review sales history and sold-item details",
+                "Summarize best-selling products and top-seller rankings"
+            ]
+        },
+        new DomainDefinition
+        {
             Name = "CreditorPurchaseTools",
             Description = "Suppliers, creditor purchases, purchase documents, and purchase transactions.",
             Capabilities =
@@ -273,7 +287,7 @@ public static class JiwaToolCatalogFactory
     private static string? ExtractEntityHintFromToolName(string toolName)
     {
         var humanized = HumanizeIdentifier(toolName);
-        foreach (var prefix in new[] { "Query", "Search", "Get", "Create", "Add", "Modify", "Delete", "Activate", "Approve", "Upload", "Import", "Export", "Convert" })
+        foreach (var prefix in new[] { "Query", "Search", "Get", "Create", "Add", "Modify", "Delete", "Activate", "Approve", "Upload", "Import", "Export", "Convert", "List" })
         {
             if (humanized.StartsWith(prefix + " ", StringComparison.OrdinalIgnoreCase))
             {

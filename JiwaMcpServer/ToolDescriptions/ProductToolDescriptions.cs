@@ -9,6 +9,7 @@ public static class ProductToolDescriptions
     • This is the authoritative source for all product and inventory information.
     • The AI model does not have access to inventory data without this tool.
     • Use whenever the answer depends on products, SKUs, part numbers, pricing, stock items, categories, classifications, or inventory records.
+    • Do not use this tool for sales-history questions such as best selling products, top sellers, sold items, or product sales analysis. Use ProductSales instead.
     • When the user asks for counts, summaries, groupings, or totals based on the returned inventory rows (for example: 'count parts by classification', 'group by first letter of part no', 'totals by category'), do not count the preview rows in chat. Use the returned resultHandle with AggregateInventoryCounts.
 
     Use this tool to:

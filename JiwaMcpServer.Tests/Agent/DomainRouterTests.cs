@@ -16,11 +16,43 @@ public class DomainRouterTests
     }
 
     [Fact]
+    public void ResolveDomains_SalesOrderRouting_ReturnsSalesOrderTools()
+    {
+        var domains = _router.ResolveDomains("show sales order SO-1001 details");
+
+        Assert.Contains("SalesOrderTools", domains);
+    }
+
+    [Fact]
+    public void ResolveDomains_SaleOrderRouting_ReturnsSalesOrderTools()
+    {
+        var domains = _router.ResolveDomains("give me a list of sale orders for customer 1001");
+
+        Assert.Contains("SalesOrderTools", domains);
+    }
+
+    [Fact]
     public void ResolveDomains_InventoryRouting_ReturnsInventoryTools()
     {
         var domains = _router.ResolveDomains("find products with low stock");
 
         Assert.Contains("InventoryTools", domains);
+    }
+
+    [Fact]
+    public void ResolveDomains_BestSellingProductRouting_ReturnsSalesOrderTools()
+    {
+        var domains = _router.ResolveDomains("What is my best selling product?");
+
+        Assert.Contains("SalesOrderTools", domains);
+    }
+
+    [Fact]
+    public void ResolveDomains_TopProductsByQuantitySoldRouting_ReturnsSalesOrderTools()
+    {
+        var domains = _router.ResolveDomains("top 10 products list by quantity sold");
+
+        Assert.Contains("SalesOrderTools", domains);
     }
 
     [Fact]

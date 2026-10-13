@@ -17,6 +17,32 @@ public sealed class DomainRouter : IDomainRouter
             "customer number",
             "customer code"
         ],
+        ["SalesOrderTools"] =
+        [
+            "sale order",
+            "sale orders",
+            "sales order",
+            "sales orders",
+            "sale invoice",
+            "sale invoices",
+            "sales invoice",
+            "sales invoices",
+            "customer order",
+            "customer orders",
+            "order number",
+            "sales history",
+            "product sales",
+            "sold items",
+            "best selling",
+            "best seller",
+            "top selling",
+            "top seller",
+            "most sold",
+            "quantity sold",
+            "sales value",
+            "revenue",
+            "so"
+        ],
         ["SupplierTools"] =
         [
             "supplier",

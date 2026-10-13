@@ -208,21 +208,28 @@ public sealed class ToolShortlistService : IToolShortlistService
         {
             var lookupTool = domainTools.FirstOrDefault(tool => tool.Name.Equals("QueryInventory", StringComparison.OrdinalIgnoreCase));
             if (lookupTool is not null)
-                return IncludeTool(domainTools, retainedDocumentExportTool ?? lookupTool);
+                return IncludeTool(domainTools.Where(tool => tool.Domain.Equals(lookupTool.Domain, StringComparison.OrdinalIgnoreCase)).ToList(), retainedDocumentExportTool ?? lookupTool);
         }
 
         if (RequiresCustomerIdentifierLookup(intent, entityType, workingContext))
         {
             var lookupTool = domainTools.FirstOrDefault(tool => tool.Name.Equals("QueryCustomers", StringComparison.OrdinalIgnoreCase));
             if (lookupTool is not null)
-                return IncludeTool(domainTools, retainedDocumentExportTool ?? lookupTool);
+                return IncludeTool(domainTools.Where(tool => tool.Domain.Equals(lookupTool.Domain, StringComparison.OrdinalIgnoreCase)).ToList(), retainedDocumentExportTool ?? lookupTool);
         }
 
         if (RequiresSupplierIdentifierLookup(intent, entityType, workingContext))
         {
             var lookupTool = domainTools.FirstOrDefault(tool => tool.Name.Equals("QuerySuppliers", StringComparison.OrdinalIgnoreCase));
             if (lookupTool is not null)
-                return IncludeTool(domainTools, retainedDocumentExportTool ?? lookupTool);
+                return IncludeTool(domainTools.Where(tool => tool.Domain.Equals(lookupTool.Domain, StringComparison.OrdinalIgnoreCase)).ToList(), retainedDocumentExportTool ?? lookupTool);
+        }
+
+        if (RequiresSalesOrderIdentifierLookup(intent, entityType, workingContext))
+        {
+            var lookupTool = domainTools.FirstOrDefault(tool => tool.Name.Equals("ListSalesOrders", StringComparison.OrdinalIgnoreCase));
+            if (lookupTool is not null)
+                return IncludeTool(domainTools.Where(tool => tool.Domain.Equals(lookupTool.Domain, StringComparison.OrdinalIgnoreCase)).ToList(), retainedDocumentExportTool ?? lookupTool);
         }
 
         var exactMatches = domainTools
@@ -332,6 +339,53 @@ public sealed class ToolShortlistService : IToolShortlistService
             }
         }
 
+        if (LooksLikeProductSalesPrompt(rankingInput.UserMessage))
+        {
+            if (LooksLikeSalesTimelinePrompt(rankingInput.UserMessage))
+            {
+                if (tool.Name.Equals("SummarizeProductSalesTimeline", StringComparison.OrdinalIgnoreCase))
+                    score += 260d;
+
+                if (tool.Name.Equals("SummarizeProductSales", StringComparison.OrdinalIgnoreCase))
+                    score += 60d;
+
+                if (tool.Name.Equals("ProductSales", StringComparison.OrdinalIgnoreCase))
+                    score -= 90d;
+
+                if (tool.Name.Equals("ListSalesOrders", StringComparison.OrdinalIgnoreCase))
+                    score -= 30d;
+            }
+            else if (LooksLikeAggregatedSalesChartPrompt(rankingInput.UserMessage))
+            {
+                if (tool.Name.Equals("SummarizeProductSales", StringComparison.OrdinalIgnoreCase))
+                    score += 220d;
+
+                if (tool.Name.Equals("ProductSales", StringComparison.OrdinalIgnoreCase))
+                    score -= 80d;
+
+                if (tool.Name.Equals("ListSalesOrders", StringComparison.OrdinalIgnoreCase))
+                    score -= 25d;
+            }
+            else
+            {
+                if (tool.Name.Equals("SummarizeProductSales", StringComparison.OrdinalIgnoreCase))
+                    score += 140d;
+
+                if (tool.Name.Equals("ProductSales", StringComparison.OrdinalIgnoreCase))
+                    score += 45d;
+
+                if (tool.Name.Equals("ListSalesOrders", StringComparison.OrdinalIgnoreCase))
+                    score += 10d;
+            }
+
+            if (tool.Name.Equals("QueryInventory", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("GetStockOnHand", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("AggregateInventoryCounts", StringComparison.OrdinalIgnoreCase))
+            {
+                score -= 45d;
+            }
+        }
+
         if (RequiresProductIdentifierLookup(rankingInput.Intent, entityType, new WorkingContext { FocusedEntity = rankingInput.FocusedEntity }))
         {
             if (tool.Name.Equals("QueryInventory", StringComparison.OrdinalIgnoreCase))
@@ -396,6 +450,20 @@ public sealed class ToolShortlistService : IToolShortlistService
             if (tool.Name.Equals("GetSupplier", StringComparison.OrdinalIgnoreCase)
                 || tool.Name.Equals("ModifySupplier", StringComparison.OrdinalIgnoreCase)
                 || tool.Name.Equals("DeleteSupplier", StringComparison.OrdinalIgnoreCase))
+            {
+                score -= 25d;
+            }
+        }
+
+        if (RequiresSalesOrderIdentifierLookup(rankingInput.Intent, entityType, new WorkingContext { FocusedEntity = rankingInput.FocusedEntity }))
+        {
+            if (tool.Name.Equals("ListSalesOrders", StringComparison.OrdinalIgnoreCase))
+                score += 60d;
+
+            if (tool.Name.Equals("GetSalesOrderDetails", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("ModifySalesOrder", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("AddItemToSalesOrder", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("AddItemToSO", StringComparison.OrdinalIgnoreCase))
             {
                 score -= 25d;
             }
@@ -545,6 +613,52 @@ public sealed class ToolShortlistService : IToolShortlistService
         return countSignal && inventorySignal;
     }
 
+    private static bool LooksLikeProductSalesPrompt(string? prompt)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            return false;
+
+        if (Regex.IsMatch(
+            prompt,
+            @"\b(?:best\s+selling|top\s+selling|best\s+sellers?|top\s+sellers?|most\s+sold|sales\s+history|sold\s+items?|product\s+sales)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        if (LooksLikeAggregatedSalesChartPrompt(prompt))
+            return true;
+
+        if (LooksLikeSalesTimelinePrompt(prompt))
+            return true;
+
+        var salesMetricSignal = Regex.IsMatch(prompt, @"\b(?:quantity\s+sold|sales\s+value|revenue|turnover|total\s+sales|sales\s+total)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var productSignal = Regex.IsMatch(prompt, @"\b(?:product|products|item|items|part|parts|sold)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return salesMetricSignal && productSignal;
+    }
+
+    private static bool LooksLikeAggregatedSalesChartPrompt(string? prompt)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            return false;
+
+        var chartSignal = Regex.IsMatch(prompt, @"\b(?:bar\s+chart|chart|graph|plot|trend|by\s+year|per\s+year|by\s+month|per\s+month|by\s+quarter|per\s+quarter|annual|yearly|quarterly|monthly|grouped\s+by\s+(?:year|month|quarter))\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var salesMetricSignal = Regex.IsMatch(prompt, @"\b(?:sales\s+value|revenue|turnover|total\s+sales|sales\s+total)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return chartSignal && salesMetricSignal;
+    }
+
+    private static bool LooksLikeSalesTimelinePrompt(string? prompt)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            return false;
+
+        var salesMetricSignal = Regex.IsMatch(prompt, @"\b(?:quantity\s+sold|sales\s+value|revenue|turnover|total\s+sales|sales\s+total)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (!salesMetricSignal)
+            return false;
+
+        return Regex.IsMatch(prompt, @"\b(?:per\s+year|by\s+year|annual|yearly|per\s+month|by\s+month|monthly|per\s+quarter|by\s+quarter|quarterly|trend|over\s+time|timeline)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
     private static bool LooksLikeDownloadExportPrompt(string? prompt, string? conversationSummary)
     {
         if (string.IsNullOrWhiteSpace(prompt))
@@ -596,6 +710,21 @@ public sealed class ToolShortlistService : IToolShortlistService
     private static bool RequiresSupplierIdentifierLookup(IntentContext intent, string? entityType, WorkingContext workingContext)
     {
         if (!RoutingVocabulary.AreEntityTypesCompatible(entityType, "Supplier"))
+            return false;
+
+        if (!intent.Parameters.TryGetValue("identifier", out var identifier) || string.IsNullOrWhiteSpace(identifier))
+            return false;
+
+        return intent.Action switch
+        {
+            "Read" or "Query" or "Update" or "Delete" => true,
+            _ => false
+        };
+    }
+
+    private static bool RequiresSalesOrderIdentifierLookup(IntentContext intent, string? entityType, WorkingContext workingContext)
+    {
+        if (!RoutingVocabulary.AreEntityTypesCompatible(entityType, "SalesOrder"))
             return false;
 
         if (!intent.Parameters.TryGetValue("identifier", out var identifier) || string.IsNullOrWhiteSpace(identifier))

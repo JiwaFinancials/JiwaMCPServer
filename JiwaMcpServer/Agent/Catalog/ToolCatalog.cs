@@ -11,6 +11,11 @@ public sealed class ToolCatalog : IToolCatalog
     private static readonly IReadOnlyDictionary<string, string> DomainAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["Inventory"] = "InventoryTools",
+        ["SalesOrder"] = "SalesOrderTools",
+        ["SalesOrders"] = "SalesOrderTools",
+        ["SalesInvoice"] = "SalesOrderTools",
+        ["SalesInvoices"] = "SalesOrderTools",
+        ["SO"] = "SalesOrderTools",
         ["Documents"] = "DocumentTools"
     };
 

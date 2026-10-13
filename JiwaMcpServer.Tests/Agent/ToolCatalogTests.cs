@@ -22,6 +22,7 @@ public class ToolCatalogTests
         Assert.Contains("InventoryTools", domains);
         Assert.Contains("CustomerTools", domains);
         Assert.Contains("SupplierTools", domains);
+        Assert.Contains("SalesOrderTools", domains);
         Assert.Contains("CreditorPurchaseTools", domains);
         Assert.Contains("DocumentTools", domains);
         Assert.DoesNotContain("FinanceTools", domains);

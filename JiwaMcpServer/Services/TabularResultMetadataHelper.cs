@@ -112,7 +112,7 @@ internal static class TabularResultMetadataHelper
         {
             instructions.Add("Show only a short preview (for example, the first 10 rows).");
             instructions.Add("Do not paste the full dataset into chat.");
-            instructions.Add("For grouped counts, totals, or summaries, use the stored result handle with AggregateInventoryCounts rather than counting rows from the preview.");
+            instructions.Add("For grouped counts, totals, or summaries, use an appropriate server-side aggregation tool with the stored result handle rather than counting rows from the preview.");
             AddMediumResultExportInstruction(instructions, availableExports);
             instructions.Add("Provide pagination if supported.");
             return [.. instructions];
@@ -121,7 +121,7 @@ internal static class TabularResultMetadataHelper
         instructions.Add("Do not render the entire dataset in chat.");
         instructions.Add("Show only a very small preview (for example, the first 10 rows).");
         instructions.Add("Do not paste the full dataset into chat.");
-        instructions.Add("For grouped counts, totals, or summaries, use the stored result handle with AggregateInventoryCounts rather than counting rows from the preview.");
+        instructions.Add("For grouped counts, totals, or summaries, use an appropriate server-side aggregation tool with the stored result handle rather than counting rows from the preview.");
         AddLargeResultExportInstruction(instructions, availableExports);
         instructions.Add("Avoid generating thousands of rows in the response.");
         return [.. instructions];

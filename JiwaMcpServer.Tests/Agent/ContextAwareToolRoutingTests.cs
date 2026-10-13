@@ -487,6 +487,26 @@ public class ContextAwareToolRoutingTests
     }
 
     [Fact]
+    public async Task SaleOrdersForCustomer_PrefersListSalesOrdersOverCustomerTools()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "Give me a list of sale orders for customer 1001",
+            MaxTools = 5
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Contains(route.Tools, tool => tool.Name == "ListSalesOrders");
+        Assert.Equal("ListSalesOrders", route.Tools[0].Name);
+        Assert.Equal("SalesOrder", route.Intent.EntityType);
+        Assert.Equal("Query", route.Intent.Action);
+        Assert.Equal("1001", route.Intent.Parameters["identifier"]);
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "QueryCustomers");
+    }
+
+    [Fact]
     public async Task PartsQueryAfterCustomerContext_PrefersQueryInventory()
     {
         var router = CreateActualRouter();
@@ -511,6 +531,94 @@ public class ContextAwareToolRoutingTests
         Assert.NotNull(route.Tools);
         Assert.Equal("QueryInventory", route.Tools[0].Name);
         Assert.DoesNotContain(route.Tools, tool => tool.Name == "QueryCustomers");
+    }
+
+    [Fact]
+    public async Task BestSellingProductPrompt_PrefersSummarizeProductSales()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "What is my best selling product?",
+            MaxTools = 5
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Equal("SummarizeProductSales", route.Tools[0].Name);
+        Assert.Contains("SalesOrderTools", route.Domains);
+        Assert.Equal("SalesOrder", route.Intent.EntityType);
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "QueryInventory");
+    }
+
+    [Fact]
+    public async Task TopProductsByQuantitySoldPrompt_PrefersSummarizeProductSales()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "top 10 products list by quantity sold",
+            MaxTools = 5
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Equal("SummarizeProductSales", route.Tools[0].Name);
+        Assert.Contains("SalesOrderTools", route.Domains);
+        Assert.Equal("SalesOrder", route.Intent.EntityType);
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "QueryInventory");
+    }
+
+    [Fact]
+    public async Task TopProductsBySalesValuePrompt_PrefersSummarizeProductSales()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "what is my top ten best selling products by sales value?",
+            MaxTools = 5
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Equal("SummarizeProductSales", route.Tools[0].Name);
+        Assert.Contains("SalesOrderTools", route.Domains);
+        Assert.Equal("SalesOrder", route.Intent.EntityType);
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "QueryInventory");
+    }
+
+    [Fact]
+    public async Task AnnualSalesValueChartPrompt_PrefersSummarizeProductSalesTimelineOverRawSalesLines()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "give me a bar chart of sales value per year",
+            MaxTools = 5
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Equal("SummarizeProductSalesTimeline", route.Tools[0].Name);
+        Assert.Contains("SalesOrderTools", route.Domains);
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "ProductSales");
+    }
+
+    [Fact]
+    public async Task MonthlySalesValuePrompt_PrefersSummarizeProductSalesTimeline()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "show me sales value per month for 2024",
+            MaxTools = 5
+        });
+
+        Assert.NotNull(route.Tools);
+        Assert.Equal("SummarizeProductSalesTimeline", route.Tools[0].Name);
+        Assert.Contains("SalesOrderTools", route.Domains);
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "ProductSales");
     }
 
     [Fact]

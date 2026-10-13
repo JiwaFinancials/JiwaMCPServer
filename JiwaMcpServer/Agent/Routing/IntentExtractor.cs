@@ -68,13 +68,16 @@ public sealed class IntentExtractor : IIntentExtractor
 
     private static string ResolveEntityType(string prompt, WorkingContext? workingContext)
     {
+        if (LooksLikeProductSalesAnalysisPrompt(prompt))
+            return "SalesOrder";
+
         var explicitEntityType = RoutingVocabulary.TryResolveEntityTypeFromText(prompt);
         if (!string.IsNullOrWhiteSpace(explicitEntityType))
             return explicitEntityType;
 
         if (workingContext?.FocusedEntity is not null
             && (RoutingVocabulary.ContainsReferencePronoun(prompt)
-                || (!string.IsNullOrWhiteSpace(prompt) && !Regex.IsMatch(prompt, @"\b(customer|debtor|supplier|creditor|purchase|invoice|product|part|inventory|document|file)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))))
+                || (!string.IsNullOrWhiteSpace(prompt) && !Regex.IsMatch(prompt, @"\b(customer|debtor|supplier|creditor|purchase|invoice|product|part|inventory|document|file|sale(?:s)?\s+order|sale(?:s)?\s+invoice|customer\s+order)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))))
         {
             return workingContext.FocusedEntity.EntityType;
         }
@@ -111,7 +114,7 @@ public sealed class IntentExtractor : IIntentExtractor
 
         var entityReferenceMatch = Regex.Match(
             prompt,
-            @"\b(?:customer|debtor|invoice|purchase order|purchase|supplier|creditor|product|part)\b\s+(?<identifier>[A-Za-z0-9][A-Za-z0-9\-/]*)",
+            @"\b(?:customer|debtor|sale(?:s)?\s+order|sale(?:s)?\s+invoice|customer\s+order|invoice|purchase order|purchase|supplier|creditor|product|part)\b\s+(?<identifier>[A-Za-z0-9][A-Za-z0-9\-/]*)",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         if (entityReferenceMatch.Success)
@@ -165,6 +168,33 @@ public sealed class IntentExtractor : IIntentExtractor
 
         return ContainsReferencePronoun(prompt)
             && Regex.IsMatch(prompt, @"\b(?:stock|qty|quantity|available|availability|on\s+hand|inventory\s+balance)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeProductSalesAnalysisPrompt(string? prompt)
+    {
+        if (string.IsNullOrWhiteSpace(prompt))
+            return false;
+
+        if (Regex.IsMatch(
+            prompt,
+            @"\b(?:best\s+selling|top\s+selling|best\s+sellers?|top\s+sellers?|most\s+sold|sales\s+history|sold\s+items?|product\s+sales)\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+        {
+            return true;
+        }
+
+        var chartSignal = Regex.IsMatch(prompt, @"\b(?:bar\s+chart|chart|graph|plot|trend|by\s+year|per\s+year|by\s+month|per\s+month|by\s+quarter|per\s+quarter|annual|yearly|quarterly|monthly|grouped\s+by\s+(?:year|month|quarter))\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var salesMetricSignal = Regex.IsMatch(prompt, @"\b(?:quantity\s+sold|sales\s+value|revenue|turnover|total\s+sales|sales\s+total)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var productSignal = Regex.IsMatch(prompt, @"\b(?:product|products|item|items|part|parts|sold)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var timeGroupingSignal = Regex.IsMatch(prompt, @"\b(?:per\s+year|by\s+year|annual|yearly|per\s+month|by\s+month|monthly|per\s+quarter|by\s+quarter|quarterly|trend|over\s+time|timeline)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        if (chartSignal && salesMetricSignal)
+            return true;
+
+        if (salesMetricSignal && timeGroupingSignal)
+            return true;
+
+        return salesMetricSignal && productSignal;
     }
 
     private static bool ContainsReferencePronoun(string? text)
