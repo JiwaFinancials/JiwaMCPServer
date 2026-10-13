@@ -79,6 +79,18 @@ public static class JiwaToolCatalogFactory
         },
         new DomainDefinition
         {
+            Name = "SupplierTools",
+            Description = "Supplier accounts, creditor records, contacts, banking details, and supply terms.",
+            Capabilities =
+            [
+                "Query and search suppliers (creditors) by name, code, or contact",
+                "View supplier details, addresses, terms, and banking information",
+                "Create, modify, and delete supplier records",
+                "Look up supplier classifications and account information"
+            ]
+        },
+        new DomainDefinition
+        {
             Name = "CreditorPurchaseTools",
             Description = "Suppliers, creditor purchases, purchase documents, and purchase transactions.",
             Capabilities =

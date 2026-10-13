@@ -3,6 +3,36 @@ using System.Text.Json.Nodes;
 
 namespace JiwaMcpServer.Models;
 
+public sealed class SupplierGetToolRequest
+{
+    [Description("The Jiwa CreditorID when it is already known. Leave empty when the user supplied an account number or supplier name instead.")]
+    public string? CreditorID { get; set; }
+
+    [Description("A user-supplied supplier reference such as AccountNo, AlternativeAccountNo, creditor number, supplier code, or supplier name. Use this for prompts like 'show supplier 1149' or 'show supplier Acme Trading'.")]
+    public string? Identifier { get; set; }
+}
+
+public sealed class SupplierPatchToolRequest
+{
+    [Description("The CreditorID of the existing supplier to update when it is already known.")]
+    public string? CreditorID { get; set; }
+
+    [Description("A user-supplied supplier reference such as AccountNo, AlternativeAccountNo, creditor number, supplier code, or supplier name. Use this when CreditorID is not known. The tool will resolve the matching CreditorID first.")]
+    public string? Identifier { get; set; }
+
+    [Description("Only the supplier fields to change. Omit unchanged fields. Example: {\"Phone\":\"03 9000 0000\",\"EmailAddress\":\"accounts@example.com\"}.")]
+    public JsonObject Changes { get; set; } = [];
+}
+
+public sealed class SupplierDeleteToolRequest
+{
+    [Description("The CreditorID of the existing supplier to delete when it is already known.")]
+    public string? CreditorID { get; set; }
+
+    [Description("A user-supplied supplier reference such as AccountNo, AlternativeAccountNo, creditor number, supplier code, or supplier name. Use this when CreditorID is not known. The tool will resolve the matching CreditorID first.")]
+    public string? Identifier { get; set; }
+}
+
 public sealed class CustomerPatchToolRequest
 {
     [Description("The DebtorID of the existing customer to update when it is already known.")]

@@ -136,4 +136,52 @@ IMPORTANT:
 • Modifies live business data.
 • Use only when the user's intent to remove the line item is explicit.
 """;
+
+    public const string GetCreditorPurchaseDocuments = """
+Retrieve supplier purchase documents attached to a purchase batch.
+
+Use when the user needs to review document metadata, linked files, or purchase attachments.
+""";
+
+    public const string AddCreditorPurchaseDocument = """
+Add a document to a supplier purchase transaction.
+
+Use when the user wants to attach a file or record to a purchase batch.
+""";
+
+    public const string GetCreditorPurchaseDocument = """
+Retrieve a specific supplier purchase document.
+
+Use when a single attached document needs to be inspected or referenced.
+""";
+
+    public const string GetCreditorPurchaseDocumentType = """
+Retrieve a supplier purchase document type definition.
+
+Use when the user needs the metadata or configuration behind a document type.
+""";
+
+    public const string GetCreditorPurchaseNote = """
+Retrieve a specific note attached to a supplier purchase.
+
+Use when the user wants to read an existing purchase note or commentary.
+""";
+
+    public const string GetCreditorPurchaseNotes = """
+Retrieve all notes attached to a supplier purchase.
+
+Use when the user needs the complete notes history for a supplier purchase batch.
+""";
+
+    public const string AddCreditorPurchaseNote = """
+Add a note to a supplier purchase transaction.
+
+Use when the user wants to record purchase comments or operational notes.
+""";
+
+    public const string GetCreditorPurchaseNoteType = """
+Retrieve a supplier purchase note type definition.
+
+Use when the user needs note category metadata for supplier purchasing records.
+""";
 }

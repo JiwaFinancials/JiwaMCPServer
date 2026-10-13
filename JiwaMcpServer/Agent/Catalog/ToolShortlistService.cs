@@ -218,6 +218,13 @@ public sealed class ToolShortlistService : IToolShortlistService
                 return IncludeTool(domainTools, retainedDocumentExportTool ?? lookupTool);
         }
 
+        if (RequiresSupplierIdentifierLookup(intent, entityType, workingContext))
+        {
+            var lookupTool = domainTools.FirstOrDefault(tool => tool.Name.Equals("QuerySuppliers", StringComparison.OrdinalIgnoreCase));
+            if (lookupTool is not null)
+                return IncludeTool(domainTools, retainedDocumentExportTool ?? lookupTool);
+        }
+
         var exactMatches = domainTools
             .Where(tool => MatchesEntityType(tool, entityType) && MatchesAction(tool, intent.Action))
             .ToList();
@@ -376,6 +383,19 @@ public sealed class ToolShortlistService : IToolShortlistService
                 || tool.Name.Equals("ModifyCustomer", StringComparison.OrdinalIgnoreCase)
                 || tool.Name.Equals("DeleteCustomer", StringComparison.OrdinalIgnoreCase)
                 || tool.Name.Equals("QueryCustomerTransactions", StringComparison.OrdinalIgnoreCase))
+            {
+                score -= 25d;
+            }
+        }
+
+        if (RequiresSupplierIdentifierLookup(rankingInput.Intent, entityType, new WorkingContext { FocusedEntity = rankingInput.FocusedEntity }))
+        {
+            if (tool.Name.Equals("QuerySuppliers", StringComparison.OrdinalIgnoreCase))
+                score += 60d;
+
+            if (tool.Name.Equals("GetSupplier", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("ModifySupplier", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("DeleteSupplier", StringComparison.OrdinalIgnoreCase))
             {
                 score -= 25d;
             }
@@ -573,6 +593,21 @@ public sealed class ToolShortlistService : IToolShortlistService
         };
     }
 
+    private static bool RequiresSupplierIdentifierLookup(IntentContext intent, string? entityType, WorkingContext workingContext)
+    {
+        if (!RoutingVocabulary.AreEntityTypesCompatible(entityType, "Supplier"))
+            return false;
+
+        if (!intent.Parameters.TryGetValue("identifier", out var identifier) || string.IsNullOrWhiteSpace(identifier))
+            return false;
+
+        return intent.Action switch
+        {
+            "Read" or "Query" or "Update" or "Delete" => true,
+            _ => false
+        };
+    }
+
     private static IReadOnlyList<ToolDefinition> FilterConfirmationCandidateTools(
         IReadOnlyList<ToolDefinition> domainTools,
         IReadOnlyList<ToolDefinition> availableTools,
@@ -655,6 +690,9 @@ public sealed class ToolShortlistService : IToolShortlistService
             "CustomerTools" when Regex.IsMatch(summary, @"\b(transaction|transactions|history|payment|payments|balance|balances|invoice|invoices)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
                 => new[] { "QueryCustomerTransactions", "QueryCustomers" },
             "CustomerTools" => new[] { "QueryCustomers", "QueryCustomerTransactions" },
+            "SupplierTools" when Regex.IsMatch(summary, @"\b(classification|classifications|terms|banking|address|contacts|accounting)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+                => new[] { "SearchSupplierClassifications", "QuerySuppliers" },
+            "SupplierTools" => new[] { "QuerySuppliers", "SearchSupplierClassifications" },
             "CreditorPurchaseTools" when Regex.IsMatch(summary, @"\bhistory\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
                 => new[] { "QuerySupplierPurchaseHistory", "QuerySupplierPurchases" },
             "CreditorPurchaseTools" => new[] { "QuerySupplierPurchases", "QuerySupplierPurchaseHistory" },

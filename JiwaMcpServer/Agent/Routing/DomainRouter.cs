@@ -17,6 +17,19 @@ public sealed class DomainRouter : IDomainRouter
             "customer number",
             "customer code"
         ],
+        ["SupplierTools"] =
+        [
+            "supplier",
+            "suppliers",
+            "creditor",
+            "creditors",
+            "supplier account",
+            "creditor account",
+            "supplier number",
+            "creditor number",
+            "supplier code",
+            "creditor code"
+        ],
         ["InventoryTools"] =
         [
             "inventory",
@@ -37,10 +50,6 @@ public sealed class DomainRouter : IDomainRouter
         ],
         ["CreditorPurchaseTools"] =
         [
-            "supplier",
-            "suppliers",
-            "creditor",
-            "creditors",
             "purchase",
             "purchases",
             "purchase order",

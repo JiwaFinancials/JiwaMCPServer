@@ -31,6 +31,22 @@ public class CreditorPurchaseTools : JiwaToolBase
     //        return result.ToJson();
     //    });
 
+    [McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchaseDocuments)]
+    public Task<string> GetCreditorPurchaseDocuments(CreditorPurchaseDocumentsGETManyRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            return result.ToJson();
+        });
+
+    [McpServerTool, Description(CreditorToolDescriptions.AddCreditorPurchaseDocument)]
+    public Task<string> AddCreditorPurchaseDocument(CreditorPurchaseDocumentPOSTRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.PostAsync(requestDTO, ct);
+            return result.ToJson();
+        });
+
     [McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchaseLines)]
     public Task<string> GetCreditorPurchaseLines(CreditorPurchaseLinesGETManyRequest requestDTO, CancellationToken ct = default)
         => InvokeToolAsync(async () =>
@@ -55,13 +71,13 @@ public class CreditorPurchaseTools : JiwaToolBase
     //        return result.ToJson();
     //    });
 
-    //[McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchaseDocumentType)]
-    //public Task<string> GetCreditorPurchaseDocumentType(CreditorPurchaseDocumentTypeGETRequest requestDTO, CancellationToken ct = default)
-    //    => InvokeToolAsync(async () =>
-    //    {
-    //        var result = await JiwaApiClient.GetAsync(requestDTO, ct);
-    //        return result.ToJson();
-    //    });
+    [McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchaseDocumentType)]
+    public Task<string> GetCreditorPurchaseDocumentType(CreditorPurchaseDocumentTypeGETRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            return result.ToJson();
+        });
 
     //[McpServerTool, Description(CreditorToolDescriptions.ModifyCreditorPurchaseDocumentType)]
     //public Task<string> ModifyCreditorPurchaseDocumentType(CreditorPurchaseDocumentTypePATCHRequest requestDTO, CancellationToken ct = default)
@@ -79,29 +95,21 @@ public class CreditorPurchaseTools : JiwaToolBase
     //        return new { Deleted = true, DocumentTypeID = requestDTO.DocumentTypeID }.ToJson();
     //    });
 
-    //[McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchaseDocuments)]
-    //public Task<string> GetCreditorPurchaseDocuments(CreditorPurchaseDocumentsGETManyRequest requestDTO, CancellationToken ct = default)
-    //    => InvokeToolAsync(async () =>
-    //    {
-    //        var result = await JiwaApiClient.GetAsync(requestDTO, ct);
-    //        return result.ToJson();
-    //    });
+    [McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchaseDocument)]
+    public Task<string> GetCreditorPurchaseDocument(CreditorPurchaseDocumentGETRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            return result.ToJson();
+        });
 
-    //[McpServerTool, Description(CreditorToolDescriptions.AddCreditorPurchaseDocument)]
-    //public Task<string> AddCreditorPurchaseDocument(CreditorPurchaseDocumentPOSTRequest requestDTO, CancellationToken ct = default)
-    //    => InvokeToolAsync(async () =>
-    //    {
-    //        var result = await JiwaApiClient.PostAsync(requestDTO, ct);
-    //        return result.ToJson();
-    //    });
-
-    //[McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchaseNoteType)]
-    //public Task<string> GetCreditorPurchaseNoteType(CreditorPurchaseNoteTypeGETRequest requestDTO, CancellationToken ct = default)
-    //    => InvokeToolAsync(async () =>
-    //    {
-    //        var result = await JiwaApiClient.GetAsync(requestDTO, ct);
-    //        return result.ToJson();
-    //    });
+    [McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchaseNoteType)]
+    public Task<string> GetCreditorPurchaseNoteType(CreditorPurchaseNoteTypeGETRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            return result.ToJson();
+        });
 
     //[McpServerTool, Description(CreditorToolDescriptions.ModifyCreditorPurchaseNoteType)]
     //public Task<string> ModifyCreditorPurchaseNoteType(CreditorPurchaseNoteTypePATCHRequest requestDTO, CancellationToken ct = default)
@@ -119,21 +127,21 @@ public class CreditorPurchaseTools : JiwaToolBase
     //        return new { Deleted = true, NoteTypeID = requestDTO.NoteTypeID }.ToJson();
     //    });
 
-    //[McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchaseNotes)]
-    //public Task<string> GetCreditorPurchaseNotes(CreditorPurchaseNotesGETManyRequest requestDTO, CancellationToken ct = default)
-    //    => InvokeToolAsync(async () =>
-    //    {
-    //        var result = await JiwaApiClient.GetAsync(requestDTO, ct);
-    //        return result.ToJson();
-    //    });
+    [McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchaseNotes)]
+    public Task<string> GetCreditorPurchaseNotes(CreditorPurchaseNotesGETManyRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.GetAsync(requestDTO, ct);
+            return result.ToJson();
+        });
 
-    //[McpServerTool, Description(CreditorToolDescriptions.AddCreditorPurchaseNote)]
-    //public Task<string> AddCreditorPurchaseNote(CreditorPurchaseNotePOSTRequest requestDTO, CancellationToken ct = default)
-    //    => InvokeToolAsync(async () =>
-    //    {
-    //        var result = await JiwaApiClient.PostAsync(requestDTO, ct);
-    //        return result.ToJson();
-    //    });
+    [McpServerTool, Description(CreditorToolDescriptions.AddCreditorPurchaseNote)]
+    public Task<string> AddCreditorPurchaseNote(CreditorPurchaseNotePOSTRequest requestDTO, CancellationToken ct = default)
+        => InvokeToolAsync(async () =>
+        {
+            var result = await JiwaApiClient.PostAsync(requestDTO, ct);
+            return result.ToJson();
+        });
 
     [McpServerTool, Description(CreditorToolDescriptions.GetCreditorPurchase)]
     public Task<string> GetCreditorPurchase(CreditorPurchaseGETRequest requestDTO, CancellationToken ct = default)

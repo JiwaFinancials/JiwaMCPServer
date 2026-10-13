@@ -321,9 +321,20 @@ public abstract class JiwaToolBase
             ConfirmedLargeResultSetQueries[queryFingerprint] = pendingConfirmation.ExpiresAt;
             return null;
         }
+        catch (WebServiceException ex) when (ex.StatusCode >= 400)
+        {
+            // The count-only validation probe is best-effort only. Some Jiwa endpoints reject it (for example 404 on a
+            // query that otherwise supports the actual fetch), and the real query should still be allowed to run.
+            return null;
+        }
         catch (WebServiceException ex)
         {
             return $"ERROR: Unable to validate large result set confirmation ({ex.StatusCode} {ex.StatusDescription}): {ex.ErrorMessage}";
+        }
+        catch (HttpRequestException)
+        {
+            // Same as above: if the probe cannot reach the service, avoid blocking the actual query.
+            return null;
         }
         catch (Exception ex)
         {

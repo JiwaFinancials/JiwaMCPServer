@@ -24,6 +24,15 @@ public class DomainRouterTests
     }
 
     [Fact]
+    public void ResolveDomains_SupplierMasterDataRouting_ReturnsSupplierTools()
+    {
+        var domains = _router.ResolveDomains("show supplier account 1001 details");
+
+        Assert.Contains("SupplierTools", domains);
+        Assert.DoesNotContain("CreditorPurchaseTools", domains);
+    }
+
+    [Fact]
     public void ResolveDomains_PurchasingRouting_ReturnsCreditorPurchaseTools()
     {
         var domains = _router.ResolveDomains("show supplier purchases this month");

@@ -21,6 +21,7 @@ public class ToolCatalogTests
 
         Assert.Contains("InventoryTools", domains);
         Assert.Contains("CustomerTools", domains);
+        Assert.Contains("SupplierTools", domains);
         Assert.Contains("CreditorPurchaseTools", domains);
         Assert.Contains("DocumentTools", domains);
         Assert.DoesNotContain("FinanceTools", domains);
@@ -50,7 +51,8 @@ public class ToolCatalogTests
     [Theory]
     [InlineData("QueryInventory", "InventoryTools")]
     [InlineData("QueryCustomers", "CustomerTools")]
-    [InlineData("AddCreditorPurchaseDocument", "CreditorPurchaseTools")]
+    [InlineData("QuerySuppliers", "SupplierTools")]
+    [InlineData("AddCreditorPurchaseLine", "CreditorPurchaseTools")]
     [InlineData("UploadLocalDocument", "DocumentTools")]
     public void GetAllTools_ContainsExpectedToolInDomain(string toolName, string expectedDomain)
     {
@@ -65,8 +67,8 @@ public class ToolCatalogTests
     {
         var creditorPurchaseTools = _catalog.GetToolsForDomains(["CreditorPurchaseTools"]).Select(t => t.Name).ToList();
 
-        Assert.Contains("AddCreditorPurchaseDocument", creditorPurchaseTools);
-        Assert.Contains("GetCreditorPurchaseDocument", creditorPurchaseTools);
+        Assert.Contains("AddCreditorPurchaseLine", creditorPurchaseTools);
+        Assert.Contains("GetCreditorPurchase", creditorPurchaseTools);
     }
 
     [Fact]

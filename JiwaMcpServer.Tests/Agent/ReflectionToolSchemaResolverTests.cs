@@ -12,18 +12,18 @@ public class ReflectionToolSchemaResolverTests
         NullLogger<ReflectionToolSchemaResolver>.Instance);
 
     [Fact]
-    public async Task ResolveAsync_DocumentTool_ExportsDetailedRequestSchema()
+    public async Task ResolveAsync_PurchaseLineTool_ExportsDetailedRequestSchema()
     {
-        var schemas = await _resolver.ResolveAsync(["AddCreditorPurchaseDocument"]);
+        var schemas = await _resolver.ResolveAsync(["AddCreditorPurchaseLine"]);
 
-        var schema = Assert.IsType<JsonObject>(schemas["AddCreditorPurchaseDocument"].ParametersSchema);
+        var schema = Assert.IsType<JsonObject>(schemas["AddCreditorPurchaseLine"].ParametersSchema);
         var rootProperties = Assert.IsType<JsonObject>(schema["properties"]);
         var requestDto = Assert.IsType<JsonObject>(rootProperties["requestDTO"]);
         var requestProperties = Assert.IsType<JsonObject>(requestDto["properties"]);
 
         Assert.Contains("batchID", requestProperties.Select(p => p.Key));
-        Assert.Contains("documentType", requestProperties.Select(p => p.Key));
-        Assert.Contains("fileBinary", requestProperties.Select(p => p.Key));
+        Assert.Contains("itemNo", requestProperties.Select(p => p.Key));
+        Assert.Contains("creditorName", requestProperties.Select(p => p.Key));
     }
 
     [Fact]
