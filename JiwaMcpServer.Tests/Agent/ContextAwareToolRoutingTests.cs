@@ -151,6 +151,88 @@ public class ContextAwareToolRoutingTests
         Assert.Contains("InventoryTools", route.Domains);
     }
 
+    [Theory]
+    [InlineData(10)]
+    [InlineData(20)]
+    public async Task AttachedPdfInCreditorPurchaseRequest_IncludesDocumentExtractionTools(int maxTools)
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "Create a creditor purchase from the attached pdf. Create a new creditor if required.",
+            MaxTools = maxTools
+        });
+
+        Assert.Contains("CreditorPurchaseTools", route.Domains);
+        Assert.Contains("SupplierTools", route.Domains);
+        Assert.Contains("DocumentTools", route.Domains);
+        Assert.Contains(route.Tools, tool => tool.Name == "CreateCreditorPurchase");
+        Assert.Contains(route.Tools, tool => tool.Name == "CreateSupplier");
+        Assert.Contains(route.Tools, tool => tool.Name == "QuerySuppliers");
+        Assert.Contains(route.Tools, tool => tool.Name == "ExtractLocalDocumentData");
+        Assert.Contains(route.Tools, tool => tool.Name == "UploadLocalDocument");
+        Assert.Contains(route.Tools, tool => tool.Name == "QueryUploadedDocument");
+        Assert.True(route.Tools.Count <= maxTools);
+    }
+
+    [Theory]
+    [InlineData("Create a creditor purchase. Create a new creditor if required.")]
+    [InlineData("Create a creditor purchase and create a new creditor if required.")]
+    [InlineData("Create a creditor purchase; then create a new creditor if required.")]
+    [InlineData("Create a creditor purchase and a new creditor if required.")]
+    public async Task ChainedBusinessActions_IncludeBothCreationToolsAndSupplierLookup(string prompt)
+    {
+        var route = await CreateActualRouter().ResolveAsync(new ToolRouteRequest { Prompt = prompt, MaxTools = 5 });
+
+        Assert.Contains(route.Tools, tool => tool.Name == "CreateCreditorPurchase");
+        Assert.Contains(route.Tools, tool => tool.Name == "CreateSupplier");
+        Assert.Contains(route.Tools, tool => tool.Name == "QuerySuppliers");
+        Assert.True(route.Tools.Count <= 5);
+    }
+
+    [Fact]
+    public async Task ChainedActionsWithDifferentVerbs_PreserveBothIntents()
+    {
+        var route = await CreateActualRouter().ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "Create a creditor purchase and update supplier Telstra's phone.",
+            MaxTools = 5
+        });
+
+        Assert.Contains(route.Tools, tool => tool.Name == "CreateCreditorPurchase");
+        Assert.Contains(route.Tools, tool => tool.Name == "ModifySupplier");
+        Assert.Contains(route.Tools, tool => tool.Name == "QuerySuppliers");
+    }
+
+    [Fact]
+    public async Task ChainedCustomerAndProductCreation_PreservesOtherBusinessDomains()
+    {
+        var route = await CreateActualRouter().ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "Create a customer and create a product.",
+            MaxTools = 5
+        });
+
+        Assert.Contains(route.Tools, tool => tool.Name == "CreateCustomer");
+        Assert.Contains(route.Tools, tool => tool.Name == "CreateProduct");
+        Assert.Contains(route.Tools, tool => tool.Name == "QueryCustomers");
+        Assert.Contains(route.Tools, tool => tool.Name == "QueryInventory");
+    }
+
+    [Fact]
+    public async Task ChainedActionsWithInsufficientBudget_ReportIncompleteCoverage()
+    {
+        var route = await CreateActualRouter().ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "Create a creditor purchase. Create a new creditor if required.",
+            MaxTools = 1
+        });
+
+        Assert.Single(route.Tools);
+        Assert.Contains(route.SelectionAdjustments, adjustment => adjustment.Contains("too small", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public async Task ConfirmWithoutContext_DoesNotFallBackToFullCatalog()
     {

@@ -6,6 +6,10 @@ using JiwaMcpServer.Models;
 using JiwaMcpServer.Options;
 using JiwaMcpServer.Services;
 using Microsoft.Extensions.Logging.Abstractions;
+using PdfQuestDocument = QuestPDF.Fluent.Document;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
+using QuestPDF.Infrastructure;
 using System.Text;
 using System.Text.Json;
 
@@ -82,6 +86,25 @@ public class DocumentProcessingTests
         Assert.Equal("pdf", result.FileType);
         Assert.True(result.Metadata.PageCount >= 1);
         Assert.Contains("Widget", result.ExtractedText);
+    }
+
+    [Fact]
+    public async Task ExtractPdfAsync_ExtractsGenericMetadata()
+    {
+        var samplePath = @"C:\Users\scott\Documents\AIChat\jpnkahtc.pdf";
+        if (!File.Exists(samplePath))
+        {
+            return;
+        }
+
+        var service = CreateDocumentProcessingService();
+        await using var stream = File.OpenRead(samplePath);
+
+        var result = await service.ExtractPdfAsync(stream, Path.GetFileName(samplePath), CancellationToken.None);
+
+        Assert.True(result.Metadata.AdditionalProperties.Count > 0);
+        Assert.Contains(result.Metadata.AdditionalProperties, pair => pair.Key.Contains("Invoice", StringComparison.OrdinalIgnoreCase) || pair.Key.Contains("Total", StringComparison.OrdinalIgnoreCase) || pair.Key.Contains("DocumentTitle", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("Telstra Limited", result.ExtractedText);
     }
 
     [Fact]
@@ -277,7 +300,7 @@ public class DocumentProcessingTests
         using (var document = WordprocessingDocument.Create(stream, DocumentFormat.OpenXml.WordprocessingDocumentType.Document, true))
         {
             var mainPart = document.AddMainDocumentPart();
-            mainPart.Document = new Document(new Body());
+            mainPart.Document = new DocumentFormat.OpenXml.Wordprocessing.Document(new Body());
             var body = mainPart.Document.Body!;
 
             body.Append(new Paragraph(new Run(new Text("Quarterly Inventory Report"))));
@@ -291,6 +314,34 @@ public class DocumentProcessingTests
             body.Append(table);
             mainPart.Document.Save();
         }
+
+        stream.Position = 0;
+        return stream;
+    }
+
+    private static MemoryStream CreateInvoicePdfStream()
+    {
+        var stream = new MemoryStream();
+        PdfQuestDocument.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(30);
+                page.Content().Column(column =>
+                {
+                    column.Item().Text("Telstra Limited");
+                    column.Item().Text("ABN 64 086 174 781");
+                    column.Item().Text("Tax Invoice");
+                    column.Item().Text("Invoice number");
+                    column.Item().Text("TTI10413280558");
+                    column.Item().Text("Issued on");
+                    column.Item().Text("25 Sep 2026");
+                    column.Item().Text("Total");
+                    column.Item().Text("$408.86");
+                });
+            });
+        }).GeneratePdf(stream);
 
         stream.Position = 0;
         return stream;

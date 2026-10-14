@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using UglyToad.PdfPig;
 
@@ -182,24 +183,33 @@ public sealed class DocumentProcessingService(IFileExportService fileExportServi
         foreach (var page in document.GetPages())
         {
             ct.ThrowIfCancellationRequested();
+            var pageText = page.Text.Trim();
             pages.Add(new JsonObject
             {
                 ["PageNumber"] = page.Number,
-                ["Text"] = page.Text
+                ["Text"] = pageText
             });
 
             textBuilder.AppendLine($"[Page {page.Number}]");
-            textBuilder.AppendLine(page.Text);
+            textBuilder.AppendLine(pageText);
         }
+
+        var extractedText = textBuilder.ToString().Trim();
+        var pdfMetadata = ExtractPdfMetadata(extractedText);
 
         return CreateDocument(
             fileName,
             "pdf",
-            textBuilder.ToString().Trim(),
-            new JsonObject { ["Pages"] = pages },
+            extractedText,
+            new JsonObject
+            {
+                ["Pages"] = pages,
+                ["Metadata"] = pdfMetadata
+            },
             new DocumentMetadata
             {
-                PageCount = document.NumberOfPages
+                PageCount = document.NumberOfPages,
+                AdditionalProperties = pdfMetadata
             });
     }
 
@@ -307,6 +317,222 @@ public sealed class DocumentProcessingService(IFileExportService fileExportServi
             ExtractedText = extractedText,
             StructuredData = structuredData
         };
+
+    private static JsonObject ExtractPdfMetadata(string extractedText)
+    {
+        var metadata = new JsonObject();
+        var normalized = extractedText
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace("\r", "\n", StringComparison.Ordinal)
+            .Trim();
+
+        if (string.IsNullOrWhiteSpace(normalized))
+            return metadata;
+
+        var lines = normalized
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(static line => line.Trim())
+            .Where(static line => !string.IsNullOrWhiteSpace(line))
+            .ToArray();
+
+        for (var index = 0; index < lines.Length; index++)
+        {
+            var line = lines[index];
+
+            if (TryExtractMetadataPair(line, out var key, out var value))
+            {
+                metadata[key] = value;
+                continue;
+            }
+
+            var nextLine = index + 1 < lines.Length ? lines[index + 1] : null;
+            if (string.IsNullOrWhiteSpace(nextLine) || !LooksLikeMetadataValue(nextLine))
+                continue;
+
+            var candidateKey = NormalizeMetadataKey(line);
+            if (string.IsNullOrWhiteSpace(candidateKey) || !LooksLikeMetadataLabel(line))
+                continue;
+
+            var candidateValue = NormalizeMetadataValue(nextLine);
+            if (string.IsNullOrWhiteSpace(candidateValue))
+                continue;
+
+            if (string.Equals(candidateKey, "Page", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(candidateKey, "Need help", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(candidateKey, "Visit", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(candidateKey, "Includes", StringComparison.OrdinalIgnoreCase)
+                || candidateKey.StartsWith("[", StringComparison.Ordinal)
+                || candidateKey.StartsWith("Page ", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            metadata[candidateKey] = candidateValue;
+            index++;
+        }
+
+        AddCompactTextMetadata(metadata, normalized);
+
+        var title = ExtractDocumentTitle(lines);
+        if (!string.IsNullOrWhiteSpace(title))
+            metadata["DocumentTitle"] = title;
+
+        if (metadata.Count == 0)
+            metadata["DocumentType"] = "document";
+
+        return metadata;
+    }
+
+    private static bool TryExtractMetadataPair(string line, out string key, out string value)
+    {
+        key = string.Empty;
+        value = string.Empty;
+
+        var trimmed = line.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return false;
+
+        if (trimmed.Contains(':'))
+        {
+            var index = trimmed.IndexOf(':');
+            key = trimmed[..index].Trim();
+            value = trimmed[(index + 1)..].Trim();
+        }
+        else if (Regex.IsMatch(trimmed, @"^(?<label>[A-Za-z][A-Za-z0-9 /&().-]{1,60})\s+(?<value>\$?\d[\d,]*\.\d{2}|[A-Z0-9][A-Za-z0-9 .,&()/:-]{2,})$", RegexOptions.CultureInvariant))
+        {
+            var match = Regex.Match(trimmed, @"^(?<label>[A-Za-z][A-Za-z0-9 /&().-]{1,60})\s+(?<value>\$?\d[\d,]*\.\d{2}|[A-Z0-9][A-Za-z0-9 .,&()/:-]{2,})$", RegexOptions.CultureInvariant);
+            key = match.Groups["label"].Value.Trim();
+            value = match.Groups["value"].Value.Trim();
+        }
+
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var normalizedKey = NormalizeMetadataKey(key);
+        if (string.IsNullOrWhiteSpace(normalizedKey))
+            return false;
+
+        if (string.Equals(normalizedKey, "Page", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedKey, "Need help", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedKey, "Visit", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedKey, "Includes", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        key = normalizedKey;
+        value = NormalizeMetadataValue(value);
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
+    private static string ExtractDocumentTitle(IReadOnlyList<string> lines)
+    {
+        var candidates = new List<string>();
+
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+                continue;
+
+            if (trimmed.Contains(':')
+                || trimmed.Contains("Page ", StringComparison.OrdinalIgnoreCase)
+                || trimmed.StartsWith("ABN", StringComparison.OrdinalIgnoreCase)
+                || trimmed.StartsWith("Need help", StringComparison.OrdinalIgnoreCase)
+                || trimmed.StartsWith("Visit ", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (trimmed.Length <= 120
+                && char.IsLetter(trimmed[0])
+                && !Regex.IsMatch(trimmed, @"\d"))
+            {
+                candidates.Add(trimmed);
+            }
+        }
+
+        return candidates.FirstOrDefault(candidate => !string.Equals(candidate, "Tax Invoice", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
+    }
+
+    private static void AddCompactTextMetadata(JsonObject metadata, string normalizedText)
+    {
+        var compactText = Regex.Replace(normalizedText, @"\s+", " ").Trim();
+        if (string.IsNullOrWhiteSpace(compactText))
+            return;
+
+        var titleMatch = Regex.Match(compactText, @"(?is)(?<title>[A-Z][A-Za-z0-9&.'()/-]+(?:\s+[A-Z][A-Za-z0-9&.'()/-]+)*)\s*ABN");
+        if (titleMatch.Success)
+            metadata["DocumentTitle"] = titleMatch.Groups["title"].Value.Trim();
+
+        AddCompactMetadataEntry(metadata, "ABN", compactText, @"ABN\s+(?<value>\d{2}\s+\d{3}\s+\d{3}\s+\d{3})");
+        AddCompactMetadataEntry(metadata, "Invoice number", compactText, @"Invoice\s+number\s*(?:[:\-]\s*)?(?<value>[A-Z0-9/\-]+)(?=\s*(?:Issued\s+on|Mobile\s+service|Page|Payment|Need\s+help|Visit|$))");
+        AddCompactMetadataEntry(metadata, "Total", compactText, @"Total\s*(?:[:\-]\s*)?(?<value>\$?\d[\d,]*\.\d{2})(?=\s*(?:Incl|Includes|Page|Need\s+help|Visit|$))");
+        AddCompactMetadataEntry(metadata, "Issued on", compactText, @"Issued\s+on\s*(?:[:\-]\s*)?(?<value>[A-Z][a-z]{2}\s+\d{1,2}\s+\d{4})");
+    }
+
+    private static void AddCompactMetadataEntry(JsonObject metadata, string key, string text, string pattern)
+    {
+        var match = Regex.Match(text, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (!match.Success)
+            return;
+
+        var value = match.Groups["value"].Value.Trim();
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        metadata[key] = value;
+    }
+
+    private static bool LooksLikeMetadataLabel(string line)
+    {
+        var trimmed = line.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed)
+            || trimmed.Length > 80
+            || trimmed.Contains(':')
+            || trimmed.StartsWith("[", StringComparison.Ordinal)
+            || trimmed.StartsWith("Page", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return Regex.IsMatch(trimmed, @"^[A-Za-z][A-Za-z0-9 /&().-]{1,79}$", RegexOptions.CultureInvariant);
+    }
+
+    private static bool LooksLikeMetadataValue(string value)
+    {
+        var trimmed = value.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+            return false;
+
+        if (trimmed.StartsWith("Page ", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("Need help", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("Visit ", StringComparison.OrdinalIgnoreCase)
+            || trimmed.StartsWith("Includes", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return trimmed.Contains('$')
+            || Regex.IsMatch(trimmed, @"\d")
+            || Regex.IsMatch(trimmed, @"^[A-Z0-9][A-Za-z0-9 .,&()/:-]{2,}$");
+    }
+
+    private static string NormalizeMetadataKey(string key)
+    {
+        var normalized = Regex.Replace(key, @"\s+", " ").Trim();
+        normalized = normalized.TrimEnd(':', '-', ';');
+        if (normalized.Length == 0 || (normalized.Any(char.IsDigit) && normalized.Length < 3))
+            return string.Empty;
+
+        return normalized;
+    }
+
+    private static string NormalizeMetadataValue(string value)
+    {
+        var normalized = Regex.Replace(value, @"\s+", " ").Trim();
+        return normalized.TrimEnd('.', ',', ';');
+    }
 
     private static JsonObject ToJson(XElement element)
     {

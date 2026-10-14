@@ -102,6 +102,16 @@ public class DomainRouterTests
     }
 
     [Fact]
+    public void ResolveDomains_CreditorPurchaseAndConditionalCreditorCreation_ReturnsAllWorkflowDomains()
+    {
+        var domains = _router.ResolveDomains("Create a creditor purchase from the attached pdf. Create a new creditor if required.");
+
+        Assert.Contains("CreditorPurchaseTools", domains);
+        Assert.Contains("SupplierTools", domains);
+        Assert.Contains("DocumentTools", domains);
+    }
+
+    [Fact]
     public void ResolveDomains_DocumentSupportRouting_ImportProductsFromCsv_ReturnsInventoryAndDocumentTools()
     {
         var domains = _router.ResolveDomains("Import products from CSV");

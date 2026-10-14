@@ -45,6 +45,20 @@ public sealed class ToolShortlistService : IToolShortlistService
         var isConfirmationPrompt = RoutingVocabulary.IsConfirmationPrompt(prompt);
         var hasRecoverableConfirmationContext = HasRecoverableConfirmationContext(workingContext);
 
+        if (RequiresDocumentToolSupport(prompt, workingContext, resolvedDomains))
+        {
+            var documentTools = allTools
+                .Where(tool => RoutingVocabulary.ResolveCanonicalDomain(tool.Domain).Equals("DocumentTools", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (documentTools.Count > 0)
+            {
+                resolvedDomains = resolvedDomains
+                    .Concat(["DocumentTools"])
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+        }
+
         var domainTools = resolvedDomains.Count > 0
             ? _toolCatalog.GetToolsForDomains(resolvedDomains)
             : isConfirmationPrompt && !hasRecoverableConfirmationContext
@@ -64,12 +78,15 @@ public sealed class ToolShortlistService : IToolShortlistService
             }
         }
 
+        var workflowIntents = isConfirmationPrompt ? [] : ExtractWorkflowIntents(prompt, workingContext);
         var candidateTools = isConfirmationPrompt
             ? FilterConfirmationCandidateTools(domainTools, allTools, workingContext)
-            : FilterCandidateTools(domainTools, intent, workingContext);
+            : workflowIntents.Count > 1
+                ? domainTools
+                : FilterCandidateTools(prompt, domainTools, intent, workingContext);
         var rankingInput = BuildRankingInput(prompt, intent, workingContext, resolvedDomains);
 
-        var ranked = candidateTools
+        var rankedCandidates = candidateTools
             .Select(tool => new ToolSelectionCandidate
             {
                 Tool = tool,
@@ -78,7 +95,25 @@ public sealed class ToolShortlistService : IToolShortlistService
             .Where(item => item.RelevanceScore > 0 || candidateTools.Count <= maxTools)
             .OrderByDescending(item => item.RelevanceScore)
             .ThenBy(item => item.Tool.Name, StringComparer.OrdinalIgnoreCase)
-            .Take(Math.Max(1, maxTools))
+            .ToList();
+
+        var workflowTools = SelectWorkflowTools(workflowIntents, candidateTools, workingContext);
+        if (workflowIntents.Count > 1 && LooksLikeDocumentSupportPrompt(prompt, conversationSummary: null)
+            && !LooksLikeDownloadExportPrompt(prompt, workingContext.ConversationSummary))
+        {
+            var documentWorkflowTools = rankedCandidates.Where(item => item.Tool.Name is
+                "ExtractDocumentData" or "ExtractLocalDocumentData" or "UploadLocalDocument" or "QueryUploadedDocument");
+            workflowTools = workflowTools.Concat(documentWorkflowTools)
+                .DistinctBy(item => item.Tool.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        var ranked = workflowTools
+            .Concat(rankedCandidates)
+            .DistinctBy(item => item.Tool.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(maxTools)
+            .OrderByDescending(item => item.RelevanceScore)
+            .ThenBy(item => item.Tool.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (isConfirmationPrompt)
@@ -100,6 +135,16 @@ public sealed class ToolShortlistService : IToolShortlistService
         if (isConfirmationPrompt && !hasRecoverableConfirmationContext)
         {
             overrideContext.AddAdjustment("Confirmation prompt had no recoverable context, so no tool schemas were selected.");
+        }
+
+        if (workflowIntents.Count > 1)
+        {
+            overrideContext.AddAdjustment("Reserved tool slots for each requested workflow action and supporting entity lookups.");
+            if (workflowTools.Count > maxTools)
+            {
+                overrideContext.AddAdjustment($"The tool limit of {maxTools} is too small to include all {workflowTools.Count} workflow tools.");
+                _logger.LogWarning("Tool limit {MaxTools} cannot cover all {WorkflowToolCount} workflow tools for prompt '{Prompt}'.", maxTools, workflowTools.Count, prompt);
+            }
         }
 
         foreach (var selectionOverride in _selectionOverrides)
@@ -191,7 +236,78 @@ public sealed class ToolShortlistService : IToolShortlistService
         return domains;
     }
 
+    private IReadOnlyList<(string Prompt, IntentContext Intent)> ExtractWorkflowIntents(string prompt, WorkingContext workingContext)
+    {
+        var clauses = Regex.Split(prompt,
+            @"[.;!?\r\n]+|\b(?:and\s+then|and|then|also)\s+(?=(?:(?:a|an|the)\s+)?(?:create|add|register|new|upload|import|show|get|view|query|search|find|list|change|update|modify|edit|set|delete|remove|approve|activate)\b)",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var intents = new List<(string Prompt, IntentContext Intent)>();
+        foreach (var clause in clauses)
+        {
+            if (string.IsNullOrWhiteSpace(RoutingVocabulary.TryResolveEntityTypeFromText(clause)))
+                continue;
+
+            var clauseIntent = _intentExtractor.Extract(clause, workingContext);
+            if (string.IsNullOrWhiteSpace(clauseIntent.Action) || string.IsNullOrWhiteSpace(clauseIntent.EntityType))
+                continue;
+
+            if (!intents.Any(item => item.Intent.EntityType.Equals(clauseIntent.EntityType, StringComparison.OrdinalIgnoreCase)
+                && item.Intent.Action.Equals(clauseIntent.Action, StringComparison.OrdinalIgnoreCase)))
+            {
+                intents.Add((clause, clauseIntent));
+            }
+        }
+
+        return intents;
+    }
+
+    private static IReadOnlyList<ToolSelectionCandidate> SelectWorkflowTools(
+        IReadOnlyList<(string Prompt, IntentContext Intent)> workflowIntents,
+        IReadOnlyList<ToolDefinition> candidateTools,
+        WorkingContext workingContext)
+    {
+        if (workflowIntents.Count < 2)
+            return [];
+
+        var actionTools = new List<ToolSelectionCandidate>();
+        var lookupTools = new List<ToolSelectionCandidate>();
+        foreach (var (clause, clauseIntent) in workflowIntents)
+        {
+            var domain = RoutingVocabulary.ResolveDomainForEntityType(clauseIntent.EntityType);
+            var rankingInput = BuildRankingInput(clause, clauseIntent, workingContext, [domain]);
+            // Match the entity itself, not child records or incidental keywords in tool descriptions.
+            var entityTools = candidateTools
+                .Where(tool => RoutingVocabulary.ResolveCanonicalDomain(tool.Domain).Equals(domain, StringComparison.OrdinalIgnoreCase)
+                    && RoutingVocabulary.ResolveEntityType(tool.Metadata.EntityType).Equals(clauseIntent.EntityType, StringComparison.OrdinalIgnoreCase))
+                .Select(tool => new ToolSelectionCandidate { Tool = tool, RelevanceScore = ScoreTool(tool, rankingInput) })
+                .OrderByDescending(item => item.RelevanceScore)
+                .ThenBy(item => item.Tool.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var actionTool = entityTools.FirstOrDefault(item => MatchesAction(item.Tool, clauseIntent.Action));
+            if (actionTool is not null)
+                actionTools.Add(actionTool);
+
+            if (clauseIntent.Action is "Create" or "Update" or "Delete" or "Approve")
+            {
+                var lookupTool = entityTools
+                    .Where(item => MatchesAction(item.Tool, "Query"))
+                    .OrderByDescending(item => RoutingVocabulary.ResolveCanonicalAction(item.Tool.Action).Equals("Query", StringComparison.OrdinalIgnoreCase))
+                    .ThenByDescending(item => item.RelevanceScore)
+                    .ThenBy(item => item.Tool.Name, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+                if (lookupTool is not null)
+                    lookupTools.Add(lookupTool);
+            }
+        }
+
+        return actionTools.Concat(lookupTools)
+            .DistinctBy(item => item.Tool.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private static IReadOnlyList<ToolDefinition> FilterCandidateTools(
+        string prompt,
         IReadOnlyList<ToolDefinition> domainTools,
         IntentContext intent,
         WorkingContext workingContext)
@@ -202,6 +318,19 @@ public sealed class ToolShortlistService : IToolShortlistService
         var retainedDocumentExportTool = ShouldRetainDocumentExportTool(workingContext)
             ? domainTools.FirstOrDefault(tool => tool.Name.Equals("CreateDataExport", StringComparison.OrdinalIgnoreCase))
             : null;
+
+        if (LooksLikeDownloadExportPrompt(prompt, workingContext.ConversationSummary))
+        {
+            return IncludeTool(domainTools.Where(tool =>
+                RoutingVocabulary.ResolveCanonicalDomain(tool.Domain).Equals("DocumentTools", StringComparison.OrdinalIgnoreCase)
+                || MatchesAction(tool, "Query")).ToList(), retainedDocumentExportTool);
+        }
+
+        if (domainTools.Any(tool => RoutingVocabulary.ResolveCanonicalDomain(tool.Domain).Equals("DocumentTools", StringComparison.OrdinalIgnoreCase))
+            && LooksLikeDocumentSupportPrompt(prompt, conversationSummary: null))
+        {
+            return IncludeTool(domainTools, retainedDocumentExportTool);
+        }
 
         var entityType = FirstNonEmpty(intent.EntityType, workingContext.FocusedEntity?.EntityType);
         if (RequiresProductIdentifierLookup(intent, entityType, workingContext))
@@ -481,7 +610,22 @@ public sealed class ToolShortlistService : IToolShortlistService
             score += 20d;
         }
 
-        if (LooksLikeDownloadExportPrompt(rankingInput.UserMessage, rankingInput.ConversationSummary))
+        if (LooksLikeDocumentSupportPrompt(rankingInput.UserMessage, conversationSummary: null)
+            && !LooksLikeDownloadExportPrompt(rankingInput.UserMessage, rankingInput.ConversationSummary))
+        {
+            if (tool.Name.Equals("CreateDataExport", StringComparison.OrdinalIgnoreCase))
+                score += 40d;
+
+            if (tool.Name.Equals("ConvertDocument", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("ExtractDocumentData", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("ExtractLocalDocumentData", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("UploadLocalDocument", StringComparison.OrdinalIgnoreCase)
+                || tool.Name.Equals("QueryUploadedDocument", StringComparison.OrdinalIgnoreCase))
+            {
+                score += 90d;
+            }
+        }
+        else if (LooksLikeDownloadExportPrompt(rankingInput.UserMessage, rankingInput.ConversationSummary))
         {
             if (tool.Name.Equals("CreateDataExport", StringComparison.OrdinalIgnoreCase))
                 score += 100d;
@@ -659,6 +803,19 @@ public sealed class ToolShortlistService : IToolShortlistService
         return Regex.IsMatch(prompt, @"\b(?:per\s+year|by\s+year|annual|yearly|per\s+month|by\s+month|monthly|per\s+quarter|by\s+quarter|quarterly|trend|over\s+time|timeline)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
+    private static bool LooksLikeDocumentSupportPrompt(string? prompt, string? conversationSummary)
+    {
+        var combined = string.Join(' ', new[] { prompt, conversationSummary }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        if (string.IsNullOrWhiteSpace(combined))
+            return false;
+
+        var hasDocumentSignal = Regex.IsMatch(combined, @"\b(?:attached|attachment|uploaded|upload|local\s+path|file\s+id|fileId|document|pdf|csv|xlsx|excel|docx|xml|json|file)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (!hasDocumentSignal)
+            return false;
+
+        return Regex.IsMatch(combined, @"\b(?:read|extract|parse|review|analy[sz]e|summarize|convert|import|export|create|from\s+the\s+attached|attached\s+pdf|local\s+file)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
     private static bool LooksLikeDownloadExportPrompt(string? prompt, string? conversationSummary)
     {
         if (string.IsNullOrWhiteSpace(prompt))
@@ -668,8 +825,8 @@ public sealed class ToolShortlistService : IToolShortlistService
         if (!wantsDownload)
             return false;
 
-        var convertIntent = Regex.IsMatch(prompt, @"\b(?:convert|conversion|transform)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
-            || Regex.IsMatch(prompt, @"\bfile\s*id\b|\bupload(?:ed)?\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var convertIntent = Regex.IsMatch(prompt, @"\b(?:convert|conversion|transform|attached|attachment|extract|parse)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)
+            || Regex.IsMatch(prompt, @"\bfile\s*id\b|\bupload(?:ed)?\b|\blocal\s+(?:file|path)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         if (convertIntent)
             return false;
 
@@ -886,6 +1043,30 @@ public sealed class ToolShortlistService : IToolShortlistService
             .ToList();
 
         return selectedDomains.Count > 0 ? selectedDomains : resolvedDomains;
+    }
+
+    private static bool RequiresDocumentToolSupport(string prompt, WorkingContext workingContext, IReadOnlyList<string> resolvedDomains)
+    {
+        if (resolvedDomains.Any(domain => domain.Equals("DocumentTools", StringComparison.OrdinalIgnoreCase)))
+            return true;
+
+        var documentContext = string.Join(' ', new[]
+        {
+            prompt,
+            workingContext.ConversationSummary,
+            workingContext.LastIntent,
+            workingContext.LastToolName
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+        if (string.IsNullOrWhiteSpace(documentContext))
+            return false;
+
+        var fileSignal = Regex.IsMatch(documentContext, @"\b(?:attached|attachment|uploaded|upload|local\s+path|file\s+id|fileId|file\s+name|document|pdf|csv|xlsx|excel|docx|xml|json)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (!fileSignal)
+            return false;
+
+        var actionSignal = Regex.IsMatch(documentContext, @"\b(?:read|extract|parse|review|analy[sz]e|summarize|convert|export|import)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        return actionSignal || Regex.IsMatch(documentContext, @"\b(?:from\s+the\s+attached|attached\s+pdf|attached\s+document|uploaded\s+file|local\s+file)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     private static bool ShouldRetainDocumentExportTool(WorkingContext workingContext)
