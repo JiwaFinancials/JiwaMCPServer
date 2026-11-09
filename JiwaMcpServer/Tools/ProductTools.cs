@@ -25,12 +25,14 @@ public class ProductTools : JiwaToolBase
         CancellationToken ct = default)
         => InvokeToolAsync(async () =>
         {
-            var confirmationMessage = await ValidateLargeResultSetConfirmationAsync(requestDTO, confirmLargeResultSet, confirmationToken, ct);
+            var confirmationMessage = await ValidateLargeResultSetConfirmationAsync(requestDTO, confirmLargeResultSet, confirmationToken, ct, requireExplicitConfirmation: true);
             if (!string.IsNullOrEmpty(confirmationMessage))
                 return confirmationMessage;
 
             var allResults = await GetAllQueryResultsAsync(requestDTO, Config.PageSize, ct);
-            return CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
+            return confirmLargeResultSet
+                ? CreateConfirmedSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields)
+                : CreateSearchResponseJson(allResults, Config.PageSize, requestDTO.Fields);
         });
 
     [McpServerTool, Description(ProductToolDescriptions.GetProduct)]

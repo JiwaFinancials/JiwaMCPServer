@@ -122,7 +122,7 @@ public static class JiwaToolCatalogFactory
             Description = "Uploaded business documents, document extraction, conversion, and downloadable exports.",
             Capabilities =
             [
-                "Extract structured content from CSV, XLSX, JSON, XML, PDF, and DOCX uploads",
+                "Extract structured content from CSV, XLSX, JSON, XML, and DOCX uploads",
                 "Extract and upload local files from allowed Windows paths",
                 "Convert uploaded files between supported formats",
                 "Generate downloadable files from structured data",
@@ -248,6 +248,9 @@ public static class JiwaToolCatalogFactory
 
     private static string BuildEntityType(ToolEntry entry, string domain, string? resource)
     {
+        if (entry.Name is "GetStockOnHand" or "GetProductPicture")
+            return "Product";
+
         foreach (var candidate in new[]
         {
             ExtractEntityHintFromToolName(entry.Name),

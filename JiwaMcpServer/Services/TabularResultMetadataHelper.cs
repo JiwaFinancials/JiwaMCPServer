@@ -26,18 +26,25 @@ internal static class TabularResultMetadataHelper
             return result;
 
         var availableExports = DetectAvailableExports(rootObject);
+        var fullResultSetConfirmed = IsConfirmedCompleteResult(rootObject, totalCount);
         rootObject["metadata"] = new JsonObject
         {
             ["totalCount"] = totalCount,
             ["resultSetSize"] = GetResultSetSize(totalCount),
-            ["recommendedOutput"] = GetRecommendedOutput(totalCount),
+            ["recommendedOutput"] = fullResultSetConfirmed ? "chat" : GetRecommendedOutput(totalCount),
             ["shouldOfferDownload"] = totalCount > 100,
             ["availableExports"] = CreateStringArray(availableExports)
         };
-        rootObject["assistantInstructions"] = CreateStringArray(BuildAssistantInstructions(totalCount, availableExports));
+        rootObject["assistantInstructions"] = CreateStringArray(BuildAssistantInstructions(totalCount, availableExports, fullResultSetConfirmed));
 
         return rootObject.ToJsonString();
     }
+
+    private static bool IsConfirmedCompleteResult(JsonObject rootObject, int totalCount)
+        => rootObject["fullResultSetConfirmed"] is JsonValue confirmed && confirmed.TryGetValue<bool>(out var isConfirmed) && isConfirmed
+            && rootObject["truncated"] is JsonValue truncated && truncated.TryGetValue<bool>(out var isTruncated) && !isTruncated
+            && TryGetIntPropertyCaseInsensitive(rootObject, "returned", out var returned) && returned == totalCount
+            && TryGetCollectionNode(rootObject, out var rows) && rows.Count == totalCount;
 
     private static bool TryGetTotalCount(JsonObject rootObject, out int totalCount)
     {
@@ -94,12 +101,20 @@ internal static class TabularResultMetadataHelper
             _ => "file"
         };
 
-    private static string[] BuildAssistantInstructions(int totalCount, IReadOnlyList<string> availableExports)
+    private static string[] BuildAssistantInstructions(int totalCount, IReadOnlyList<string> availableExports, bool fullResultSetConfirmed)
     {
         var instructions = new List<string>
         {
             $"Result set contains {totalCount} records."
         };
+
+        if (fullResultSetConfirmed)
+        {
+            instructions.Add("The user explicitly confirmed the complete result set. Answer directly with all matching records in chat.");
+            instructions.Add("This response contains the complete dataset; no pagination, further confirmation, or preview-only response is needed.");
+            instructions.Add("Use the resultHandle for exports or follow-up actions, including recovery if the client compacts a large response.");
+            return [.. instructions];
+        }
 
         if (totalCount <= 100)
         {

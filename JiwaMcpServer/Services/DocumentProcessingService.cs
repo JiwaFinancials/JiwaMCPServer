@@ -9,7 +9,6 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
-using UglyToad.PdfPig;
 
 namespace JiwaMcpServer.Services;
 
@@ -173,46 +172,6 @@ public sealed class DocumentProcessingService(IFileExportService fileExportServi
             });
     }
 
-    public async Task<ExtractedDocument> ExtractPdfAsync(Stream content, string fileName, CancellationToken ct)
-    {
-        ResetStream(content);
-        using var document = PdfDocument.Open(content);
-        var pages = new JsonArray();
-        var textBuilder = new StringBuilder();
-
-        foreach (var page in document.GetPages())
-        {
-            ct.ThrowIfCancellationRequested();
-            var pageText = page.Text.Trim();
-            pages.Add(new JsonObject
-            {
-                ["PageNumber"] = page.Number,
-                ["Text"] = pageText
-            });
-
-            textBuilder.AppendLine($"[Page {page.Number}]");
-            textBuilder.AppendLine(pageText);
-        }
-
-        var extractedText = textBuilder.ToString().Trim();
-        var pdfMetadata = ExtractPdfMetadata(extractedText);
-
-        return CreateDocument(
-            fileName,
-            "pdf",
-            extractedText,
-            new JsonObject
-            {
-                ["Pages"] = pages,
-                ["Metadata"] = pdfMetadata
-            },
-            new DocumentMetadata
-            {
-                PageCount = document.NumberOfPages,
-                AdditionalProperties = pdfMetadata
-            });
-    }
-
     public async Task<ExtractedDocument> ExtractDocxAsync(Stream content, string fileName, CancellationToken ct)
     {
         ResetStream(content);
@@ -285,8 +244,8 @@ public sealed class DocumentProcessingService(IFileExportService fileExportServi
             "xlsx" => ExtractXlsxAsync(content, fileName, ct),
             "json" => ExtractJsonAsync(content, fileName, ct),
             "xml" => ExtractXmlAsync(content, fileName, ct),
-            "pdf" => ExtractPdfAsync(content, fileName, ct),
             "docx" => ExtractDocxAsync(content, fileName, ct),
+            "pdf" => throw new NotSupportedException("PDF parsing is disabled in this MCP server. Attach PDFs directly to the model for document understanding."),
             _ => throw new NotSupportedException($"Unsupported document type '{format}'.")
         };
     }

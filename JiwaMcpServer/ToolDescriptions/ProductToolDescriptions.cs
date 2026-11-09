@@ -24,6 +24,10 @@ public static class ProductToolDescriptions
 
     Workflow:
     • Use QueryInventory first to locate matching items.
+    • Queries matching more than 100 rows require explicit user confirmation. Present the warning to the user; never grant confirmation automatically.
+    • After the user confirms, retry the same query with confirmLargeResultSet=true and the confirmationToken from the warning. Missing, invalid, expired, or mismatched tokens require a new valid confirmation.
+    • A validated confirmed response returns every matching row with the requested fields, fullResultSetConfirmed=true, truncated=false, and a resultHandle for the complete dataset. Answer with the complete confirmed result; no pagination or repeated confirmation is needed to display that response. Take and Skip do not limit this complete response.
+    • Keep the resultHandle for exports and follow-up actions, including when a very large response is compacted by the client.
     • If the user then asks for grouped counts or summaries, call AggregateInventoryCounts using the resultHandle from this response instead of calling QueryInventory again.
     • Use the returned InventoryID with:
       - GetProduct

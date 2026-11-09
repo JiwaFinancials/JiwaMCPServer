@@ -142,6 +142,22 @@ public abstract class JiwaToolBase
     protected static string CreateSearchResponseJson<T>(IReadOnlyCollection<T> results, int pageSize, string? requestedFields, IReadOnlyCollection<string>? defaultFields)
         => CreateSearchResponseJson(ApplyRequestedFieldSelection(results, ResolveRequestedFields(requestedFields, defaultFields)), pageSize);
 
+    protected static string CreateConfirmedSearchResponseJson<T>(IReadOnlyCollection<T> results, int pageSize, string? requestedFields)
+    {
+        var selectedResults = ApplyRequestedFieldSelection(results, requestedFields).ToList();
+        var structuredResult = JsonSerializer.SerializeToNode(selectedResults) ?? new JsonArray();
+        return JsonSerializer.Serialize(new
+        {
+            total = selectedResults.Count,
+            returned = selectedResults.Count,
+            pageSize,
+            truncated = false,
+            fullResultSetConfirmed = true,
+            results = selectedResults,
+            resultHandle = StructuredResultHandleStore.Store(structuredResult)
+        });
+    }
+
     protected static JsonObject AggregateStructuredResultsByField(JsonNode? structuredResult, string groupByField, string? groupByTransform = null)
     {
         if (string.IsNullOrWhiteSpace(groupByField))
@@ -274,7 +290,8 @@ public abstract class JiwaToolBase
         string? confirmationToken,
         CancellationToken ct,
         int warningThreshold = 100,
-        TimeSpan? confirmationTokenLifetime = null)
+        TimeSpan? confirmationTokenLifetime = null,
+        bool requireExplicitConfirmation = false)
     {
         var originalTake = requestDTO.Take;
         var originalSkip = requestDTO.Skip;
@@ -290,13 +307,14 @@ public abstract class JiwaToolBase
             var queryFingerprint = requestDTO.ToJson();
             var countResponse = await JiwaApiClient.GetAsync(requestDTO, ct);
 
-            if (countResponse.Total <= warningThreshold)
+            if (countResponse.Total <= warningThreshold && (!requireExplicitConfirmation || !confirmLargeResultSet))
                 return null;
 
             var now = DateTimeOffset.UtcNow;
             RemoveExpiredConfirmationTokens(now);
 
-            if (ConfirmedLargeResultSetQueries.TryGetValue(queryFingerprint, out var confirmedUntil) && confirmedUntil > now)
+            if (!requireExplicitConfirmation &&
+                ConfirmedLargeResultSetQueries.TryGetValue(queryFingerprint, out var confirmedUntil) && confirmedUntil > now)
                 return null;
 
             if (!confirmLargeResultSet)
@@ -318,10 +336,11 @@ public abstract class JiwaToolBase
                 return "ERROR: Missing or invalid confirmation token for large result set. Call again with confirmLargeResultSet=false to receive a new token.";
             }
 
-            ConfirmedLargeResultSetQueries[queryFingerprint] = pendingConfirmation.ExpiresAt;
+            if (!requireExplicitConfirmation)
+                ConfirmedLargeResultSetQueries[queryFingerprint] = pendingConfirmation.ExpiresAt;
             return null;
         }
-        catch (WebServiceException ex) when (ex.StatusCode >= 400)
+        catch (WebServiceException ex) when (ex.StatusCode >= 400 && !requireExplicitConfirmation)
         {
             // The count-only validation probe is best-effort only. Some Jiwa endpoints reject it (for example 404 on a
             // query that otherwise supports the actual fetch), and the real query should still be allowed to run.
@@ -331,7 +350,7 @@ public abstract class JiwaToolBase
         {
             return $"ERROR: Unable to validate large result set confirmation ({ex.StatusCode} {ex.StatusDescription}): {ex.ErrorMessage}";
         }
-        catch (HttpRequestException)
+        catch (HttpRequestException) when (!requireExplicitConfirmation)
         {
             // Same as above: if the probe cannot reach the service, avoid blocking the actual query.
             return null;

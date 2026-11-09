@@ -333,6 +333,13 @@ public sealed class ToolShortlistService : IToolShortlistService
         }
 
         var entityType = FirstNonEmpty(intent.EntityType, workingContext.FocusedEntity?.EntityType);
+        if (LooksLikeProductPicturePrompt(prompt, intent.Action))
+        {
+            var pictureTool = domainTools.FirstOrDefault(tool => tool.Name.Equals("GetProductPicture", StringComparison.OrdinalIgnoreCase));
+            if (pictureTool is not null)
+                return IncludeTool([pictureTool], retainedDocumentExportTool);
+        }
+
         if (RequiresProductIdentifierLookup(intent, entityType, workingContext))
         {
             var lookupTool = domainTools.FirstOrDefault(tool => tool.Name.Equals("QueryInventory", StringComparison.OrdinalIgnoreCase));
@@ -442,6 +449,12 @@ public sealed class ToolShortlistService : IToolShortlistService
 
         if (!string.IsNullOrWhiteSpace(entityType) && MatchesEntityType(tool, entityType))
             score += 30d;
+
+        if (LooksLikeProductPicturePrompt(rankingInput.UserMessage, rankingInput.Intent.Action)
+            && tool.Name.Equals("GetProductPicture", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 120d;
+        }
 
         if (LooksLikePartNoResolutionPrompt(rankingInput.UserMessage))
         {
@@ -708,6 +721,13 @@ public sealed class ToolShortlistService : IToolShortlistService
         var partHint = Regex.IsMatch(prompt, @"\b(?:part\s*(?:no|number)|sku|item\s*code)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         return priceField && (identifier || partHint);
+    }
+
+    private static bool LooksLikeProductPicturePrompt(string? prompt, string? action)
+    {
+        return !string.IsNullOrWhiteSpace(prompt)
+            && RoutingVocabulary.AreActionsCompatible(action, "Read")
+            && Regex.IsMatch(prompt, @"\b(?:pictures?|photos?|images?)\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 
     private static bool LooksLikeStockQueryPrompt(string? prompt, string? action, string? entityType, ActiveEntity? focusedEntity)

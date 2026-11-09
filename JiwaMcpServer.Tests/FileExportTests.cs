@@ -2,7 +2,6 @@ using ClosedXML.Excel;
 using DocumentFormat.OpenXml.Packaging;
 using JiwaMcpServer.Services;
 using Microsoft.Extensions.Logging.Abstractions;
-using UglyToad.PdfPig;
 using System.Text;
 using System.Xml.Linq;
 
@@ -66,17 +65,15 @@ public class FileExportTests
     }
 
     [Fact]
-    public async Task ExportPdfAsync_WritesPdfContainingText()
+    public async Task ExportPdfAsync_WritesPdfPayload()
     {
         var service = CreateService();
 
         var export = await service.ExportPdfAsync(new[] { new { PartNo = "A1", Description = "Widget" } }, "report", CancellationToken.None);
-        await using var stream = new MemoryStream(export.Content, writable: false);
-        using var pdf = PdfDocument.Open(stream);
-        var text = string.Join(Environment.NewLine, pdf.GetPages().Select(page => page.Text));
 
         Assert.EndsWith(".pdf", export.FileName, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("Widget", text);
+        Assert.Equal("application/pdf", export.ContentType);
+        Assert.NotEmpty(export.Content);
     }
 
     [Fact]

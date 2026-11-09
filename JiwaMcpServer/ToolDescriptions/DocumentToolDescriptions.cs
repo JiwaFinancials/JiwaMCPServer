@@ -8,7 +8,7 @@ Extract text, metadata, and structured content from an uploaded document using F
 IMPORTANT:
 • Authoritative source for uploaded document content.
 • Use whenever the answer depends on an uploaded file.
-• Supports CSV, XLSX, JSON, XML, PDF, DOCX.
+• Supports CSV, XLSX, JSON, XML, DOCX.
 
 Use for:
 • Reading uploaded documents
@@ -24,7 +24,7 @@ Extract text, metadata, and structured content from a local file path.
 
 IMPORTANT:
 • Use when the user provides a local file path instead of a FileId.
-• Supports CSV, XLSX, JSON, XML, PDF, DOCX.
+• Supports CSV, XLSX, JSON, XML, DOCX.
 • File must be within LocalFileSystem:AllowedRoots.
 • File size limits apply.
 
@@ -41,7 +41,7 @@ Upload a local file and return a FileId.
 
 IMPORTANT:
 • Use when another tool requires a FileId but the user provides a local file path.
-• Supports CSV, XLSX, JSON, XML, PDF, DOCX.
+• Supports CSV, XLSX, JSON, XML, DOCX.
 • File must be within LocalFileSystem:AllowedRoots.
 • File size limits apply.
 
@@ -54,7 +54,7 @@ Answer questions about an uploaded document using FileId.
 IMPORTANT:
 • Use when the user wants answers, summaries, analysis, filtering, interpretation, or insights.
 • Use instead of ExtractDocumentData when the user wants conclusions rather than raw content.
-• Supports CSV, XLSX, JSON, XML, PDF, DOCX.
+• Supports CSV, XLSX, JSON, XML, DOCX.
 
 Use for:
 • Summaries
@@ -70,7 +70,7 @@ Convert an uploaded document into another format.
 IMPORTANT:
 • Requires a FileId.
 • Use only when the user explicitly requests file conversion.
-• Supports CSV, XLSX, JSON, XML, PDF, DOCX.
+• Supports CSV, XLSX, JSON, XML, DOCX.
 
 Returns a downloadable converted file.
 """;

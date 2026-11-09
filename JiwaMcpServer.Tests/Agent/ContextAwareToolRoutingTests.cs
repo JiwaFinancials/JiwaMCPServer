@@ -551,6 +551,91 @@ public class ContextAwareToolRoutingTests
         Assert.Equal("000000000K00000000BQ", route.Intent.Parameters["identifier"]);
     }
 
+    [Theory]
+    [InlineData("Show me a picture of T1170", 1)]
+    [InlineData("Show me a picture of T1170", 20)]
+    [InlineData("Show me a photo of it", 1)]
+    [InlineData("Show me images of T1170", 5)]
+    public async Task ProductDetailsAndStockFollowedByPicture_SelectsProductPicture(string prompt, int maxTools)
+    {
+        var router = CreateActualRouter();
+        const string conversationId = "product-stock-picture";
+
+        foreach (var toolName in new[] { "GetProduct", "GetStockOnHand", "ModifyProduct", "GetProduct", "GetStockOnHand" })
+        {
+            var context = await router.UpdateContextAsync(new ToolExecutionContextUpdateRequest
+            {
+                ConversationId = conversationId,
+                UserMessage = toolName switch
+                {
+                    "GetStockOnHand" => "How much stock of it do I have?",
+                    "ModifyProduct" => "Change the RRP Price to 160",
+                    _ => "Show me the details of T1170"
+                },
+                ToolName = toolName,
+                ToolArgumentsJson = "{\"InventoryID\":\"000000000K00000000BQ\"}",
+                ToolResultText = toolName == "GetStockOnHand"
+                    ? "{\"results\":[{\"QuantityOnHand\":25,\"QuantityAvailable\":25}]}"
+                    : "{\"InventoryID\":\"000000000K00000000BQ\",\"PartNo\":\"T1170\",\"Description\":\"Wireless Illuminated Keyboard K800\",\"RRP\":160}"
+            });
+
+            Assert.Equal("Product", context.FocusedEntity?.EntityType);
+            Assert.Equal("000000000K00000000BQ", context.FocusedEntity?.EntityId);
+        }
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            ConversationId = conversationId,
+            Prompt = prompt,
+            MaxTools = maxTools
+        });
+
+        Assert.Equal("GetProductPicture", route.Tools[0].Name);
+        Assert.Equal("Product", route.Intent.EntityType);
+        Assert.Equal("Read", route.Intent.Action);
+        Assert.DoesNotContain(route.Tools, tool => tool.Name == "GetStockOnHand");
+    }
+
+    [Fact]
+    public async Task PictureRequestWithLegacyStockFocus_SelectsProductPicture()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "Show me a picture of T1170",
+            WorkingContext = new WorkingContext
+            {
+                CurrentDomain = "InventoryTools",
+                LastToolName = "GetStockOnHand",
+                FocusedEntity = new ActiveEntity
+                {
+                    EntityType = "StockOn",
+                    EntityId = "000000000K00000000BQ",
+                    DisplayName = "Wireless Illuminated Keyboard K800"
+                }
+            },
+            MaxTools = 1
+        });
+
+        Assert.Equal("GetProductPicture", Assert.Single(route.Tools).Name);
+    }
+
+    [Fact]
+    public async Task PictureRequestByPartNumberWithoutContext_SelectsProductPicture()
+    {
+        var router = CreateActualRouter();
+
+        var route = await router.ResolveAsync(new ToolRouteRequest
+        {
+            Prompt = "Show me a picture of part no T1170",
+            MaxTools = 1
+        });
+
+        Assert.Equal("GetProductPicture", Assert.Single(route.Tools).Name);
+        Assert.Equal("T1170", route.Intent.Parameters["identifier"]);
+    }
+
     [Fact]
     public async Task DeleteCustomerByCustomerNumber_PrefersQueryCustomersBeforeDeleteCustomer()
     {

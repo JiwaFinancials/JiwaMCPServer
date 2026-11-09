@@ -198,9 +198,6 @@ public class DocumentToolExportTests
         public Task<ExtractedDocument> ExtractXmlAsync(Stream content, string fileName, CancellationToken ct)
             => throw new NotSupportedException();
 
-        public Task<ExtractedDocument> ExtractPdfAsync(Stream content, string fileName, CancellationToken ct)
-            => throw new NotSupportedException();
-
         public Task<ExtractedDocument> ExtractDocxAsync(Stream content, string fileName, CancellationToken ct)
             => throw new NotSupportedException();
 

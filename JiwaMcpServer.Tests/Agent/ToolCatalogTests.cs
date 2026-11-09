@@ -72,6 +72,17 @@ public class ToolCatalogTests
         Assert.Contains("GetCreditorPurchase", creditorPurchaseTools);
     }
 
+    [Theory]
+    [InlineData("GetStockOnHand")]
+    [InlineData("GetProductPicture")]
+    public void ProductReadTools_UseCanonicalProductEntityType(string toolName)
+    {
+        var tool = Assert.Single(_catalog.GetAllTools(), tool => tool.Name == toolName);
+
+        Assert.Equal("Product", tool.Metadata.EntityType);
+        Assert.Contains("Read", tool.Metadata.SupportedActions);
+    }
+
     [Fact]
     public void GetToolsForDomains_InventoryDomain_ContainsQueryInventory()
     {
